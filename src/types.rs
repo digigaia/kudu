@@ -232,6 +232,7 @@ pub enum InvalidValue {
 pub enum StreamError {
 }
 
+/*
 /// This is the main trait that Antelope types need to implement. This allows
 /// them to be serialized to an ABI using an ABIEncoder
 pub trait ABISerializable {
@@ -377,3 +378,4 @@ impl ABISerializable for &[&str] {
         todo!();
     }
 }
+*/

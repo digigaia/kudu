@@ -4,7 +4,7 @@ use serde::de::{self, Visitor};
 use thiserror::Error;
 use std::num::ParseIntError;
 
-use crate::{ByteStream, types::ABISerializable};
+use crate::{AntelopeType, ByteStream};
 
 
 #[derive(Error, Debug)]
@@ -99,8 +99,13 @@ impl Symbol {
     pub fn is_valid(&self) -> bool {
         self.decimals() <= Self::MAX_PRECISION && Self::is_valid_name(&self.name())
     }
+
+    pub fn encode(&self, stream: &mut ByteStream) {
+        AntelopeType::Uint64(self.value).to_bin(stream);
+    }
 }
 
+/*
 impl ABISerializable for Symbol {
     fn encode(&self, stream: &mut ByteStream) {
         stream.write_u64(self.value);
@@ -109,6 +114,7 @@ impl ABISerializable for Symbol {
         todo!();
     }
 }
+*/
 
 impl fmt::Display for Symbol {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

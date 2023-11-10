@@ -4,8 +4,7 @@ use serde::de::{self, Visitor};
 use anyhow::Result;
 use thiserror::Error;
 
-use crate::{ByteStream, types::ABISerializable};
-
+use crate::{AntelopeType, ByteStream};
 
 #[derive(Error, Debug)]
 pub enum InvalidName {
@@ -44,6 +43,10 @@ impl Name {
     }
 
     pub fn to_u64(&self) -> u64 { self.value }
+
+    pub fn encode(&self, stream: &mut ByteStream) {
+        AntelopeType::Uint64(self.value).to_bin(stream);
+    }
 }
 
 
@@ -82,7 +85,7 @@ impl<'de> Deserialize<'de> for Name {
 }
 
 
-
+/*
 impl ABISerializable for Name {
     fn encode(&self, encoder: &mut ByteStream) {
         encoder.write_u64(self.value);
@@ -91,6 +94,7 @@ impl ABISerializable for Name {
         todo!();
     }
 }
+*/
 
 impl fmt::Display for Name {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

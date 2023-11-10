@@ -4,6 +4,11 @@ pub mod types;
 pub mod abiencoder;
 pub mod bytestream;
 
-pub use types::{AntelopeType, Name, Symbol, Asset};
+pub use types::{
+    AntelopeType, InvalidValue,
+    Name, InvalidName,
+    Symbol, InvalidSymbol,
+    Asset, InvalidAsset
+};
 pub use bytestream::ByteStream;
 pub use abiencoder::ABIEncoder;

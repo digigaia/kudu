@@ -4,8 +4,7 @@ use serde::de::{self, Visitor};
 use thiserror::Error;
 use std::num::ParseIntError;
 
-use super::{Symbol, InvalidSymbol};
-use crate::{ByteStream, types::ABISerializable};
+use crate::{AntelopeType, ByteStream, Symbol, InvalidSymbol};
 
 
 #[derive(Error, Debug)]
@@ -106,8 +105,14 @@ impl Asset {
         })
     }
 
+    pub fn encode(&self, stream: &mut ByteStream) {
+        AntelopeType::Int64(self.amount).to_bin(stream);
+        self.symbol.encode(stream);
+    }
+
 }
 
+    /*
 impl ABISerializable for Asset {
     fn encode(&self, stream: &mut ByteStream) {
         self.amount.encode(stream);
@@ -117,6 +122,7 @@ impl ABISerializable for Asset {
         todo!();
     }
 }
+    */
 
 impl fmt::Display for Asset {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

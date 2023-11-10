@@ -6,10 +6,9 @@ use color_eyre::eyre::Result;
 
 use antelope::abi::*;
 use antelope::{
-    abiencoder::ABIEncoder, ByteStream,
+    ABIEncoder, ByteStream,
     types::{
-        ABISerializable,
-        Name, Symbol, Asset
+        AntelopeType, Name, Symbol, Asset
     }
 };
 
@@ -19,8 +18,8 @@ use antelope::{
 
 #[test]
 fn test_serialize_ints() {
-    let i1 = 5u64;
-    let i2 = -23i64;
+    let i1 = AntelopeType::Uint64(5);
+    let i2 = AntelopeType::Int64(-23);
 
     let abi = ABIEncoder::new();
     let mut ds = ByteStream::new();
@@ -38,11 +37,11 @@ fn test_serialize_string() {
     let abi = ABIEncoder::new();
     let mut ds = ByteStream::new();
 
-    abi.encode(&mut ds, &"foo");
+    abi.encode(&mut ds, &AntelopeType::String("foo".to_owned()));
     assert_eq!(ds.hex_data(), "03666f6f");
 
     ds.clear();
-    abi.encode(&mut ds, &"Hello world!");
+    abi.encode(&mut ds, &AntelopeType::String("Hello world!".to_owned()));
     assert_eq!(ds.hex_data(), "0c48656c6c6f20776f726c6421");
 }
 
@@ -52,13 +51,12 @@ fn test_serialize_array() {
     let abi = ABIEncoder::new();
     let mut ds = ByteStream::new();
 
-    let aa: &[&str] = &a;
-    abi.encode(&mut ds, &aa);
+    abi.encode_variant(&mut ds, "string[]", &json!(a)).unwrap();
     assert_eq!(ds.hex_data(), "0303666f6f036261720362617a");
 
     ds.clear();
     let v = vec!["foo", "bar", "baz"];
-    abi.encode(&mut ds, &&v[..]);
+    abi.encode_variant(&mut ds, "string[]", &json!(v)).unwrap();
     assert_eq!(ds.hex_data(), "0303666f6f036261720362617a");
 }
 
@@ -71,7 +69,7 @@ fn test_serialize_name() {
 
     let abi = ABIEncoder::new();
     let mut ds = ByteStream::new();
-    abi.encode(&mut ds, &obj);
+    abi.encode(&mut ds, &AntelopeType::Name(obj.clone()));
 
     assert_eq!(obj.to_u64(), 6712742083569909760);
 
@@ -89,7 +87,7 @@ fn test_serialize_symbol() {
 
     let abi = ABIEncoder::new();
     let mut ds = ByteStream::new();
-    abi.encode(&mut ds, &obj);
+    abi.encode(&mut ds, &AntelopeType::Symbol(obj.clone()));
 
     assert_eq!(obj.decimals(), 4);
     assert_eq!(obj.name(), "FOO");
@@ -108,7 +106,7 @@ fn test_serialize_asset() {
 
     let abi = ABIEncoder::new();
     let mut ds = ByteStream::new();
-    abi.encode(&mut ds, &obj);
+    abi.encode(&mut ds, &AntelopeType::Asset(obj.clone()));
 
     assert_eq!(obj.amount(), 12345);
     assert_eq!(obj.decimals(), 4);
@@ -162,15 +160,18 @@ fn test_serialize_struct() {
     // assert_eq!(dec.to_string(), r#"{"one":"one","two":2,"three":"two","four":["f","o","u","r"]}"#);
 }
 
-fn test_serialize<T, const N: usize, const M: usize>(vals: [(T, &[u8; N]); M])
+
+fn test_serialize<T, const N: usize, const M: usize, F>(vals: [(T, &[u8; N]); M], convert: F)
 where
-    T: ABISerializable + Display
+    T: Display + Clone,
+    F: Fn(T) -> AntelopeType,
 {
     let mut ds = ByteStream::new();
 
     for (val, repr) in vals {
         ds.clear();
-        val.encode(&mut ds);
+        convert(val.clone()).to_bin(&mut ds);
+        // val.encode(&mut ds);
         assert_eq!(ds.data(), repr, "wrong ABI serialization for: {val}");
     }
 }
@@ -182,7 +183,7 @@ fn test_bools() {
         (false, b"\x00"),
     ];
 
-    test_serialize(vals);
+    test_serialize(vals, AntelopeType::Bool);
 }
 
 #[test]
@@ -197,7 +198,7 @@ fn test_i8() {
 
     ];
 
-    test_serialize(vals);
+    test_serialize(vals, AntelopeType::Int8);
 }
 
 #[test]
@@ -212,7 +213,7 @@ fn test_i16() {
 
     ];
 
-    test_serialize(vals);
+    test_serialize(vals, AntelopeType::Int16);
 }
 
 #[test]
@@ -227,7 +228,7 @@ fn test_i32() {
 
     ];
 
-    test_serialize(vals);
+    test_serialize(vals, AntelopeType::Int32);
 }
 
 #[test]
@@ -242,7 +243,7 @@ fn test_i64() {
 
     ];
 
-    test_serialize(vals);
+    test_serialize(vals, AntelopeType::Int64);
 }
 
 #[test]
@@ -272,7 +273,7 @@ fn test_f32() {
         (-1.15e15, b"h\xbd\x82\xd8"),
     ];
 
-    test_serialize(vals);
+    test_serialize(vals, AntelopeType::Float32);
 }
 
 #[test]
@@ -302,7 +303,7 @@ fn test_f64() {
         (-1.15e15, b"\x00\x80\xf7\xf5\xacW\x10\xc3"),
     ];
 
-    test_serialize(vals);
+    test_serialize(vals, AntelopeType::Float64);
 }
 
 #[test]
@@ -314,7 +315,7 @@ fn test_u8() {
         (255, b"\xFF"),
     ];
 
-    test_serialize(vals);
+    test_serialize(vals, AntelopeType::Uint8);
 }
 
 #[test]
@@ -326,7 +327,7 @@ fn test_u16() {
         (65535, b"\xFF\xFF"),
     ];
 
-    test_serialize(vals);
+    test_serialize(vals, AntelopeType::Uint16);
 }
 
 #[test]
@@ -341,7 +342,7 @@ fn test_u32() {
         (4294967295, b"\xFF\xFF\xFF\xFF"),
     ];
 
-    test_serialize(vals);
+    test_serialize(vals, AntelopeType::Uint32);
 }
 
 #[test]
@@ -353,7 +354,7 @@ fn test_u64() {
         (18446744073709551615, b"\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF"),
     ];
 
-    test_serialize(vals);
+    test_serialize(vals, AntelopeType::Uint64);
 }
 
 
@@ -368,6 +369,7 @@ fn test_var_u32() {
         (4294967295, b"\xFF\xFF\xFF\xFF\x0F"),
     ];
 
+    // test_serialize(vals, AntelopeType::VarUint32);
     let mut ds = ByteStream::new();
 
     for &(val, repr) in vals {
@@ -389,7 +391,7 @@ fn test_name() -> Result<()> {
         (Name::from_str("")?, b"\x00\x00\x00\x00\x00\x00\x00\x00"),
     ];
 
-    test_serialize(vals);
+    test_serialize(vals, AntelopeType::Name);
     Ok(())
 }
 
@@ -406,7 +408,7 @@ fn test_string() {
 
     for (val, repr) in vals {
         ds.clear();
-        val.encode(&mut ds);
+        AntelopeType::String(val.to_string()).to_bin(&mut ds);
         assert_eq!(ds.data(), *repr);
     }
 }
@@ -424,7 +426,7 @@ fn test_symbol() -> Result<()> {
         (Symbol::from_str("16,WAX")?, b"\x10WAX\x00\x00\x00\x00"),
     ];
 
-    test_serialize(vals);
+    test_serialize(vals, AntelopeType::Symbol);
     Ok(())
 }
 
@@ -436,7 +438,7 @@ fn test_asset() -> Result<()> {
         (Asset::from_str("99 WAX")?, b"c\x00\x00\x00\x00\x00\x00\x00\x00WAX\x00\x00\x00\x00"),
     ];
 
-    test_serialize(vals);
+    test_serialize(vals, AntelopeType::Asset);
     Ok(())
 }
 
