@@ -1,8 +1,24 @@
-use bytemuck::cast_ref;
 use std::fmt::Write;
 use std::mem;
+use std::num::ParseIntError;
+
+use bytemuck::cast_ref;
+use thiserror::Error;
 
 use crate::AntelopeType;
+
+
+#[derive(Error, Debug)]
+pub enum StreamError {
+    #[error("stream ended")]
+    Ended,
+
+    #[error("invalid hex character")]
+    InvalidHexChar(#[from] ParseIntError),
+
+    #[error("odd number of chars in hex representation")]
+    OddLength,
+}
 
 
 // TODO: we could provide default impl for u16, u32, etc. using only write_byte
@@ -30,12 +46,16 @@ pub trait ByteStream {
 pub struct ByteStream {
     // this should/could? also be made generic using the std::io::Write trait
     data: Vec<u8>,
+
+    read_pos: usize,
 }
 
 impl ByteStream {
     pub fn new() -> Self {
         Self {
-            data: vec![]
+            data: vec![],
+            read_pos: 0,
+
         }
     }
 
@@ -55,13 +75,8 @@ impl ByteStream {
     }
 
     pub fn hex_data(&self) -> String {
-        let mut result = String::with_capacity(2 * self.data.len());
-        for byte in &self.data {
-            write!(&mut result, "{:02x}", byte).unwrap();
-        }
-        result
+        bin_to_hex(&self.data)
     }
-
 
 
 
@@ -69,9 +84,26 @@ impl ByteStream {
         self.data.push(byte)
     }
 
-    // pub fn write_bytes<const N: usize>(&mut self, bytes: &[u8; N]) {
-    //     self.data.extend_from_slice(bytes)
-    // }
+    pub fn read_byte(&mut self) -> Result<u8, StreamError> {
+        let pos = self.read_pos;
+        if pos != self.data.len() {
+            self.read_pos += 1; Ok(self.data[pos])
+        }
+        else {
+            Err(StreamError::Ended)
+        }
+    }
+
+    pub fn read_bytes(&mut self, n: usize) -> Result<&[u8], StreamError> {
+        if self.read_pos + n > self.data.len() {
+            Err(StreamError::Ended)
+        }
+        else {
+            let result = Ok(&self.data[self.read_pos..self.read_pos+n]);
+            self.read_pos += n;
+            result
+        }
+    }
 
     pub fn write_bytes(&mut self, bytes: &[u8]) {
         self.data.extend_from_slice(bytes)
@@ -164,4 +196,25 @@ impl ByteStream {
     }
 
 
+}
+
+
+pub fn hex_to_bin(s: &str) -> Result<Vec<u8>, StreamError> {
+    if s.len() % 2 != 0 {
+        Err(StreamError::OddLength)
+    }
+    else {
+        (0..s.len())
+            .step_by(2)
+            .map(|i| u8::from_str_radix(&s[i..i + 2], 16).map_err(|e| e.into()))
+            .collect()
+    }
+}
+
+pub fn bin_to_hex(data: &[u8]) -> String {
+    let mut result = String::with_capacity(2 * data.len());
+    for byte in data {
+        write!(&mut result, "{:02x}", byte).unwrap();
+    }
+    result
 }

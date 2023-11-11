@@ -7,14 +7,14 @@ pub use symbol::{Symbol, InvalidSymbol};
 pub use asset::{Asset, InvalidAsset};
 
 use std::num::{ParseFloatError, ParseIntError, TryFromIntError};
-use std::str::ParseBoolError;
+use std::str::{from_utf8, Utf8Error, ParseBoolError};
 
 use bytemuck::cast_ref;
 use serde_json::{json, Value};
 use thiserror::Error;
 use strum::EnumVariantNames;
 
-use super::ByteStream;
+use super::{ByteStream, StreamError};
 
 // see full list in: https://github.com/AntelopeIO/leap/blob/main/libraries/chain/abi_serializer.cpp#L89
 #[derive(Debug, EnumVariantNames)]
@@ -149,6 +149,32 @@ impl AntelopeType {
             Self::Asset(asset) => asset.encode(stream),
         }
     }
+
+    pub fn from_bin(typename: &str, stream: &mut ByteStream) -> Result<Self, InvalidValue> {
+        Ok(match typename {
+            "bool" => match stream.read_byte()? {
+                1 => Self::Bool(true),
+                0 => Self::Bool(false),
+                _ => { return Err(InvalidValue::InvalidData("cannot parse bool from stream".to_owned())); },
+            },
+            "int8" => Self::Int8(stream.read_byte()? as i8),
+            "int16" => Self::Int16(*cast_ref::<[u8; 2], i16>(stream.read_bytes(2)?.try_into().unwrap())),
+            "int32" => Self::Int32(*cast_ref::<[u8; 4], i32>(stream.read_bytes(4)?.try_into().unwrap())),
+            "int64" => Self::Int64(*cast_ref::<[u8; 8], i64>(stream.read_bytes(8)?.try_into().unwrap())),
+            "uint8" => Self::Uint8(stream.read_byte()?),
+            "uint16" => Self::Uint16(*cast_ref::<[u8; 2], u16>(stream.read_bytes(2)?.try_into().unwrap())),
+            "uint32" => Self::Uint32(*cast_ref::<[u8; 4], u32>(stream.read_bytes(4)?.try_into().unwrap())),
+            "uint64" => Self::Uint64(*cast_ref::<[u8; 8], u64>(stream.read_bytes(8)?.try_into().unwrap())),
+            "varuint32" => Self::VarUint32(read_var_u32(stream)?),
+            "float32" => Self::Float32(*cast_ref::<[u8; 4], f32>(stream.read_bytes(4)?.try_into().unwrap())),
+            "float64" => Self::Float64(*cast_ref::<[u8; 8], f64>(stream.read_bytes(8)?.try_into().unwrap())),
+            "string" => Self::String(read_str(stream)?.to_owned()),
+            "name" => Self::Name(Name::from_str(read_str(stream)?)?),
+            "symbol" => Self::Symbol(Symbol::from_str(read_str(stream)?)?),
+            "asset" => Self::Asset(Asset::from_str(read_str(stream)?)?),
+            _ => { return Err(InvalidValue::InvalidType(typename.to_owned())); },
+        })
+    }
 }
 
 
@@ -169,6 +195,28 @@ fn write_var_u32(stream: &mut ByteStream, n: u32) {
             break;
         }
     }
+}
+
+fn read_var_u32(stream: &mut ByteStream) -> Result<u32, InvalidValue> {
+    let mut offset = 0;
+    let mut result = 0;
+    loop {
+        let byte = stream.read_byte()?;
+        result |= (byte as u32 & 0x7F) << offset;
+        offset += 7;
+        if (byte & 0x80) != 0 { break; }
+        if offset >= 32 {
+            return Err(InvalidValue::InvalidData(
+                "varint too long to fit in u32".to_owned()
+            ));
+        }
+    }
+    Ok(result)
+}
+
+fn read_str(stream: &mut ByteStream) -> Result<&str, InvalidValue> {
+    let len = read_var_u32(stream)? as usize;
+    Ok(from_utf8(stream.read_bytes(len)?)?)
 }
 
 
@@ -225,12 +273,16 @@ pub enum InvalidValue {
     #[error("invalid asset")]
     Asset(#[from] InvalidAsset),
 
+    #[error("stream ended while reading bytes")]
+    StreamEnded(#[from] StreamError),
+
+    #[error("cannot parse bytes as UTF-8")]
+    Utf8Error(#[from] Utf8Error),
+
+    #[error("{0}")]
+    InvalidData(String),  // acts as a generic error type with a given message
 }
 
-
-#[derive(Error, Debug)]
-pub enum StreamError {
-}
 
 /*
 /// This is the main trait that Antelope types need to implement. This allows

@@ -1,6 +1,6 @@
 use serde::{Serialize, Deserialize};
 
-use crate::types::Name;
+use crate::{AntelopeType, Name, ByteStream};
 
 // see doc at: https://docs.eosnetwork.com/manuals/cdt/latest/best-practices/abi/understanding-abi-files/
 //             https://docs.eosnetwork.com/docs/latest/advanced-topics/understanding-ABI-files/
@@ -105,6 +105,11 @@ pub struct ABIDefinition {
 impl ABIDefinition {
     pub fn from_str(s: &str) -> Self {
         serde_json::from_str(s).unwrap()
+    }
+
+    pub fn from_bin(stream: &mut ByteStream) -> Self {
+        let _version = AntelopeType::from_bin("string", stream);
+        todo!();
     }
 }
 

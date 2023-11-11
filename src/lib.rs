@@ -10,5 +10,5 @@ pub use types::{
     Symbol, InvalidSymbol,
     Asset, InvalidAsset
 };
-pub use bytestream::ByteStream;
+pub use bytestream::{ByteStream, StreamError};
 pub use abiencoder::ABIEncoder;

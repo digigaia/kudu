@@ -44,6 +44,14 @@ impl ABIEncoder {
         result
     }
 
+    pub fn from_hex_abi(abi: &str) -> Self {
+        todo!();
+    }
+
+    pub fn from_bin_abi(abi: &[u8]) -> Self {
+        todo!();
+    }
+
     pub fn set_abi(&mut self, abi: &ABIDefinition) {
         assert!(abi.version.starts_with("eosio::abi/1."),
                 "ABI has an unsupported version: {}", abi.version);
