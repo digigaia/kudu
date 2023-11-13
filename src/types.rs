@@ -204,7 +204,7 @@ fn read_var_u32(stream: &mut ByteStream) -> Result<u32, InvalidValue> {
         let byte = stream.read_byte()?;
         result |= (byte as u32 & 0x7F) << offset;
         offset += 7;
-        if (byte & 0x80) != 0 { break; }
+        if (byte & 0x80) == 0 { break; }
         if offset >= 32 {
             return Err(InvalidValue::InvalidData(
                 "varint too long to fit in u32".to_owned()
@@ -219,6 +219,63 @@ fn read_str(stream: &mut ByteStream) -> Result<&str, InvalidValue> {
     Ok(from_utf8(stream.read_bytes(len)?)?)
 }
 
+
+impl From<AntelopeType> for bool {
+    fn from(n: AntelopeType) -> bool {
+        match n {
+            AntelopeType::Bool(b) => b,
+            _ => todo!(),
+        }
+    }
+}
+
+impl From<AntelopeType> for i32 {
+    fn from(n: AntelopeType) -> i32 {
+        match n {
+            AntelopeType::Int8(n) => n as i32,
+            AntelopeType::Int16(n) => n as i32,
+            AntelopeType::Int32(n) => n,
+            AntelopeType::Uint8(n) => n as i32,
+            AntelopeType::Uint16(n) => n as i32,
+            AntelopeType::Uint32(n) => n as i32,
+            AntelopeType::VarUint32(n) => n as i32,
+            _ => todo!(),
+        }
+    }
+}
+
+impl TryFrom<AntelopeType> for usize {
+    type Error = InvalidValue;
+
+    fn try_from(n: AntelopeType) -> Result<usize, Self::Error> {
+        Ok(match n {
+            AntelopeType::Int8(n) => n as usize,
+            AntelopeType::Int16(n) => n as usize,
+            AntelopeType::Int32(n) => n as usize,
+            AntelopeType::Int64(n) => n as usize,
+            AntelopeType::Uint8(n) => n as usize,
+            AntelopeType::Uint16(n) => n as usize,
+            AntelopeType::Uint32(n) => n as usize,
+            AntelopeType::Uint64(n) => n as usize,
+            AntelopeType::VarUint32(n) => n as usize,
+            _ => return Err(InvalidValue::InvalidData( format!("cannot convert {:?} to usize", n))),
+        })
+    }
+}
+
+impl TryFrom<AntelopeType> for String {
+    type Error = InvalidValue;
+
+    fn try_from(s: AntelopeType) -> Result<String, Self::Error> {
+        Ok(match s {
+            AntelopeType::String(s) => s,
+            AntelopeType::Name(s) => s.to_string(),
+            AntelopeType::Symbol(s) => s.to_string(),
+            AntelopeType::Asset(s) => s.to_string(),
+            _ => return Err(InvalidValue::InvalidData( format!("cannot convert {:?} to string", s))),
+        })
+    }
+}
 
 
 #[cfg(test)]

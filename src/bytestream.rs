@@ -4,6 +4,7 @@ use std::num::ParseIntError;
 
 use bytemuck::cast_ref;
 use thiserror::Error;
+use log::debug;
 
 use crate::AntelopeType;
 
@@ -59,6 +60,13 @@ impl ByteStream {
         }
     }
 
+    pub fn from(data: Vec<u8>) -> Self {
+        Self {
+            data,
+            read_pos: 0,
+        }
+    }
+
     pub fn data(&self) -> &[u8] {
         self.data.as_slice()
     }
@@ -84,10 +92,16 @@ impl ByteStream {
         self.data.push(byte)
     }
 
+    pub fn leftover(&self) -> &[u8] {
+        &self.data[self.read_pos..]
+    }
+
     pub fn read_byte(&mut self) -> Result<u8, StreamError> {
         let pos = self.read_pos;
         if pos != self.data.len() {
-            self.read_pos += 1; Ok(self.data[pos])
+            debug!("read 1 byte - hex: {}", bin_to_hex(&self.data[pos..pos+1]));
+            self.read_pos += 1;
+            Ok(self.data[pos])
         }
         else {
             Err(StreamError::Ended)
@@ -99,9 +113,10 @@ impl ByteStream {
             Err(StreamError::Ended)
         }
         else {
-            let result = Ok(&self.data[self.read_pos..self.read_pos+n]);
+            let result = &self.data[self.read_pos..self.read_pos+n];
+            debug!("read {n} bytes - hex: {}", bin_to_hex(result));
             self.read_pos += n;
-            result
+            Ok(result)
         }
     }
 

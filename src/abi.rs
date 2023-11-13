@@ -102,6 +102,7 @@ pub struct ABIDefinition {
     pub tables: Vec<Table>,
 }
 
+
 impl ABIDefinition {
     pub fn from_str(s: &str) -> Self {
         serde_json::from_str(s).unwrap()
