@@ -4,7 +4,7 @@ use std::num::ParseIntError;
 
 use bytemuck::cast_ref;
 use thiserror::Error;
-use log::debug;
+use log::trace;
 
 use crate::AntelopeType;
 
@@ -99,7 +99,7 @@ impl ByteStream {
     pub fn read_byte(&mut self) -> Result<u8, StreamError> {
         let pos = self.read_pos;
         if pos != self.data.len() {
-            debug!("read 1 byte - hex: {}", bin_to_hex(&self.data[pos..pos+1]));
+            trace!("read 1 byte - hex: {}", bin_to_hex(&self.data[pos..pos+1]));
             self.read_pos += 1;
             Ok(self.data[pos])
         }
@@ -114,7 +114,7 @@ impl ByteStream {
         }
         else {
             let result = &self.data[self.read_pos..self.read_pos+n];
-            debug!("read {n} bytes - hex: {}", bin_to_hex(result));
+            trace!("read {n} bytes - hex: {}", bin_to_hex(result));
             self.read_pos += n;
             Ok(result)
         }

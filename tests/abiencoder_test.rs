@@ -3,10 +3,11 @@ use std::fmt::Display;
 use serde_json::json;
 // use anyhow::Result;
 use color_eyre::eyre::Result;
+use log::debug;
 
 use antelope::abi::*;
 use antelope::{
-    ABIEncoder, ByteStream,
+    ABIEncoder, ByteStream, hex_to_bin,
     types::{
         AntelopeType, Name, Symbol, Asset
     }
@@ -572,11 +573,20 @@ static _TOKEN_HEX_ABI: &str = concat!(
     "73736574 046d656d6f 06737472696e67076163636f756e7400010762616c616e",
     "63650561737365740e63757272656e63795f7374617473000306737570706c79",
     "0561737365740a6d61785f737570706c79056173736574066973737565720c61",
-    "63636f756e745f6e616d6503000000572d3ccdcd087472616e73666572000000",
-    "000000a531760569737375650000000000a86cd4450663726561746500020000",
-    "00384f4d113203693634010863757272656e6379010675696e74363407616363",
-    "6f756e740000000000904dc603693634010863757272656e6379010675696e74",
-    "36340e63757272656e63795f7374617473000000");
+    "63636f756e745f6e616d65",
+
+    "03 ",
+    "000000572d3ccdcd 087472616e73666572 00",  // Name("transfer") - transfer
+    "0000000000a53176 056973737565 00",  // Name("issue") - issue
+    "00000000a86cd445 06637265617465 00",  // Name("create") - create
+
+    "02 ",
+    "000000384f4d113203693634 01",
+
+    "0863757272656e6379 01 0675696e743634", // currency - uint64
+    "076163636f756e74 0000000000904dc60369363401",  // account - ?
+    "0863757272656e6379 01 0675696e743634",   // currency - uint64
+    "0e63757272656e63795f7374617473 000000"); // currency_stats
 
 static _TRANSACTION_ABI: &str = r#"{
     "version": "eosio::abi/1.0",
@@ -961,6 +971,21 @@ fn init() {
     eprintln!("{:?}", l);
 }
 
+fn hex_to_u64(s: &str) -> u64 {
+    let mut data = ByteStream::from(hex_to_bin(s).unwrap());
+    let n: usize = AntelopeType::from_bin("uint64", &mut data).unwrap().try_into().unwrap();
+    n as u64
+}
+
+fn to_name(s: &str) -> String {
+    let mut data = ByteStream::from(hex_to_bin(s).unwrap());
+    if let AntelopeType::Name(n) = AntelopeType::from_bin("name", &mut data).unwrap() {
+        return n.to_string()
+    }
+    assert_eq!(data.leftover().len(), 0);
+    "ERROR!!".into()
+}
+
 #[test]
 fn integration_test() -> Result<()> {
     init();
@@ -970,6 +995,10 @@ fn integration_test() -> Result<()> {
 
     let token_abi = ABIEncoder::from_hex_abi(TOKEN_HEX_ABI);
 
+    // let _ = dbg!(to_name("03000000572d3ccd"));
+    debug!("hello1: {}", &to_name("000000572d3ccdcd"));
+    debug!("hello2: {}", &to_name("0000000000a53176"));
+    debug!("hello3: {}", &to_name("00000000a86cd445"));
 
     assert!(false);
     Ok(())

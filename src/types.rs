@@ -9,7 +9,7 @@ pub use asset::{Asset, InvalidAsset};
 use std::num::{ParseFloatError, ParseIntError, TryFromIntError};
 use std::str::{from_utf8, Utf8Error, ParseBoolError};
 
-use bytemuck::cast_ref;
+use bytemuck::{cast_ref, pod_read_unaligned};
 use serde_json::{json, Value};
 use thiserror::Error;
 use strum::EnumVariantNames;
@@ -164,14 +164,15 @@ impl AntelopeType {
             "uint8" => Self::Uint8(stream.read_byte()?),
             "uint16" => Self::Uint16(*cast_ref::<[u8; 2], u16>(stream.read_bytes(2)?.try_into().unwrap())),
             "uint32" => Self::Uint32(*cast_ref::<[u8; 4], u32>(stream.read_bytes(4)?.try_into().unwrap())),
-            "uint64" => Self::Uint64(*cast_ref::<[u8; 8], u64>(stream.read_bytes(8)?.try_into().unwrap())),
+            "uint64" => Self::Uint64(pod_read_unaligned(stream.read_bytes(8)?)),
+            // "uint64" => Self::Uint64(*cast_ref::<[u8; 8], u64>(stream.read_bytes(8)?.try_into().unwrap())),
             "varuint32" => Self::VarUint32(read_var_u32(stream)?),
             "float32" => Self::Float32(*cast_ref::<[u8; 4], f32>(stream.read_bytes(4)?.try_into().unwrap())),
             "float64" => Self::Float64(*cast_ref::<[u8; 8], f64>(stream.read_bytes(8)?.try_into().unwrap())),
             "string" => Self::String(read_str(stream)?.to_owned()),
-            "name" => Self::Name(Name::from_str(read_str(stream)?)?),
-            "symbol" => Self::Symbol(Symbol::from_str(read_str(stream)?)?),
-            "asset" => Self::Asset(Asset::from_str(read_str(stream)?)?),
+            "name" => Self::Name(Name::decode(stream)?),
+            "symbol" => Self::Symbol(Symbol::decode(stream)?),
+            "asset" => Self::Asset(Asset::decode(stream)?),
             _ => { return Err(InvalidValue::InvalidType(typename.to_owned())); },
         })
     }
@@ -262,6 +263,26 @@ impl TryFrom<AntelopeType> for usize {
         })
     }
 }
+
+impl TryFrom<AntelopeType> for i64 {
+    type Error = InvalidValue;
+
+    fn try_from(n: AntelopeType) -> Result<i64, Self::Error> {
+        Ok(match n {
+            AntelopeType::Int8(n) => n as i64,
+            AntelopeType::Int16(n) => n as i64,
+            AntelopeType::Int32(n) => n as i64,
+            AntelopeType::Int64(n) => n,
+            AntelopeType::Uint8(n) => n as i64,
+            AntelopeType::Uint16(n) => n as i64,
+            AntelopeType::Uint32(n) => n as i64,
+            AntelopeType::Uint64(n) => n as i64,
+            AntelopeType::VarUint32(n) => n as i64,
+            _ => return Err(InvalidValue::InvalidData( format!("cannot convert {:?} to i64", n))),
+        })
+    }
+}
+
 
 impl TryFrom<AntelopeType> for String {
     type Error = InvalidValue;

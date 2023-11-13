@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use serde_json::Value;
+use serde_json::{json, Map, Value};
 // use anyhow::Result;
 use color_eyre::eyre::Result;
 use strum::VariantNames;
@@ -45,6 +45,8 @@ impl ABIEncoder {
         result
     }
 
+    pub fn with_abi(abi: &ABIDefinition) -> Self { Self::from_abi(abi) }
+
     pub fn from_hex_abi(abi: &str) -> Result<Self, InvalidValue> {
         Self::from_bin_abi(&hex_to_bin(abi).unwrap())
     }
@@ -57,21 +59,88 @@ impl ABIEncoder {
 
         // self.decode_variant(&mut data, ""); // FIXME!!
 
+        let abi_abi: ABIDefinition = ABIDefinition {
+            structs: vec![
+                Struct {
+                    name: "typedef".to_owned(),
+                    base: "".to_owned(),
+                    fields: vec![
+                        Field { name: "new_type_name".to_owned(), type_: "string".to_owned() },
+                        Field { name: "type".to_owned(), type_: "string".to_owned() },
+                    ],
+                },
+                Struct {
+                    name: "field".to_owned(),
+                    base: "".to_owned(),
+                    fields: vec![
+                        Field { name: "name".to_owned(), type_: "string".to_owned() },
+                        Field { name: "type".to_owned(), type_: "string".to_owned() },
+                    ],
+                },
+                Struct {
+                    name: "struct".to_owned(),
+                    base: "".to_owned(),
+                    fields: vec![
+                        Field { name: "name".to_owned(), type_: "string".to_owned() },
+                        Field { name: "base".to_owned(), type_: "string".to_owned() },
+                        Field { name: "fields".to_owned(), type_: "field[]".to_owned() },
+                    ],
+                },
+                Struct {
+                    name: "action".to_owned(),
+                    base: "".to_owned(),
+                    fields: vec![
+                        Field { name: "name".to_owned(), type_: "name".to_owned() },
+                        Field { name: "type".to_owned(), type_: "string".to_owned() },
+                        Field { name: "ricardian_contract".to_owned(), type_: "string".to_owned() },
+                    ],
+                },
+
+            ],
+            ..ABIDefinition::default()
+        };
+
+        let abi2 = ABIDefinition::from_str(r#"{
+            "version": "eosio::abi/1.1",
+            "types": [],
+            "structs": [
+            {
+                "name": "typedef",
+                "base": "",
+                "fields": [
+                    {
+                        "name": "new_type_name",
+                        "type": "string"
+                    },
+                    {
+                        "name": "type",
+                        "type": "string"
+                    }
+                ]
+            }]
+        }"#);
+
+        let abi_parse = ABIEncoder::with_abi(&abi_abi);
+
         let padding: &str = ""; //    ====================================";
 
         // read typedefs
-        let typedef_count: usize = AntelopeType::from_bin("varuint32", &mut data)?.try_into()?;
+        // let typedef_count: usize = AntelopeType::from_bin("varuint32", &mut data)?.try_into()?;
         debug!("===================================================");
+        /*
         debug!("reading {typedef_count} typedefs {padding}");
         for _ in 0..typedef_count {
             let new_type_name = AntelopeType::from_bin("string", &mut data)?.try_into()?;
             let type_ = AntelopeType::from_bin("string", &mut data)?.try_into()?;
             debug!(" - {new_type_name} = {type_} {padding}");
             result.typedefs.insert(new_type_name, type_);
-        }
+    }
+         */
+        let typedefs = abi_parse.decode_variant(&mut data, "typedef[]");
 
         // read structs
         debug!("===================================================");
+        /*
         let struct_count: usize = AntelopeType::from_bin("varuint32", &mut data)?.try_into()?;
         debug!("reading {struct_count} structs {padding}");
         for _ in 0..struct_count {
@@ -87,7 +156,10 @@ impl ABIEncoder {
                 fields.push(Field { name, type_ });
             }
             result.structs.insert(name.clone(), Struct { name, base, fields });
-        }
+    }
+         */
+
+        let structs = abi_parse.decode_variant(&mut data, "struct[]");
 
         // let _ = AntelopeType::from_bin("bool", &mut data);
         // let _ = dbg!(AntelopeType::from_bin("string", &mut data));
@@ -97,6 +169,11 @@ impl ABIEncoder {
 
         // let _ = dbg!(AntelopeType::from_bin("varuint32", &mut data));
         // let _ = dbg!(AntelopeType::from_bin("string", &mut data));
+
+        let actions = abi_parse.decode_variant(&mut data, "action[]");
+
+        debug!("leftover data:");
+        debug!("{}", bin_to_hex(data.leftover()));
 
         Ok(result)
 
@@ -251,6 +328,7 @@ impl ABIEncoder {
             // from the stream
             if is_array(rtype) {
                 let item_count: usize = AntelopeType::from_bin("varuint32", ds)?.try_into()?;
+                debug!(r#"reading array of {item_count} elements of type "{ftype}""#);
                 let mut a = Vec::with_capacity(item_count);
                 for _ in 0..item_count {
                     a.push(AntelopeType::from_bin(ftype, ds)?.to_variant());
@@ -272,6 +350,7 @@ impl ABIEncoder {
             if is_array(rtype) {
                 // not a builtin type, we have to recurse down
                 let item_count: usize = AntelopeType::from_bin("varuint32", ds)?.try_into()?;
+                debug!(r#"reading array of {item_count} elements of type "{ftype}""#);
                 let mut a = Vec::with_capacity(item_count);
                 for _ in 0..item_count {
                     a.push(self.decode_variant(ds, ftype)?);
@@ -286,43 +365,7 @@ impl ABIEncoder {
                 }
             }
             else if let Some(struct_def) = self.structs.get(rtype) {
-                if !struct_def.base.is_empty() {
-                    let base = self.decode_variant(ds, &struct_def.base)?;
-                    debug!("base {base}");
-                }
-
-                for field in &struct_def.fields {
-                    // let present: bool = obj.contains_key(&field.name);
-                    // assert!(present, "Missing field {} in input object while processing struct {}", &field.name, &struct_def.name);
-
-                    let value = self.decode_variant(ds, &field.type_)?;
-                    todo!();
-                }
-
-                todo!();
-                    /*
-                if object.is_object() {
-                    if !struct_def.base.is_empty() {
-                        self.encode_variant(ds, &struct_def.base, object)?;
-                    }
-                    let obj = object.as_object().unwrap();
-
-                    for field in &struct_def.fields {
-                        let present: bool = obj.contains_key(&field.name);
-                        assert!(present, "Missing field {} in input object while processing struct {}", &field.name, &struct_def.name);
-                        self.encode_variant(ds, &field.type_, obj.get(&field.name).unwrap())?;
-                }
-                    todo!()
-                }
-                else if object.is_array() {
-                    todo!()
-                }
-                else {
-                    // error
-                    todo!()
-                }
-                     */
-
+                self.decode_struct(ds, struct_def)?
             }
             else {
                 panic!("Do not know how to deserialize type: {}", rtype);
@@ -353,16 +396,37 @@ pub struct Struct {
 }
      */
 
-    fn decode_struct(&self, ds: &mut ByteStream, struct_def: &Struct) -> Result<Struct, InvalidValue> {
-        let mut result = if !struct_def.base.is_empty() {
-            let base_def = self.structs.get(&struct_def.base).unwrap();
-            let base = self.decode_struct(ds, base_def)?;
-            debug!("base {base:?}");
-            base
+    fn decode_struct(&self, ds: &mut ByteStream, struct_def: &Struct) -> Result<Value, InvalidValue> {
+        // let mut result: Map<String, Value> = Map::new();
+        // result.insert("name".to_owned(), json!(struct_def.name));
+        // result.insert("base".to_owned(), json!(struct_def.base));
+        // result.insert("fields".to_owned(), Value::Array(vec![]));
+
+        debug!(r#"reading struct with name "{}" and base "{}""#, struct_def.name, struct_def.base);
+
+        // let mut result = json!({
+        //     "name": struct_def.name,
+        //     "base": struct_def.base,
+        //     "fields": []
+        // });
+        // let mut result = json!({});
+        let mut result: Map<String, Value> = Map::new();
+
+        fn array<'a>(obj: &'a mut Value, field_name: &str) -> &'a mut Vec<Value> {
+            obj.get_mut(field_name).unwrap().as_array_mut().unwrap()
         }
-        else {
-            Struct { name: "???".to_owned(), base: "".to_owned(), fields: vec![] }
-        };
+        fn mapping<'a>(obj: &'a mut Value, field_name: &str) -> &'a mut Map<String, Value> {
+            obj.get_mut(field_name).unwrap().as_object_mut().unwrap()
+        }
+
+        if !struct_def.base.is_empty() {
+            // result.insert("base".to_owned(), json!(struct_def.base));
+            let base_def = self.structs.get(&struct_def.base).unwrap();
+            let mut base = self.decode_struct(ds, base_def)?;
+            debug!("base {base:?}");
+            // array(&mut result, "fields").append(array(&mut base, "fields"));
+            result.append(base.as_object_mut().unwrap());
+        }
 
         let nfields = struct_def.fields.len();
         debug!("reading {nfields} fields");
@@ -373,9 +437,15 @@ pub struct Struct {
             let name = &field.name;
             let value = self.decode_variant(ds, &field.type_)?;
             debug!(r#"decoded field "{name}": {value} "#);
-            result.fields.push(name, value);
+            result.insert(name.to_string(), value);
+            // array(&mut result, "fields").push(json!({
+            //     "name": name,
+            //     "type": value
+            // }));
         }
-        Ok(result)
+
+        debug!("fully decoded struct: {:#?}", result);
+        Ok(Value::Object(result))
     }
 
 }
