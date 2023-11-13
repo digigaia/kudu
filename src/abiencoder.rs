@@ -373,7 +373,7 @@ pub struct Struct {
             let name = &field.name;
             let value = self.decode_variant(ds, &field.type_)?;
             debug!(r#"decoded field "{name}": {value} "#);
-            result.fields.insert(name, value);
+            result.fields.push(name, value);
         }
         Ok(result)
     }
