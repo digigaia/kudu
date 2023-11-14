@@ -19,6 +19,12 @@
 
 - better error handling when constructing types. We should remove `assert`s and `panic` and use proper error types
 
+// TODO: do the other tests from here: https://github.com/FACINGS/pyntelope/blob/main/tests/unit/types_test.py
+// missing for now:
+//  - UnixTimestamp
+//  - TimePoint
+
+
 ## NOTES
 
 tests locations

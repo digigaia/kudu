@@ -1,13 +1,13 @@
 use std::fmt::Display;
 
-use serde_json::json;
+use serde_json::{json, Value};
 // use anyhow::Result;
 use color_eyre::eyre::Result;
 use log::debug;
 
 use antelope::abi::*;
 use antelope::{
-    ABIEncoder, ByteStream, hex_to_bin,
+    ABIEncoder, ByteStream, hex_to_bin, bin_to_hex,
     types::{
         AntelopeType, Name, Symbol, Asset
     }
@@ -442,11 +442,6 @@ fn test_asset() -> Result<()> {
     test_serialize(vals, AntelopeType::Asset);
     Ok(())
 }
-
-// TODO: do the other tests from here: https://github.com/FACINGS/pyntelope/blob/main/tests/unit/types_test.py
-// missing for now:
-//  - UnixTimestamp
-//  - TimePoint
 
 
 static TEST_ABI: &str = r#"{
@@ -979,6 +974,48 @@ fn to_name(s: &str) -> String {
     "ERROR!!".into()
 }
 
+/// check roundtrip JSON -> variant -> bin -> variant -> JSON
+fn check_round_trip(abi: &ABIEncoder, typename: &str, data: &str) {
+    debug!(r#"==== round-tripping type "{typename}" with value {data}"#);
+    let mut ds = ByteStream::new();
+    let value: Value = serde_json::from_str(data).unwrap();
+    abi.encode_variant(&mut ds, typename, &value);
+
+    let decoded = abi.decode_variant(&mut ds, typename).unwrap();
+
+    assert!(ds.leftover().is_empty());
+    assert_eq!(decoded.to_string(), data);
+}
+
+fn _check_error(abi: &ABIEncoder, typename: &str, data: &str) -> Result<()> {
+    debug!(r#"==== error-tripping type "{typename}" with value {data}"#);
+    let mut ds = ByteStream::new();
+    let value: Value = serde_json::from_str(data)?;
+    abi.encode_variant(&mut ds, typename, &value)?;
+
+    let decoded = abi.decode_variant(&mut ds, typename)?;
+
+    assert!(ds.leftover().is_empty());
+    assert_eq!(decoded.to_string(), data);
+
+    Ok(())
+}
+
+fn check_error_trip(abi: &ABIEncoder, typename: &str, data: &str, error_msg: &str) {
+    match _check_error(abi, typename, data) {
+        Ok(_) => {
+            panic!("expected error but everything went fine...");
+        },
+        Err(e) => {
+            let received_msg = e.to_string();
+            if !received_msg.contains(error_msg) {
+                panic!(r#"expected error message with "{}", got: {}"#,
+                       error_msg, received_msg);
+            }
+        },
+    }
+}
+
 #[test]
 fn integration_test() -> Result<()> {
     init();
@@ -986,12 +1023,11 @@ fn integration_test() -> Result<()> {
     let test_abi_def = ABIDefinition::from_str(TEST_ABI);
     let test_abi = ABIEncoder::from_abi(&test_abi_def);
 
-    let token_abi = ABIEncoder::from_hex_abi(TOKEN_HEX_ABI);
+    let token_abi = ABIEncoder::from_hex_abi(TOKEN_HEX_ABI)?;
+    let abi = &token_abi;
 
-    // let _ = dbg!(to_name("03000000572d3ccd"));
-    debug!("hello1: {}", &to_name("000000572d3ccdcd"));
-    debug!("hello2: {}", &to_name("0000000000a53176"));
-    debug!("hello3: {}", &to_name("00000000a86cd445"));
+    check_round_trip(abi, "bool", "true");
+    check_error_trip(abi, "bool", "null", "cannot convert given variant");
 
     assert!(false);
     Ok(())
