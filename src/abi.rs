@@ -1,6 +1,8 @@
 use serde::{Serialize, Deserialize};
+use serde_json::json;
+use lazy_static::lazy_static;
 
-use crate::{AntelopeType, Name, ByteStream};
+use crate::{AntelopeType, Name, ByteStream, ABIEncoder, InvalidValue};
 
 // see doc at: https://docs.eosnetwork.com/manuals/cdt/latest/best-practices/abi/understanding-abi-files/
 //             https://docs.eosnetwork.com/docs/latest/advanced-topics/understanding-ABI-files/
@@ -100,6 +102,8 @@ pub struct ABIDefinition {
     pub actions: Vec<Action>,
     #[serde(default)]
     pub tables: Vec<Table>,
+
+    // TODO: implement ricardian_clauses and abi_extensions
 }
 
 
@@ -108,9 +112,18 @@ impl ABIDefinition {
         serde_json::from_str(s).unwrap()
     }
 
-    pub fn from_bin(stream: &mut ByteStream) -> Self {
-        let _version = AntelopeType::from_bin("string", stream);
-        todo!();
+    pub fn from_bin(data: &mut ByteStream) -> Result<Self, InvalidValue> {
+        let abi = json!({
+            "version": AntelopeType::from_bin("string", data)?.to_variant(),
+            "types": BIN_ABI_PARSER.decode_variant(data, "typedef[]")?,
+            "structs": BIN_ABI_PARSER.decode_variant(data, "struct[]")?,
+            "actions": BIN_ABI_PARSER.decode_variant(data, "action[]")?,
+            "tables": BIN_ABI_PARSER.decode_variant(data, "table[]")?,
+        });
+
+        assert_eq!(data.leftover(), [0u8; 3]);
+
+        Ok(Self::from_str(&abi.to_string()))
     }
 }
 
@@ -126,6 +139,62 @@ impl Default for ABIDefinition {
     }
 }
 
+lazy_static! {
+
+    static ref ABI_SCHEMA: ABIDefinition = ABIDefinition {
+        structs: vec![
+            Struct {
+                name: String::from("typedef"),
+                base: "".to_owned(),
+                fields: vec![
+                    Field { name: "new_type_name".to_owned(), type_: "string".to_owned() },
+                    Field { name: "type".to_owned(), type_: "string".to_owned() },
+                ],
+            },
+            Struct {
+                name: "field".to_owned(),
+                base: "".to_owned(),
+                fields: vec![
+                    Field { name: "name".to_owned(), type_: "string".to_owned() },
+                    Field { name: "type".to_owned(), type_: "string".to_owned() },
+                ],
+            },
+            Struct {
+                name: "struct".to_owned(),
+                base: "".to_owned(),
+                fields: vec![
+                    Field { name: "name".to_owned(), type_: "string".to_owned() },
+                    Field { name: "base".to_owned(), type_: "string".to_owned() },
+                    Field { name: "fields".to_owned(), type_: "field[]".to_owned() },
+                ],
+            },
+            Struct {
+                name: "action".to_owned(),
+                base: "".to_owned(),
+                fields: vec![
+                    Field { name: "name".to_owned(), type_: "name".to_owned() },
+                    Field { name: "type".to_owned(), type_: "string".to_owned() },
+                    Field { name: "ricardian_contract".to_owned(), type_: "string".to_owned() },
+                ],
+            },
+            Struct {
+                name: "table".to_owned(),
+                base: "".to_owned(),
+                fields: vec![
+                    Field { name: "name".to_owned(), type_: "name".to_owned() },
+                    Field { name: "index_type".to_owned(), type_: "string".to_owned() },
+                    Field { name: "key_names".to_owned(), type_: "string[]".to_owned() },
+                    Field { name: "key_types".to_owned(), type_: "string[]".to_owned() },
+                    Field { name: "type".to_owned(), type_: "string".to_owned() },
+                ],
+            },
+
+        ],
+        ..ABIDefinition::default()
+    };
+
+    static ref BIN_ABI_PARSER: ABIEncoder = ABIEncoder::with_abi(&ABI_SCHEMA);
+}
 
 #[cfg(test)]
 mod tests {

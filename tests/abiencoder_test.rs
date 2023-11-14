@@ -581,11 +581,11 @@ static _TOKEN_HEX_ABI: &str = concat!(
     "00000000a86cd445 06637265617465 00",  // Name("create") - create
 
     "02 ",
-    "000000384f4d113203693634 01",
-
-    "0863757272656e6379 01 0675696e743634", // currency - uint64
-    "076163636f756e74 0000000000904dc60369363401",  // account - ?
-    "0863757272656e6379 01 0675696e743634",   // currency - uint64
+    "000000384f4d1132 03693634",  // Name("accounts") - i64
+    "01 0863757272656e6379 01 0675696e743634", // currency - uint64
+    "076163636f756e74 ", // account
+    "0000000000904dc6 03693634",  //  ?
+    "01 0863757272656e6379 01 0675696e743634",   // currency - uint64
     "0e63757272656e63795f7374617473 000000"); // currency_stats
 
 static _TRANSACTION_ABI: &str = r#"{
@@ -967,14 +967,7 @@ static _PACKED_TRANSACTION_ABI: &str = r#"{
 }"#;
 
 fn init() {
-    let l = env_logger::builder().is_test(true).try_init();
-    eprintln!("{:?}", l);
-}
-
-fn hex_to_u64(s: &str) -> u64 {
-    let mut data = ByteStream::from(hex_to_bin(s).unwrap());
-    let n: usize = AntelopeType::from_bin("uint64", &mut data).unwrap().try_into().unwrap();
-    n as u64
+    let _ = env_logger::builder().is_test(true).try_init();
 }
 
 fn to_name(s: &str) -> String {

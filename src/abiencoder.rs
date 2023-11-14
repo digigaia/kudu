@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use serde_json::{json, Map, Value};
+use serde_json::{Map, Value};
 // use anyhow::Result;
 use color_eyre::eyre::Result;
 use strum::VariantNames;
@@ -53,130 +53,8 @@ impl ABIEncoder {
 
     pub fn from_bin_abi(abi: &[u8]) -> Result<Self, InvalidValue> {
         let mut data = ByteStream::from(abi.to_owned());
-        let mut result = Self::new();
-        let version = dbg!(AntelopeType::from_bin("string", &mut data)?);
-        eprintln!("version: {:?}", version);
-
-        // self.decode_variant(&mut data, ""); // FIXME!!
-
-        let abi_abi: ABIDefinition = ABIDefinition {
-            structs: vec![
-                Struct {
-                    name: "typedef".to_owned(),
-                    base: "".to_owned(),
-                    fields: vec![
-                        Field { name: "new_type_name".to_owned(), type_: "string".to_owned() },
-                        Field { name: "type".to_owned(), type_: "string".to_owned() },
-                    ],
-                },
-                Struct {
-                    name: "field".to_owned(),
-                    base: "".to_owned(),
-                    fields: vec![
-                        Field { name: "name".to_owned(), type_: "string".to_owned() },
-                        Field { name: "type".to_owned(), type_: "string".to_owned() },
-                    ],
-                },
-                Struct {
-                    name: "struct".to_owned(),
-                    base: "".to_owned(),
-                    fields: vec![
-                        Field { name: "name".to_owned(), type_: "string".to_owned() },
-                        Field { name: "base".to_owned(), type_: "string".to_owned() },
-                        Field { name: "fields".to_owned(), type_: "field[]".to_owned() },
-                    ],
-                },
-                Struct {
-                    name: "action".to_owned(),
-                    base: "".to_owned(),
-                    fields: vec![
-                        Field { name: "name".to_owned(), type_: "name".to_owned() },
-                        Field { name: "type".to_owned(), type_: "string".to_owned() },
-                        Field { name: "ricardian_contract".to_owned(), type_: "string".to_owned() },
-                    ],
-                },
-
-            ],
-            ..ABIDefinition::default()
-        };
-
-        let abi2 = ABIDefinition::from_str(r#"{
-            "version": "eosio::abi/1.1",
-            "types": [],
-            "structs": [
-            {
-                "name": "typedef",
-                "base": "",
-                "fields": [
-                    {
-                        "name": "new_type_name",
-                        "type": "string"
-                    },
-                    {
-                        "name": "type",
-                        "type": "string"
-                    }
-                ]
-            }]
-        }"#);
-
-        let abi_parse = ABIEncoder::with_abi(&abi_abi);
-
-        let padding: &str = ""; //    ====================================";
-
-        // read typedefs
-        // let typedef_count: usize = AntelopeType::from_bin("varuint32", &mut data)?.try_into()?;
-        debug!("===================================================");
-        /*
-        debug!("reading {typedef_count} typedefs {padding}");
-        for _ in 0..typedef_count {
-            let new_type_name = AntelopeType::from_bin("string", &mut data)?.try_into()?;
-            let type_ = AntelopeType::from_bin("string", &mut data)?.try_into()?;
-            debug!(" - {new_type_name} = {type_} {padding}");
-            result.typedefs.insert(new_type_name, type_);
-    }
-         */
-        let typedefs = abi_parse.decode_variant(&mut data, "typedef[]");
-
-        // read structs
-        debug!("===================================================");
-        /*
-        let struct_count: usize = AntelopeType::from_bin("varuint32", &mut data)?.try_into()?;
-        debug!("reading {struct_count} structs {padding}");
-        for _ in 0..struct_count {
-            let name: String = AntelopeType::from_bin("string", &mut data)?.try_into()?;
-            let base: String = AntelopeType::from_bin("string", &mut data)?.try_into()?;
-            debug!("struct name={name}, base={base} {padding}");
-            let field_count: usize = AntelopeType::from_bin("varuint32", &mut data)?.try_into()?;
-            let mut fields = Vec::with_capacity(field_count);
-            for _ in 0..field_count {
-                let name = AntelopeType::from_bin("string", &mut data)?.try_into()?;
-                let type_ = AntelopeType::from_bin("string", &mut data)?.try_into()?;
-                debug!("    field {name} with type {type_}");
-                fields.push(Field { name, type_ });
-            }
-            result.structs.insert(name.clone(), Struct { name, base, fields });
-    }
-         */
-
-        let structs = abi_parse.decode_variant(&mut data, "struct[]");
-
-        // let _ = AntelopeType::from_bin("bool", &mut data);
-        // let _ = dbg!(AntelopeType::from_bin("string", &mut data));
-        // // eprintln!("{:?}", &s);
-
-        // let _ = dbg!(AntelopeType::from_bin("string", &mut data));
-
-        // let _ = dbg!(AntelopeType::from_bin("varuint32", &mut data));
-        // let _ = dbg!(AntelopeType::from_bin("string", &mut data));
-
-        let actions = abi_parse.decode_variant(&mut data, "action[]");
-
-        debug!("leftover data:");
-        debug!("{}", bin_to_hex(data.leftover()));
-
-        Ok(result)
-
+        let abi_def = ABIDefinition::from_bin(&mut data)?;
+        Ok(Self::from_abi(&abi_def))
     }
 
     pub fn set_abi(&mut self, abi: &ABIDefinition) {
@@ -411,13 +289,6 @@ pub struct Struct {
         // });
         // let mut result = json!({});
         let mut result: Map<String, Value> = Map::new();
-
-        fn array<'a>(obj: &'a mut Value, field_name: &str) -> &'a mut Vec<Value> {
-            obj.get_mut(field_name).unwrap().as_array_mut().unwrap()
-        }
-        fn mapping<'a>(obj: &'a mut Value, field_name: &str) -> &'a mut Map<String, Value> {
-            obj.get_mut(field_name).unwrap().as_object_mut().unwrap()
-        }
 
         if !struct_def.base.is_empty() {
             // result.insert("base".to_owned(), json!(struct_def.base));

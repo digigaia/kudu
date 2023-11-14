@@ -51,6 +51,7 @@ dependencies = [
  "color-eyre",
  "env_logger",
  "flate2",
+ "lazy_static",
  "log",
  "serde",
  "serde_json",
