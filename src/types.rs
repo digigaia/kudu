@@ -14,6 +14,7 @@ use serde_json::{json, Value, Error as JsonError};
 use thiserror::Error;
 use strum::EnumVariantNames;
 use log::debug;
+use chrono::{NaiveDateTime, ParseError as ChronoParseError};
 
 use super::{ByteStream, StreamError};
 
@@ -44,6 +45,8 @@ pub enum AntelopeType {
 
     String(String),
 
+    TimePoint(NaiveDateTime),
+
     Name(Name),
     Symbol(Symbol),
     Asset(Asset),
@@ -69,6 +72,8 @@ impl AntelopeType {
             "float32" => Self::Float32(repr.parse()?),
             "float64" => Self::Float64(repr.parse()?),
             "string" => Self::String(repr.to_owned()),
+            "time_point" => Self::TimePoint(parse_date(repr)?),
+
             "name" => Self::Name(Name::from_str(repr)?),
             "symbol" => Self::Symbol(Symbol::from_str(repr)?),
             "asset" => Self::Asset(Asset::from_str(repr)?),
@@ -94,6 +99,7 @@ impl AntelopeType {
             Self::Float32(x) => json!(x),
             Self::Float64(x) => json!(x),
             Self::String(s) => json!(s),
+            Self::TimePoint(t) => json!(t),
             Self::Name(name) => json!(name.to_string()),
             Self::Symbol(sym) => json!(sym.to_string()),
             Self::Asset(asset) => json!(asset.to_string()),
@@ -121,6 +127,7 @@ impl AntelopeType {
             "float32" => Self::Float32(f64_to_f32(v.as_f64().ok_or_else(incompatible_types)?)?),
             "float64" => Self::Float64(v.as_f64().ok_or_else(incompatible_types)?),
             "string" => Self::String(v.as_str().ok_or_else(incompatible_types)?.to_owned()),
+            "time_point" => Self::TimePoint(parse_date(v.as_str().ok_or_else(incompatible_types)?)?),
             "name" => Self::from_str("name", v.as_str().ok_or_else(incompatible_types)?)?,
             "symbol" => Self::from_str("symbol", v.as_str().ok_or_else(incompatible_types)?)?,
             "asset" => Self::from_str("asset", v.as_str().ok_or_else(incompatible_types)?)?,
@@ -152,6 +159,7 @@ impl AntelopeType {
                 write_var_u32(stream, s.len() as u32);
                 stream.write_bytes(&s.as_bytes()[..s.len()]);
             },
+            Self::TimePoint(t) => todo!(),
             Self::Name(name) => name.encode(stream),
             Self::Symbol(sym) => sym.encode(stream),
             Self::Asset(asset) => asset.encode(stream),
@@ -180,6 +188,7 @@ impl AntelopeType {
             "float32" => Self::Float32(pod_read_unaligned(stream.read_bytes(4)?)),
             "float64" => Self::Float64(pod_read_unaligned(stream.read_bytes(8)?)),
             "string" => Self::String(read_str(stream)?.to_owned()),
+            "time_point" => todo!(), //Self::TimePoint(),
             "name" => Self::Name(Name::decode(stream)?),
             "symbol" => Self::Symbol(Symbol::decode(stream)?),
             "asset" => Self::Asset(Asset::decode(stream)?),
@@ -341,6 +350,10 @@ fn variant_to_u128(v: &Value) -> Result<u128, InvalidValue> {
     }
 }
 
+fn parse_date(s: &str) -> Result<NaiveDateTime, InvalidValue> {
+    Ok(NaiveDateTime::parse_from_str(s, "%Y-%m-%d %H:%M:%S")?)
+}
+
 #[cfg(test)]
 mod tests {
     use color_eyre::eyre::Report;
@@ -401,6 +414,9 @@ pub enum InvalidValue {
 
     #[error("cannot parse JSON string")]
     JsonParseError(#[from] JsonError),
+
+    #[error("cannot parse date/time")]
+    DateTimeParseError(#[from] ChronoParseError),
 
     #[error("{0}")]
     InvalidData(String),  // acts as a generic error type with a given message
