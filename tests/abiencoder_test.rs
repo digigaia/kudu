@@ -7,7 +7,7 @@ use log::debug;
 
 use antelope::abi::*;
 use antelope::{
-    ABIEncoder, ByteStream, hex_to_bin, bin_to_hex,
+    ABIEncoder, ByteStream,
     types::{
         AntelopeType, Name, Symbol, Asset
     }
@@ -583,7 +583,7 @@ static _TOKEN_HEX_ABI: &str = concat!(
     "01 0863757272656e6379 01 0675696e743634",   // currency - uint64
     "0e63757272656e63795f7374617473 000000"); // currency_stats
 
-static _TRANSACTION_ABI: &str = r#"{
+static TRANSACTION_ABI: &str = r#"{
     "version": "eosio::abi/1.0",
     "types": [
         {
@@ -965,6 +965,7 @@ fn init() {
     let _ = env_logger::builder().is_test(true).try_init();
 }
 
+/*
 fn to_name(s: &str) -> String {
     let mut data = ByteStream::from(hex_to_bin(s).unwrap());
     if let AntelopeType::Name(n) = AntelopeType::from_bin("name", &mut data).unwrap() {
@@ -973,13 +974,14 @@ fn to_name(s: &str) -> String {
     assert_eq!(data.leftover().len(), 0);
     "ERROR!!".into()
 }
+*/
 
 /// check roundtrip JSON -> variant -> bin -> variant -> JSON
 fn check_round_trip(abi: &ABIEncoder, typename: &str, data: &str) {
     debug!(r#"==== round-tripping type "{typename}" with value {data}"#);
     let mut ds = ByteStream::new();
     let value: Value = serde_json::from_str(data).unwrap();
-    abi.encode_variant(&mut ds, typename, &value);
+    abi.encode_variant(&mut ds, typename, &value).unwrap();
 
     let decoded = abi.decode_variant(&mut ds, typename).unwrap();
 
@@ -1020,15 +1022,18 @@ fn check_error_trip(abi: &ABIEncoder, typename: &str, data: &str, error_msg: &st
 fn integration_test() -> Result<()> {
     init();
 
-    let test_abi_def = ABIDefinition::from_str(TEST_ABI);
-    let test_abi = ABIEncoder::from_abi(&test_abi_def);
+    let _test_abi_def = ABIDefinition::from_str(TEST_ABI);
+    let _test_abi = ABIEncoder::from_abi(&_test_abi_def);
 
-    let token_abi = ABIEncoder::from_hex_abi(TOKEN_HEX_ABI)?;
-    let abi = &token_abi;
+    let transaction_abi_def = ABIDefinition::from_str(TRANSACTION_ABI);
+    let transaction_abi = ABIEncoder::from_abi(&transaction_abi_def);
+
+    let _token_abi = ABIEncoder::from_hex_abi(TOKEN_HEX_ABI)?;
+
+    let abi = &transaction_abi;
 
     check_round_trip(abi, "bool", "true");
     check_error_trip(abi, "bool", "null", "cannot convert given variant");
 
-    assert!(false);
     Ok(())
 }
