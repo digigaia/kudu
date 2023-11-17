@@ -1168,10 +1168,10 @@ fn roundtrip_i64() -> Result<()> {
     check_round_trip(abi, "uint64", "0");
     check_round_trip(abi, "uint64", "18446744073709551615");
 
-    check_error(|| try_encode(abi, "int64", "9223372036854775808"), "integer out of range");
-    check_error(|| try_encode(abi, "int64", "-9223372036854775809"), "integer out of range");
+    check_error(|| try_encode(abi, "int64", "9223372036854775808"), "cannot convert given variant");
+    check_error(|| try_encode(abi, "int64", "-9223372036854775809"), "cannot convert given variant");
     check_error(|| try_encode(abi, "uint64", "-1"), "cannot convert given variant");
-    check_error(|| try_encode(abi, "uint64", "18446744073709551616"), "integer out of range");
+    check_error(|| try_encode(abi, "uint64", "18446744073709551616"), "cannot convert given variant");
 
     Ok(())
 }
@@ -1185,20 +1185,62 @@ fn roundtrip_i128() -> Result<()> {
     let abi = &transaction_abi;
 
 
-    check_round_trip(abi, "int128", "0");
-    check_round_trip(abi, "int128", "1");
-    check_round_trip(abi, "int128", "-1");
-    check_round_trip(abi, "int128", "18446744073709551615");
-    check_round_trip(abi, "int128", "-18446744073709551615");
-    check_round_trip(abi, "int128", "170141183460469231731687303715884105727");
-    check_round_trip(abi, "int128", "-170141183460469231731687303715884105728");
-    check_round_trip(abi, "uint128", "0");
-    check_round_trip(abi, "uint128", "340282366920938463463374607431768211455");
+    check_round_trip(abi, "int128", r#""0""#);
+    check_round_trip(abi, "int128", r#""1""#);
+    check_round_trip(abi, "int128", r#""-1""#);
+    check_round_trip(abi, "int128", r#""18446744073709551615""#);
+    check_round_trip(abi, "int128", r#""-18446744073709551615""#);
+    check_round_trip(abi, "int128", r#""170141183460469231731687303715884105727""#);
+    check_round_trip(abi, "int128", r#""-170141183460469231731687303715884105728""#);
+    check_round_trip(abi, "uint128", r#""0""#);
+    check_round_trip(abi, "uint128", r#""340282366920938463463374607431768211455""#);
 
-    check_error(|| try_encode(abi, "int128", "170141183460469231731687303715884105728"), "integer out of range");
-    check_error(|| try_encode(abi, "int128", "-170141183460469231731687303715884105729"), "integer out of range");
-    check_error(|| try_encode(abi, "uint128", "-1"), "cannot convert given variant");
-    check_error(|| try_encode(abi, "uint128", "340282366920938463463374607431768211456"), "integer out of range");
+    check_error(|| try_encode(abi, "int128", r#""170141183460469231731687303715884105728""#), "invalid integer");
+    check_error(|| try_encode(abi, "int128", r#""-170141183460469231731687303715884105729""#), "invalid integer");
+    check_error(|| try_encode(abi, "uint128", r#""-1""#), "invalid integer");
+    check_error(|| try_encode(abi, "uint128", r#""340282366920938463463374607431768211456""#), "invalid integer");
+
+    Ok(())
+}
+
+#[test]
+fn roundtrip_varints() -> Result<()> {
+    init();
+
+    let transaction_abi_def = ABIDefinition::from_str(TRANSACTION_ABI)?;
+    let transaction_abi = ABIEncoder::from_abi(&transaction_abi_def);
+    let abi = &transaction_abi;
+
+
+    check_round_trip(abi, "varuint32", "0");
+    check_round_trip(abi, "varuint32", "127");
+    check_round_trip(abi, "varuint32", "128");
+    check_round_trip(abi, "varuint32", "129");
+    check_round_trip(abi, "varuint32", "16383");
+    check_round_trip(abi, "varuint32", "16384");
+    check_round_trip(abi, "varuint32", "16385");
+    check_round_trip(abi, "varuint32", "2097151");
+    check_round_trip(abi, "varuint32", "2097152");
+    check_round_trip(abi, "varuint32", "2097153");
+    check_round_trip(abi, "varuint32", "268435455");
+    check_round_trip(abi, "varuint32", "268435456");
+    check_round_trip(abi, "varuint32", "268435457");
+    check_round_trip(abi, "varuint32", "4294967294");
+    check_round_trip(abi, "varuint32", "4294967295");
+
+    check_round_trip(abi, "varint32", "0");
+    check_round_trip(abi, "varint32", "-1");
+    check_round_trip(abi, "varint32", "1");
+    check_round_trip(abi, "varint32", "-2");
+    check_round_trip(abi, "varint32", "2");
+    check_round_trip(abi, "varint32", "-2147483647");
+    check_round_trip(abi, "varint32", "2147483647");
+    check_round_trip(abi, "varint32", "-2147483648");
+
+    check_error(|| try_encode(abi, "varuint32", "4294967296"), "out of range");
+    check_error(|| try_encode(abi, "varuint32", "-1"), "cannot convert given variant");
+    check_error(|| try_encode(abi, "varint32", "2147483648"), "out of range");
+    check_error(|| try_encode(abi, "varint32", "-2147483649"), "out of range");
 
     Ok(())
 }

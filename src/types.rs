@@ -13,6 +13,7 @@ use bytemuck::{cast_ref, pod_read_unaligned};
 use serde_json::{json, Value, Error as JsonError};
 use thiserror::Error;
 use strum::EnumVariantNames;
+use log::debug;
 
 use super::{ByteStream, StreamError};
 
@@ -34,6 +35,7 @@ pub enum AntelopeType {
     Uint64(u64),
     Uint128(u128),
 
+    VarInt32(i32),
     VarUint32(u32),
 
     Float32(f32),
@@ -62,6 +64,7 @@ impl AntelopeType {
             "uint32" => Self::Uint32(repr.parse()?),
             "uint64" => Self::Uint64(repr.parse()?),
             "uint128" => Self::Uint128(repr.parse()?),
+            "varint32" => Self::VarInt32(repr.parse()?),
             "varuint32" => Self::VarUint32(repr.parse()?),
             "float32" => Self::Float32(repr.parse()?),
             "float64" => Self::Float64(repr.parse()?),
@@ -80,12 +83,13 @@ impl AntelopeType {
             Self::Int16(n) => json!(n),
             Self::Int32(n) => json!(n),
             Self::Int64(n) => json!(n),
-            Self::Int128(_n) => todo!(),
+            Self::Int128(n) => json!(n.to_string()),
             Self::Uint8(n) => json!(n),
             Self::Uint16(n) => json!(n),
             Self::Uint32(n) => json!(n),
             Self::Uint64(n) => json!(n),
-            Self::Uint128(_n) => todo!(),
+            Self::Uint128(n) => json!(n.to_string()),
+            Self::VarInt32(n) => json!(n),
             Self::VarUint32(n) => json!(n),
             Self::Float32(x) => json!(x),
             Self::Float64(x) => json!(x),
@@ -106,11 +110,14 @@ impl AntelopeType {
             "int16" => Self::Int16(v.as_i64().ok_or_else(incompatible_types)?.try_into()?),
             "int32" => Self::Int32(v.as_i64().ok_or_else(incompatible_types)?.try_into()?),
             "int64" => Self::Int64(v.as_i64().ok_or_else(incompatible_types)?),
+            "int128" => Self::Int128(variant_to_i128(v)?),
             "uint8" => Self::Uint8(v.as_u64().ok_or_else(incompatible_types)?.try_into()?),
             "uint16" => Self::Uint16(v.as_u64().ok_or_else(incompatible_types)?.try_into()?),
             "uint32" => Self::Uint32(v.as_u64().ok_or_else(incompatible_types)?.try_into()?),
             "uint64" => Self::Uint64(v.as_u64().ok_or_else(incompatible_types)?),
-            "varuint32" => Self::VarUint32(v.as_i64().ok_or_else(incompatible_types)?.try_into()?),
+            "uint128" => Self::Uint128(variant_to_u128(v)?),
+            "varint32" => Self::VarInt32(v.as_i64().ok_or_else(incompatible_types)?.try_into()?),
+            "varuint32" => Self::VarUint32(v.as_u64().ok_or_else(incompatible_types)?.try_into()?),
             "float32" => Self::Float32(f64_to_f32(v.as_f64().ok_or_else(incompatible_types)?)?),
             "float64" => Self::Float64(v.as_f64().ok_or_else(incompatible_types)?),
             "string" => Self::String(v.as_str().ok_or_else(incompatible_types)?.to_owned()),
@@ -131,12 +138,13 @@ impl AntelopeType {
             Self::Int16(n) => stream.write_bytes(cast_ref::<i16, [u8; 2]>(&n)),
             Self::Int32(n) => stream.write_bytes(cast_ref::<i32, [u8; 4]>(&n)),
             Self::Int64(n) => stream.write_bytes(cast_ref::<i64, [u8; 8]>(&n)),
-            Self::Int128(_n) => todo!(),
+            Self::Int128(n) => stream.write_bytes(cast_ref::<i128, [u8; 16]>(&n)),
             Self::Uint8(n) => stream.write_byte(*n),
             Self::Uint16(n) => stream.write_bytes(cast_ref::<u16, [u8; 2]>(&n)),
             Self::Uint32(n) => stream.write_bytes(cast_ref::<u32, [u8; 4]>(&n)),
             Self::Uint64(n) => stream.write_bytes(cast_ref::<u64, [u8; 8]>(&n)),
-            Self::Uint128(_n) => todo!(),
+            Self::Uint128(n) => stream.write_bytes(cast_ref::<u128, [u8; 16]>(&n)),
+            Self::VarInt32(n) => write_var_i32(stream, *n),
             Self::VarUint32(n) => write_var_u32(stream, *n),
             Self::Float32(x) => stream.write_bytes(cast_ref::<f32, [u8; 4]>(&x)),
             Self::Float64(x) => stream.write_bytes(cast_ref::<f64, [u8; 8]>(&x)),
@@ -161,10 +169,13 @@ impl AntelopeType {
             "int16" => Self::Int16(pod_read_unaligned(stream.read_bytes(2)?)),
             "int32" => Self::Int32(pod_read_unaligned(stream.read_bytes(4)?)),
             "int64" => Self::Int64(pod_read_unaligned(stream.read_bytes(8)?)),
+            "int128" => Self::Int128(pod_read_unaligned(stream.read_bytes(16)?)),
             "uint8" => Self::Uint8(stream.read_byte()?),
             "uint16" => Self::Uint16(pod_read_unaligned(stream.read_bytes(2)?)),
             "uint32" => Self::Uint32(pod_read_unaligned(stream.read_bytes(4)?)),
             "uint64" => Self::Uint64(pod_read_unaligned(stream.read_bytes(8)?)),
+            "uint128" => Self::Uint128(pod_read_unaligned(stream.read_bytes(16)?)),
+            "varint32" => Self::VarInt32(read_var_i32(stream)?),
             "varuint32" => Self::VarUint32(read_var_u32(stream)?),
             "float32" => Self::Float32(pod_read_unaligned(stream.read_bytes(4)?)),
             "float64" => Self::Float64(pod_read_unaligned(stream.read_bytes(8)?)),
@@ -197,6 +208,13 @@ fn write_var_u32(stream: &mut ByteStream, n: u32) {
     }
 }
 
+fn write_var_i32(stream: &mut ByteStream, n: i32) {
+    debug!("HOLLO!");
+    let unsigned = ((n as u32) << 1) ^ ((n >> 31) as u32);
+    debug!("HOLLO GOOD!");
+    write_var_u32(stream, unsigned)
+}
+
 fn read_var_u32(stream: &mut ByteStream) -> Result<u32, InvalidValue> {
     let mut offset = 0;
     let mut result = 0;
@@ -212,6 +230,14 @@ fn read_var_u32(stream: &mut ByteStream) -> Result<u32, InvalidValue> {
         }
     }
     Ok(result)
+}
+
+fn read_var_i32(stream: &mut ByteStream) -> Result<i32, InvalidValue> {
+    let n = read_var_u32(stream)?;
+    Ok(match n & 1 {
+        0 => n >> 1,
+        _ => ((!n) >> 1) | 0x8000_0000,
+    } as i32)
 }
 
 fn read_str(stream: &mut ByteStream) -> Result<&str, InvalidValue> {
@@ -298,6 +324,23 @@ impl TryFrom<AntelopeType> for String {
 }
 
 
+
+fn variant_to_i128(v: &Value) -> Result<i128, InvalidValue> {
+    match v {
+        v if v.is_i64() => Ok(v.as_i64().unwrap() as i128),
+        v if v.is_string() => Ok(v.as_str().unwrap().parse()?),
+        _ => Err(InvalidValue::IncompatibleVariantTypes("i128".to_owned(), v.clone())),
+    }
+}
+
+fn variant_to_u128(v: &Value) -> Result<u128, InvalidValue> {
+    match v {
+        v if v.is_u64() => Ok(v.as_u64().unwrap() as u128),
+        v if v.is_string() => Ok(v.as_str().unwrap().parse()?),
+        _ => Err(InvalidValue::IncompatibleVariantTypes("u128".to_owned(), v.clone())),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use color_eyre::eyre::Report;
@@ -362,152 +405,3 @@ pub enum InvalidValue {
     #[error("{0}")]
     InvalidData(String),  // acts as a generic error type with a given message
 }
-
-
-/*
-/// This is the main trait that Antelope types need to implement. This allows
-/// them to be serialized to an ABI using an ABIEncoder
-pub trait ABISerializable {
-    fn encode(&self, stream: &mut ByteStream);
-
-    fn decode(stream: &mut ByteStream) -> Self;
-
-}
-
-
-impl ABISerializable for bool {
-    fn encode(&self, stream: &mut ByteStream) {
-        stream.write_byte(match *self {
-            true => 1u8,
-            false => 0u8,
-        })
-    }
-    fn decode(_stream: &mut ByteStream) -> Self {
-        todo!();
-    }
-}
-
-impl ABISerializable for i8 {
-    fn encode(&self, stream: &mut ByteStream) {
-        stream.write_i8(*self);
-    }
-    fn decode(_stream: &mut ByteStream) -> Self {
-        todo!();
-    }
-}
-
-impl ABISerializable for i16 {
-    fn encode(&self, stream: &mut ByteStream) {
-        stream.write_i16(*self);
-    }
-    fn decode(_stream: &mut ByteStream) -> Self {
-        todo!();
-    }
-}
-
-impl ABISerializable for i32 {
-    fn encode(&self, stream: &mut ByteStream) {
-        stream.write_i32(*self);
-    }
-    fn decode(_stream: &mut ByteStream) -> Self {
-        todo!();
-    }
-}
-
-impl ABISerializable for i64 {
-    fn encode(&self, stream: &mut ByteStream) {
-        stream.write_i64(*self);
-    }
-    fn decode(_stream: &mut ByteStream) -> Self {
-        todo!();
-    }
-}
-
-// impl ABISerializable for i128 {
-//     fn encode(&self, stream: &mut ByteStream) {
-//         stream.write_i128(*self);
-//     }
-// }
-
-impl ABISerializable for u8 {
-    fn encode(&self, stream: &mut ByteStream) {
-        stream.write_u8(*self);
-    }
-    fn decode(_stream: &mut ByteStream) -> Self {
-        todo!();
-    }
-}
-
-impl ABISerializable for u16 {
-    fn encode(&self, stream: &mut ByteStream) {
-        stream.write_u16(*self);
-    }
-    fn decode(_stream: &mut ByteStream) -> Self {
-        todo!();
-    }
-}
-
-impl ABISerializable for u32 {
-    fn encode(&self, stream: &mut ByteStream) {
-        stream.write_u32(*self);
-    }
-    fn decode(_stream: &mut ByteStream) -> Self {
-        todo!();
-    }
-}
-
-impl ABISerializable for u64 {
-    fn encode(&self, stream: &mut ByteStream) {
-        stream.write_u64(*self);
-    }
-    fn decode(_stream: &mut ByteStream) -> Self {
-        todo!();
-    }
-}
-
-impl ABISerializable for f32 {
-    fn encode(&self, stream: &mut ByteStream) {
-        stream.write_f32(*self);
-    }
-    fn decode(_stream: &mut ByteStream) -> Self {
-        todo!();
-    }
-}
-
-impl ABISerializable for f64 {
-    fn encode(&self, stream: &mut ByteStream) {
-        stream.write_f64(*self);
-    }
-    fn decode(_stream: &mut ByteStream) -> Self {
-        todo!();
-    }
-}
-
-// impl ABISerializable for u128 {
-//     fn encode(&self, stream: &mut ByteStream) {
-//         stream.write_u128(*self);
-//     }
-// }
-
-impl ABISerializable for &str {
-    fn encode(&self, stream: &mut ByteStream) {
-        stream.write_str(*self);
-    }
-    fn decode(_stream: &mut ByteStream) -> Self {
-        todo!();
-    }
-}
-
-
-impl ABISerializable for &[&str] {
-    fn encode(&self,  stream: &mut ByteStream) {
-        stream.write_var_u32(self.len() as u32);
-        for &s in *self {
-            stream.write_str(s);
-        }
-    }
-    fn decode(_stream: &mut ByteStream) -> Self {
-        todo!();
-    }
-}
-*/
