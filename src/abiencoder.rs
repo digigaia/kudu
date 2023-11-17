@@ -58,9 +58,6 @@ impl ABIEncoder {
     }
 
     pub fn set_abi(&mut self, abi: &ABIDefinition) {
-        assert!(abi.version.starts_with("eosio::abi/1."),
-                "ABI has an unsupported version: {}", abi.version);
-
         self.typedefs.clear();
         self.structs.clear();
         self.actions.clear();

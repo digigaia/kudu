@@ -108,13 +108,22 @@ pub struct ABIDefinition {
 
 
 impl ABIDefinition {
-    pub fn from_str(s: &str) -> Self {
-        serde_json::from_str(s).unwrap()
+    pub fn from_str(s: &str) -> Result<Self, InvalidValue> {
+        Ok(serde_json::from_str(s)?)
     }
 
     pub fn from_bin(data: &mut ByteStream) -> Result<Self, InvalidValue> {
+        let version = AntelopeType::from_bin("string", data)?.to_variant();
+        let version_str = version.as_str().ok_or(InvalidValue::InvalidData(format!(
+            "expecting to read version string, instead got {:?}", version)))?;
+
+        if !version_str.starts_with("eosio::abi/1.") {
+            return Err(InvalidValue::InvalidData(format!(
+                r#"unsupported ABI version: "{}""#, version_str)));
+        }
+
         let abi = json!({
-            "version": AntelopeType::from_bin("string", data)?.to_variant(),
+            "version": version,
             "types": BIN_ABI_PARSER.decode_variant(data, "typedef[]")?,
             "structs": BIN_ABI_PARSER.decode_variant(data, "struct[]")?,
             "actions": BIN_ABI_PARSER.decode_variant(data, "action[]")?,
@@ -123,7 +132,7 @@ impl ABIDefinition {
 
         assert_eq!(data.leftover(), [0u8; 3]);
 
-        Ok(Self::from_str(&abi.to_string()))
+        Self::from_str(&abi.to_string())
     }
 }
 

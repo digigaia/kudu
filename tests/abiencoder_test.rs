@@ -7,9 +7,9 @@ use log::debug;
 
 use antelope::abi::*;
 use antelope::{
-    ABIEncoder, ByteStream,
+    ABIEncoder, ByteStream, bin_to_hex,
     types::{
-        AntelopeType, Name, Symbol, Asset
+        AntelopeType, Name, Symbol, Asset, InvalidValue
     }
 };
 
@@ -976,21 +976,15 @@ fn to_name(s: &str) -> String {
 }
 */
 
-/// check roundtrip JSON -> variant -> bin -> variant -> JSON
-fn check_round_trip(abi: &ABIEncoder, typename: &str, data: &str) {
-    debug!(r#"==== round-tripping type "{typename}" with value {data}"#);
+fn try_encode(abi: &ABIEncoder, typename: &str, data: &str) -> Result<()> {
     let mut ds = ByteStream::new();
-    let value: Value = serde_json::from_str(data).unwrap();
-    abi.encode_variant(&mut ds, typename, &value).unwrap();
-
-    let decoded = abi.decode_variant(&mut ds, typename).unwrap();
-
-    assert!(ds.leftover().is_empty());
-    assert_eq!(decoded.to_string(), data);
+    let value: Value = serde_json::from_str(data).map_err(InvalidValue::from)?;
+    abi.encode_variant(&mut ds, typename, &value)?;
+    Ok(())
 }
 
-fn _check_error(abi: &ABIEncoder, typename: &str, data: &str) -> Result<()> {
-    debug!(r#"==== error-tripping type "{typename}" with value {data}"#);
+fn round_trip(abi: &ABIEncoder, typename: &str, data: &str) -> Result<()> {
+    debug!(r#"==== round-tripping type "{typename}" with value {data}"#);
     let mut ds = ByteStream::new();
     let value: Value = serde_json::from_str(data)?;
     abi.encode_variant(&mut ds, typename, &value)?;
@@ -1003,37 +997,208 @@ fn _check_error(abi: &ABIEncoder, typename: &str, data: &str) -> Result<()> {
     Ok(())
 }
 
-fn check_error_trip(abi: &ABIEncoder, typename: &str, data: &str, error_msg: &str) {
-    match _check_error(abi, typename, data) {
+fn check_error<F, T>(f: F, expected_error_msg: &str)
+    where F: FnOnce() -> Result<T>
+{
+    match f() {
         Ok(_) => {
             panic!("expected error but everything went fine...");
         },
         Err(e) => {
             let received_msg = e.to_string();
-            if !received_msg.contains(error_msg) {
+            if !received_msg.contains(expected_error_msg) {
+                eprintln!("{:?}\n", e);
                 panic!(r#"expected error message with "{}", got: {}"#,
-                       error_msg, received_msg);
+                       expected_error_msg, received_msg);
             }
         },
     }
 }
 
+/// check roundtrip JSON -> variant -> bin -> variant -> JSON
+fn check_round_trip(abi: &ABIEncoder, typename: &str, data: &str) {
+    round_trip(abi, typename, data).unwrap()
+}
+
+fn _check_error_trip(abi: &ABIEncoder, typename: &str, data: &str, error_msg: &str) {
+    check_error(|| round_trip(abi, typename, data), error_msg);
+}
+
+fn str_to_hex(s: &str) -> String {
+    format!("{:02x}{}", s.len(), bin_to_hex(s.as_bytes()))
+}
+
+////////////////////////////////////////////////////////////////////////////////
+//                                                                            //
+// following tests are coming from                                            //
+// https://github.com/AntelopeIO/abieos/blob/main/src/test.cpp#L577           //
+//                                                                            //
+////////////////////////////////////////////////////////////////////////////////
+
 #[test]
 fn integration_test() -> Result<()> {
     init();
 
-    let _test_abi_def = ABIDefinition::from_str(TEST_ABI);
+    let _test_abi_def = ABIDefinition::from_str(TEST_ABI)?;
     let _test_abi = ABIEncoder::from_abi(&_test_abi_def);
 
-    let transaction_abi_def = ABIDefinition::from_str(TRANSACTION_ABI);
-    let transaction_abi = ABIEncoder::from_abi(&transaction_abi_def);
+    let _transaction_abi_def = ABIDefinition::from_str(TRANSACTION_ABI)?;
+    let _transaction_abi = ABIEncoder::from_abi(&_transaction_abi_def);
 
     let _token_abi = ABIEncoder::from_hex_abi(TOKEN_HEX_ABI)?;
 
+    let _abi = &_transaction_abi;
+
+    check_error(|| Ok(ABIDefinition::from_str("")?), "cannot parse JSON string");
+    check_error(|| Ok(ABIEncoder::from_hex_abi("")?), "stream ended");
+    check_error(|| Ok(ABIEncoder::from_hex_abi("00")?), "unsupported ABI version");
+    check_error(|| Ok(ABIEncoder::from_hex_abi(&str_to_hex("eosio::abi/9.0"))?), "unsupported ABI version");
+    check_error(|| Ok(ABIEncoder::from_hex_abi(&str_to_hex("eosio::abi/1.0"))?), "stream ended");
+    check_error(|| Ok(ABIEncoder::from_hex_abi(&str_to_hex("eosio::abi/1.1"))?), "stream ended");
+
+    Ok(())
+}
+
+#[test]
+fn roundtrip_bool() -> Result<()> {
+    init();
+
+    let transaction_abi_def = ABIDefinition::from_str(TRANSACTION_ABI)?;
+    let transaction_abi = ABIEncoder::from_abi(&transaction_abi_def);
     let abi = &transaction_abi;
 
     check_round_trip(abi, "bool", "true");
-    check_error_trip(abi, "bool", "null", "cannot convert given variant");
+    check_round_trip(abi, "bool", "false");
+
+    check_error(|| try_encode(abi, "bool", ""), "cannot parse JSON string");
+    check_error(|| try_encode(abi, "bool", "trues"), "cannot parse JSON string");
+    check_error(|| try_encode(abi, "bool", "null"), "cannot convert given variant");
+    check_error(|| try_encode(abi, "bool", r#""foo""#), "cannot convert given variant");
+
+    Ok(())
+}
+
+#[test]
+fn roundtrip_i8() -> Result<()> {
+    init();
+
+    let transaction_abi_def = ABIDefinition::from_str(TRANSACTION_ABI)?;
+    let transaction_abi = ABIEncoder::from_abi(&transaction_abi_def);
+    let abi = &transaction_abi;
+
+
+    check_round_trip(abi, "int8", "0");
+    check_round_trip(abi, "int8", "127");
+    check_round_trip(abi, "int8", "-128");
+    check_round_trip(abi, "uint8", "0");
+    check_round_trip(abi, "uint8", "1");
+    check_round_trip(abi, "uint8", "254");
+    check_round_trip(abi, "uint8", "255");
+
+    check_error(|| try_encode(abi, "int8", "128"), "integer out of range");
+    check_error(|| try_encode(abi, "int8", "-129"), "integer out of range");
+    check_error(|| try_encode(abi, "uint8", "-1"), "cannot convert given variant");
+    check_error(|| try_encode(abi, "uint8", "256"), "integer out of range");
+
+    check_round_trip(abi, "uint8[]", "[]");
+    check_round_trip(abi, "uint8[]", "[10]");
+    check_round_trip(abi, "uint8[]", "[10,9]");
+    check_round_trip(abi, "uint8[]", "[10,9,8]");
+
+    Ok(())
+}
+
+#[test]
+fn roundtrip_i16() -> Result<()> {
+    init();
+
+    let transaction_abi_def = ABIDefinition::from_str(TRANSACTION_ABI)?;
+    let transaction_abi = ABIEncoder::from_abi(&transaction_abi_def);
+    let abi = &transaction_abi;
+
+    check_round_trip(abi, "int16", "0");
+    check_round_trip(abi, "int16", "32767");
+    check_round_trip(abi, "int16", "-32768");
+    check_round_trip(abi, "uint16", "0");
+    check_round_trip(abi, "uint16", "65535");
+
+    check_error(|| try_encode(abi, "int16", "32768"), "integer out of range");
+    check_error(|| try_encode(abi, "int16", "-32769"), "integer out of range");
+    check_error(|| try_encode(abi, "uint16", "-1"), "cannot convert given variant");
+    check_error(|| try_encode(abi, "uint16", "65536"), "integer out of range");
+
+    Ok(())
+}
+
+#[test]
+fn roundtrip_i32() -> Result<()> {
+    init();
+
+    let transaction_abi_def = ABIDefinition::from_str(TRANSACTION_ABI)?;
+    let transaction_abi = ABIEncoder::from_abi(&transaction_abi_def);
+    let abi = &transaction_abi;
+
+
+    check_round_trip(abi, "int32", "0");
+    check_round_trip(abi, "int32", "2147483647");
+    check_round_trip(abi, "int32", "-2147483648");
+    check_round_trip(abi, "uint32", "0");
+    check_round_trip(abi, "uint32", "4294967295");
+
+    check_error(|| try_encode(abi, "int32", "2147483648"), "integer out of range");
+    check_error(|| try_encode(abi, "int32", "-2147483649"), "integer out of range");
+    check_error(|| try_encode(abi, "uint32", "-1"), "cannot convert given variant");
+    check_error(|| try_encode(abi, "uint32", "4294967296"), "integer out of range");
+
+    Ok(())
+}
+
+#[test]
+fn roundtrip_i64() -> Result<()> {
+    init();
+
+    let transaction_abi_def = ABIDefinition::from_str(TRANSACTION_ABI)?;
+    let transaction_abi = ABIEncoder::from_abi(&transaction_abi_def);
+    let abi = &transaction_abi;
+
+
+    check_round_trip(abi, "int64", "0");
+    check_round_trip(abi, "int64", "9223372036854775807");
+    check_round_trip(abi, "int64", "-9223372036854775808");
+    check_round_trip(abi, "uint64", "0");
+    check_round_trip(abi, "uint64", "18446744073709551615");
+
+    check_error(|| try_encode(abi, "int64", "9223372036854775808"), "integer out of range");
+    check_error(|| try_encode(abi, "int64", "-9223372036854775809"), "integer out of range");
+    check_error(|| try_encode(abi, "uint64", "-1"), "cannot convert given variant");
+    check_error(|| try_encode(abi, "uint64", "18446744073709551616"), "integer out of range");
+
+    Ok(())
+}
+
+#[test]
+fn roundtrip_i128() -> Result<()> {
+    init();
+
+    let transaction_abi_def = ABIDefinition::from_str(TRANSACTION_ABI)?;
+    let transaction_abi = ABIEncoder::from_abi(&transaction_abi_def);
+    let abi = &transaction_abi;
+
+
+    check_round_trip(abi, "int128", "0");
+    check_round_trip(abi, "int128", "1");
+    check_round_trip(abi, "int128", "-1");
+    check_round_trip(abi, "int128", "18446744073709551615");
+    check_round_trip(abi, "int128", "-18446744073709551615");
+    check_round_trip(abi, "int128", "170141183460469231731687303715884105727");
+    check_round_trip(abi, "int128", "-170141183460469231731687303715884105728");
+    check_round_trip(abi, "uint128", "0");
+    check_round_trip(abi, "uint128", "340282366920938463463374607431768211455");
+
+    check_error(|| try_encode(abi, "int128", "170141183460469231731687303715884105728"), "integer out of range");
+    check_error(|| try_encode(abi, "int128", "-170141183460469231731687303715884105729"), "integer out of range");
+    check_error(|| try_encode(abi, "uint128", "-1"), "cannot convert given variant");
+    check_error(|| try_encode(abi, "uint128", "340282366920938463463374607431768211456"), "integer out of range");
 
     Ok(())
 }

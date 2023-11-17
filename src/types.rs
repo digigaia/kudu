@@ -10,7 +10,7 @@ use std::num::{ParseFloatError, ParseIntError, TryFromIntError};
 use std::str::{from_utf8, Utf8Error, ParseBoolError};
 
 use bytemuck::{cast_ref, pod_read_unaligned};
-use serde_json::{json, Value};
+use serde_json::{json, Value, Error as JsonError};
 use thiserror::Error;
 use strum::EnumVariantNames;
 
@@ -323,7 +323,7 @@ pub enum InvalidValue {
     #[error("invalid type {0}")]
     InvalidType(String),
 
-    #[error(r#"cannot convert given variant "{1}" to Antelope type "{0}"""#)]
+    #[error(r#"cannot convert given variant {1} to Antelope type "{0}""#)]
     IncompatibleVariantTypes(String, Value),
 
     #[error("invalid bool")]
@@ -355,6 +355,9 @@ pub enum InvalidValue {
 
     #[error("cannot parse bytes as UTF-8")]
     Utf8Error(#[from] Utf8Error),
+
+    #[error("cannot parse JSON string")]
+    JsonParseError(#[from] JsonError),
 
     #[error("{0}")]
     InvalidData(String),  // acts as a generic error type with a given message
