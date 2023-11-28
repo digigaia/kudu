@@ -1,3 +1,5 @@
+// see: https://www.rfc-editor.org/rfc/rfc4648.html#section-5
+
 const CHARSET: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
 const SEXTET_MASK: u32 = (1 << 6) - 1;
 

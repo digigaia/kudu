@@ -19,6 +19,8 @@
 
 - better error handling when constructing types. We should remove `assert`s and `panic` and use proper error types
 
+- use https://docs.rs/bytes/latest/bytes/buf/trait.BufMut.html instead of ByteStream
+
 // TODO: do the other tests from here: https://github.com/FACINGS/pyntelope/blob/main/tests/unit/types_test.py
 // missing for now:
 //  - UnixTimestamp

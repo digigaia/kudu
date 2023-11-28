@@ -1275,21 +1275,22 @@ fn roundtrip_datetimes() -> Result<()> {
 
 
     check_round_trip(abi, "time_point_sec", r#""1970-01-01T00:00:00.000""#);
+    check_round_trip(abi, "time_point_sec", r#""2018-06-15T19:17:47.000""#);
+    check_round_trip(abi, "time_point_sec", r#""2030-06-15T19:17:47.000""#);
+    check_round_trip(abi, "time_point", r#""1970-01-01T00:00:00.000""#);
+    check_round_trip(abi, "time_point", r#""1970-01-01T00:00:00.001""#);
+    check_round_trip(abi, "time_point", r#""1970-01-01T00:00:00.002""#);
+    check_round_trip(abi, "time_point", r#""1970-01-01T00:00:00.010""#);
+    check_round_trip(abi, "time_point", r#""1970-01-01T00:00:00.100""#);
+    check_round_trip(abi, "time_point", r#""2018-06-15T19:17:47.000""#);
+    check_round_trip(abi, "time_point", r#""2018-06-15T19:17:47.999""#);
+    check_round_trip(abi, "time_point", r#""2030-06-15T19:17:47.999""#);
 
     /*
     check_type(context, 0, "time_point_sec", R"("1970-01-01T00:00:00.000")");
-    check_type(context, 0, "time_point_sec", R"("2018-06-15T19:17:47.000")");
-    check_type(context, 0, "time_point_sec", R"("2030-06-15T19:17:47.000")");
+    [...]
     check_error(context, "expected string containing time_point_sec",
                 [&] { return abieos_json_to_bin(context, 0, "time_point_sec", "true"); });
-    check_type(context, 0, "time_point", R"("1970-01-01T00:00:00.000")");
-    check_type(context, 0, "time_point", R"("1970-01-01T00:00:00.001")");
-    check_type(context, 0, "time_point", R"("1970-01-01T00:00:00.002")");
-    check_type(context, 0, "time_point", R"("1970-01-01T00:00:00.010")");
-    check_type(context, 0, "time_point", R"("1970-01-01T00:00:00.100")");
-    check_type(context, 0, "time_point", R"("2018-06-15T19:17:47.000")");
-    check_type(context, 0, "time_point", R"("2018-06-15T19:17:47.999")");
-    check_type(context, 0, "time_point", R"("2030-06-15T19:17:47.999")");
     check_type(context, 0, "time_point", R"("2000-12-31T23:59:59.999999")", R"("2000-12-31T23:59:59.999")");
      */
     Ok(())

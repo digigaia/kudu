@@ -13,14 +13,15 @@ use bytemuck::{cast_ref, pod_read_unaligned};
 use serde_json::{json, Value, Error as JsonError};
 use thiserror::Error;
 use strum::EnumVariantNames;
-use log::debug;
 use chrono::{NaiveDateTime, ParseError as ChronoParseError};
 
 use super::{ByteStream, StreamError};
 
+const DATE_FORMAT: &str = "%Y-%m-%dT%H:%M:%S%.3f";
+
 // see full list in: https://github.com/AntelopeIO/leap/blob/main/libraries/chain/abi_serializer.cpp#L89
 #[derive(Debug, EnumVariantNames)]
-#[strum(serialize_all = "lowercase")]
+#[strum(serialize_all = "snake_case")]
 pub enum AntelopeType {
     Bool(bool),
 
@@ -36,7 +37,9 @@ pub enum AntelopeType {
     Uint64(u64),
     Uint128(u128),
 
+    #[strum(serialize = "varint32")]
     VarInt32(i32),
+    #[strum(serialize = "varuint32")]
     VarUint32(u32),
 
     Float32(f32),
@@ -45,7 +48,8 @@ pub enum AntelopeType {
 
     String(String),
 
-    TimePoint(NaiveDateTime),
+    TimePoint(i64),
+    TimePointSec(u32),
 
     Name(Name),
     Symbol(Symbol),
@@ -72,8 +76,8 @@ impl AntelopeType {
             "float32" => Self::Float32(repr.parse()?),
             "float64" => Self::Float64(repr.parse()?),
             "string" => Self::String(repr.to_owned()),
-            "time_point" => Self::TimePoint(parse_date(repr)?),
-
+            "time_point" => Self::TimePoint(parse_date(repr)?.timestamp_micros()),
+            "time_point_sec" => Self::TimePointSec(parse_date(repr)?.timestamp() as u32),
             "name" => Self::Name(Name::from_str(repr)?),
             "symbol" => Self::Symbol(Symbol::from_str(repr)?),
             "asset" => Self::Asset(Asset::from_str(repr)?),
@@ -99,7 +103,14 @@ impl AntelopeType {
             Self::Float32(x) => json!(x),
             Self::Float64(x) => json!(x),
             Self::String(s) => json!(s),
-            Self::TimePoint(t) => json!(t),
+            Self::TimePoint(t) => {
+                let dt = NaiveDateTime::from_timestamp_micros(*t).unwrap();
+                json!(format!("{}", dt.format(DATE_FORMAT)))
+            },
+            Self::TimePointSec(t) => {
+                let dt = NaiveDateTime::from_timestamp_micros(*t as i64 * 1_000_000).unwrap();
+                json!(format!("{}", dt.format(DATE_FORMAT)))
+            },
             Self::Name(name) => json!(name.to_string()),
             Self::Symbol(sym) => json!(sym.to_string()),
             Self::Asset(asset) => json!(asset.to_string()),
@@ -127,7 +138,14 @@ impl AntelopeType {
             "float32" => Self::Float32(f64_to_f32(v.as_f64().ok_or_else(incompatible_types)?)?),
             "float64" => Self::Float64(v.as_f64().ok_or_else(incompatible_types)?),
             "string" => Self::String(v.as_str().ok_or_else(incompatible_types)?.to_owned()),
-            "time_point" => Self::TimePoint(parse_date(v.as_str().ok_or_else(incompatible_types)?)?),
+            "time_point" => {
+                let dt = parse_date(v.as_str().ok_or_else(incompatible_types)?)?;
+                Self::TimePoint(dt.timestamp_micros())
+            },
+            "time_point_sec" => {
+                let dt = parse_date(v.as_str().ok_or_else(incompatible_types)?)?;
+                Self::TimePointSec(dt.timestamp() as u32)
+            },
             "name" => Self::from_str("name", v.as_str().ok_or_else(incompatible_types)?)?,
             "symbol" => Self::from_str("symbol", v.as_str().ok_or_else(incompatible_types)?)?,
             "asset" => Self::from_str("asset", v.as_str().ok_or_else(incompatible_types)?)?,
@@ -159,7 +177,8 @@ impl AntelopeType {
                 write_var_u32(stream, s.len() as u32);
                 stream.write_bytes(&s.as_bytes()[..s.len()]);
             },
-            Self::TimePoint(t) => todo!(),
+            Self::TimePoint(t) => stream.write_bytes(cast_ref::<i64, [u8; 8]>(&t)),
+            Self::TimePointSec(t) => stream.write_bytes(cast_ref::<u32, [u8; 4]>(&t)),
             Self::Name(name) => name.encode(stream),
             Self::Symbol(sym) => sym.encode(stream),
             Self::Asset(asset) => asset.encode(stream),
@@ -188,7 +207,8 @@ impl AntelopeType {
             "float32" => Self::Float32(pod_read_unaligned(stream.read_bytes(4)?)),
             "float64" => Self::Float64(pod_read_unaligned(stream.read_bytes(8)?)),
             "string" => Self::String(read_str(stream)?.to_owned()),
-            "time_point" => todo!(), //Self::TimePoint(),
+            "time_point" => Self::TimePoint(pod_read_unaligned(stream.read_bytes(8)?)),
+            "time_point_sec" => Self::TimePointSec(pod_read_unaligned(stream.read_bytes(4)?)),
             "name" => Self::Name(Name::decode(stream)?),
             "symbol" => Self::Symbol(Symbol::decode(stream)?),
             "asset" => Self::Asset(Asset::decode(stream)?),
@@ -218,9 +238,7 @@ fn write_var_u32(stream: &mut ByteStream, n: u32) {
 }
 
 fn write_var_i32(stream: &mut ByteStream, n: i32) {
-    debug!("HOLLO!");
     let unsigned = ((n as u32) << 1) ^ ((n >> 31) as u32);
-    debug!("HOLLO GOOD!");
     write_var_u32(stream, unsigned)
 }
 
@@ -350,9 +368,11 @@ fn variant_to_u128(v: &Value) -> Result<u128, InvalidValue> {
     }
 }
 
+/// return a date in microseconds
 fn parse_date(s: &str) -> Result<NaiveDateTime, InvalidValue> {
-    Ok(NaiveDateTime::parse_from_str(s, "%Y-%m-%d %H:%M:%S")?)
+    Ok(NaiveDateTime::parse_from_str(s, DATE_FORMAT)?)
 }
+
 
 #[cfg(test)]
 mod tests {
