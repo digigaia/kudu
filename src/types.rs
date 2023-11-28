@@ -15,7 +15,7 @@ use thiserror::Error;
 use strum::EnumVariantNames;
 use chrono::{NaiveDateTime, ParseError as ChronoParseError};
 
-use super::{ByteStream, StreamError};
+use super::{ByteStream, StreamError, bin_to_hex, hex_to_bin};
 
 const DATE_FORMAT: &str = "%Y-%m-%dT%H:%M:%S%.3f";
 
@@ -46,6 +46,7 @@ pub enum AntelopeType {
     Float64(f64),
     // Float128(??),
 
+    Bytes(Vec<u8>),
     String(String),
 
     TimePoint(i64),
@@ -75,6 +76,7 @@ impl AntelopeType {
             "varuint32" => Self::VarUint32(repr.parse()?),
             "float32" => Self::Float32(repr.parse()?),
             "float64" => Self::Float64(repr.parse()?),
+            "bytes" => Self::Bytes(hex_to_bin(repr)?),
             "string" => Self::String(repr.to_owned()),
             "time_point" => Self::TimePoint(parse_date(repr)?.timestamp_micros()),
             "time_point_sec" => Self::TimePointSec(parse_date(repr)?.timestamp() as u32),
@@ -102,6 +104,7 @@ impl AntelopeType {
             Self::VarUint32(n) => json!(n),
             Self::Float32(x) => json!(x),
             Self::Float64(x) => json!(x),
+            Self::Bytes(b) => json!(bin_to_hex(b).to_ascii_uppercase()),
             Self::String(s) => json!(s),
             Self::TimePoint(t) => {
                 let dt = NaiveDateTime::from_timestamp_micros(*t).unwrap();
@@ -137,6 +140,7 @@ impl AntelopeType {
             "varuint32" => Self::VarUint32(v.as_u64().ok_or_else(incompatible_types)?.try_into()?),
             "float32" => Self::Float32(f64_to_f32(v.as_f64().ok_or_else(incompatible_types)?)?),
             "float64" => Self::Float64(v.as_f64().ok_or_else(incompatible_types)?),
+            "bytes" => Self::Bytes(hex_to_bin(v.as_str().ok_or_else(incompatible_types)?)?),
             "string" => Self::String(v.as_str().ok_or_else(incompatible_types)?.to_owned()),
             "time_point" => {
                 let dt = parse_date(v.as_str().ok_or_else(incompatible_types)?)?;
@@ -173,9 +177,13 @@ impl AntelopeType {
             Self::VarUint32(n) => write_var_u32(stream, *n),
             Self::Float32(x) => stream.write_bytes(cast_ref::<f32, [u8; 4]>(&x)),
             Self::Float64(x) => stream.write_bytes(cast_ref::<f64, [u8; 8]>(&x)),
+            Self::Bytes(b) => {
+                write_var_u32(stream, b.len() as u32);
+                stream.write_bytes(&b[..]);
+            },
             Self::String(s) => {
                 write_var_u32(stream, s.len() as u32);
-                stream.write_bytes(&s.as_bytes()[..s.len()]);
+                stream.write_bytes(&s.as_bytes()[..]);
             },
             Self::TimePoint(t) => stream.write_bytes(cast_ref::<i64, [u8; 8]>(&t)),
             Self::TimePointSec(t) => stream.write_bytes(cast_ref::<u32, [u8; 4]>(&t)),
@@ -206,6 +214,7 @@ impl AntelopeType {
             "varuint32" => Self::VarUint32(read_var_u32(stream)?),
             "float32" => Self::Float32(pod_read_unaligned(stream.read_bytes(4)?)),
             "float64" => Self::Float64(pod_read_unaligned(stream.read_bytes(8)?)),
+            "bytes" => Self::Bytes(read_bytes(stream)?),
             "string" => Self::String(read_str(stream)?.to_owned()),
             "time_point" => Self::TimePoint(pod_read_unaligned(stream.read_bytes(8)?)),
             "time_point_sec" => Self::TimePointSec(pod_read_unaligned(stream.read_bytes(4)?)),
@@ -265,6 +274,11 @@ fn read_var_i32(stream: &mut ByteStream) -> Result<i32, InvalidValue> {
         0 => n >> 1,
         _ => ((!n) >> 1) | 0x8000_0000,
     } as i32)
+}
+
+fn read_bytes(stream: &mut ByteStream) -> Result<Vec<u8>, InvalidValue> {
+    let len = read_var_u32(stream)? as usize;
+    Ok(Vec::from(stream.read_bytes(len)?))
 }
 
 fn read_str(stream: &mut ByteStream) -> Result<&str, InvalidValue> {
@@ -426,7 +440,7 @@ pub enum InvalidValue {
     #[error("invalid asset")]
     Asset(#[from] InvalidAsset),
 
-    #[error("stream ended while reading bytes")]
+    #[error("stream error")]
     StreamEnded(#[from] StreamError),
 
     #[error("cannot parse bytes as UTF-8")]

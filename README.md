@@ -21,6 +21,8 @@
 
 - use https://docs.rs/bytes/latest/bytes/buf/trait.BufMut.html instead of ByteStream
 
+- check that bin encoding for Bytes is correct (len as varuint32?)
+
 // TODO: do the other tests from here: https://github.com/FACINGS/pyntelope/blob/main/tests/unit/types_test.py
 // missing for now:
 //  - UnixTimestamp

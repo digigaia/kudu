@@ -175,7 +175,8 @@ impl ABIEncoder {
 
                     for field in &struct_def.fields {
                         let present: bool = obj.contains_key(&field.name);
-                        assert!(present, "Missing field {} in input object while processing struct {}", &field.name, &struct_def.name);
+                        assert!(present, r#"Missing field "{}" in input object while processing struct "{}""#,
+                                &field.name, &struct_def.name);
                         self.encode_variant(ds, &field.type_, obj.get(&field.name).unwrap())?;
                     }
                 }
