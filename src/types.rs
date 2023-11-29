@@ -1,10 +1,12 @@
 pub mod name;
 pub mod symbol;
 pub mod asset;
+pub mod crypto;
 
 pub use name::{Name, InvalidName};
 pub use symbol::{Symbol, InvalidSymbol};
 pub use asset::{Asset, InvalidAsset};
+pub use crypto::{Signature};
 
 use std::num::{ParseFloatError, ParseIntError, TryFromIntError};
 use std::str::{from_utf8, Utf8Error, ParseBoolError};
@@ -441,7 +443,7 @@ pub enum InvalidValue {
     Asset(#[from] InvalidAsset),
 
     #[error("stream error")]
-    StreamEnded(#[from] StreamError),
+    StreamError(#[from] StreamError),
 
     #[error("cannot parse bytes as UTF-8")]
     Utf8Error(#[from] Utf8Error),

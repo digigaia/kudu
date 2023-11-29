@@ -3,64 +3,101 @@ use serde::{Serialize, Serializer, Deserialize, Deserializer};
 use serde::de::{self, Visitor};
 use anyhow::Result;
 use thiserror::Error;
+use bs58;
+use ripemd::{Ripemd160, Digest};
 
 use crate::{AntelopeType, ByteStream, InvalidValue};
 
 #[derive(Error, Debug)]
 pub enum InvalidSignature {
     #[error("not a signature: {0}")]
-    NotASignature,
+    NotASignature(String),
 
-    // #[error("Name is longer than 13 characters: \"{0}\"")]
-    // TooLong(String),
+    #[error("error while decoding base58 data")]
+    Base58Error(#[from] bs58::decode::Error),
 
-    // #[error(r#"Name not properly normalized (given name: "{0}", normalized: "{1}")"#)]
-    // InvalidNormalization(String, String),
+    #[error("invalid checksum for signature")]
+    InvalidChecksum,
 }
 
+
+#[derive(Eq, PartialEq, Debug, Clone)]
+pub enum KeyType {
+    K1,
+    R1,
+    WebAuthn,
+}
+
+impl KeyType {
+    pub fn index(&self) -> u8 {
+        match self {
+            Self::K1 => 0,
+            Self::R1 => 1,
+            Self::WebAuthn => 2,
+        }
+    }
+
+    pub fn suffix(&self) -> &'static str {
+        match self {
+            Self::K1 => "K1",
+            Self::R1 => "R1",
+            Self::WebAuthn => "WA",
+        }
+    }
+}
 
 #[derive(Eq, Hash, PartialEq, Debug, Clone)]
 pub struct Signature {
-    key_data: Vec<u8>,
+    data: Vec<u8>,
 }
 
 impl Signature {
-    pub fn from_str(s: &str) -> Result<Self, InvalidName> {
+    pub fn from_str(s: &str) -> Result<Self, InvalidSignature> {
         if s.starts_with("SIG_K1_") {
+            let key_type = KeyType::K1;
+            let data = vec![];
 
+
+            Ok(Signature { data })
         }
         else if s.starts_with("SIG_R1_") {
-            todo!()
+            unimplemented!()
         }
         else if s.starts_with("SIG_WA_") {
-            todo!()
+            unimplemented!()
         }
         else {
-            Err(InvalidSignature::NotASignature(s))
+            Err(InvalidSignature::NotASignature(s.to_owned()))
         }
     }
-
-    pub fn from_u64(n: u64) -> Self {
-        // FIXME: do some validation?
-        Self {
-            value: n,
-        }
-    }
-
-    pub fn to_u64(&self) -> u64 { self.value }
 
     pub fn encode(&self, stream: &mut ByteStream) {
-        AntelopeType::Uint64(self.value).to_bin(stream);
+        todo!()
     }
 
     pub fn decode(stream: &mut ByteStream) -> Result<Self, InvalidValue> {
-        let n: usize = AntelopeType::from_bin("uint64", stream)?.try_into()?;
-        Ok(Name::from_u64(n as u64))
+        todo!()
+        // let n: usize = AntelopeType::from_bin("uint64", stream)?.try_into()?;
+        // Ok(Name::from_u64(n as u64))
     }
 }
 
 
-impl Serialize for Name {
+fn string_to_key_data(enc_data: &str, key_type: KeyType) -> Result<Vec<u8>, InvalidSignature> {
+    let data = bs58::decode(enc_data).into_vec()?;
+
+    let mut hasher = Ripemd160::new();
+    hasher.update(&data[..data.len()-4]);
+    hasher.update(key_type.suffix());
+    let digest = hasher.finalize();
+
+    let key_data = &data[data.len()-4..];
+    assert_eq!(&digest[..], key_data);
+
+    Ok(key_data.to_owned())
+}
+
+impl Serialize for Signature {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -69,28 +106,28 @@ impl Serialize for Name {
     }
 }
 
-struct NameVisitor;
+struct SignatureVisitor;
 
-impl<'de> Visitor<'de> for NameVisitor {
-    type Value = Name;
+impl<'de> Visitor<'de> for SignatureVisitor {
+    type Value = Signature;
 
     fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-        write!(formatter, "a string that is a valid EOS name")
+        write!(formatter, "a string that is a valid EOS signature")
     }
 
-    fn visit_str<E>(self, s: &str) -> Result<Name, E>
+    fn visit_str<E>(self, s: &str) -> Result<Signature, E>
     where
         E: de::Error,
     {
-        Name::from_str(s).map_err(|e| de::Error::custom(e.to_string()))
+        Signature::from_str(s).map_err(|e| de::Error::custom(e.to_string()))
     }
 }
-impl<'de> Deserialize<'de> for Name {
-    fn deserialize<D>(deserializer: D) -> Result<Name, D::Error>
+impl<'de> Deserialize<'de> for Signature {
+    fn deserialize<D>(deserializer: D) -> Result<Signature, D::Error>
     where
         D: Deserializer<'de>,
     {
-        deserializer.deserialize_str(NameVisitor)
+        deserializer.deserialize_str(SignatureVisitor)
     }
 }
 
@@ -106,107 +143,59 @@ impl ABISerializable for Name {
 }
 */
 
-impl fmt::Display for Name {
+impl fmt::Display for Signature {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", String::from_utf8(u64_to_string(self.value)).unwrap())
+        todo!()
+        // write!(f, "{}", String::from_utf8(u64_to_string(self.value)).unwrap())
     }
 }
 
 
-fn char_to_symbol(c: u8) -> u64 {
-    match c {
-        b'a'..=b'z' => (c - b'a') as u64 + 6,
-        b'1'..=b'5' => (c - b'1') as u64 + 1,
-        _ => 0
-    }
-}
-
-
-// see ref implementation in AntelopeIO/leap/libraries/chain/name.{hpp,cpp}
-fn string_to_u64(s: &[u8]) -> u64 {
-    let mut n: u64 = 0;
-    for i in 0..s.len().min(12) {
-        n = n | (char_to_symbol(s[i]) << (64 - 5 * (i + 1)));
-    }
-
-    // The for-loop encoded up to 60 high bits into uint64 'name' variable,
-    // if (strlen(str) > 12) then encode str[12] into the low (remaining)
-    // 4 bits of 'name'
-    if s.len() >= 13 {
-        n |= char_to_symbol(s[12]) & 0x0F;
-    }
-
-    n
-}
-
-const CHARMAP: &[u8] = b".12345abcdefghijklmnopqrstuvwxyz";
-
-fn u64_to_string(n: u64) -> Vec<u8> {
-    let mut n = n.clone();
-    let mut s: Vec<u8> = vec![b'.'; 13];
-    for i in 0..=12 {
-        let c: u8 = CHARMAP[n as usize & match i { 0 => 0x0F, _ => 0x1F }];
-        s[12-i] = c;
-        n >>= match i { 0 => 4, _ => 5 };
-    }
-
-    // truncate string with unused trailing symbols
-    let mut end_pos = 13;
-    loop {
-        if end_pos == 0 { break; }
-        if s[end_pos - 1] != b'.' {
-            break;
-        }
-        end_pos = end_pos - 1;
-    }
-    s.truncate(end_pos);
-    s
-}
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
-    fn simple_names() -> Result<()> {
-        let n = Name::from_str("nico")?;
-        assert_eq!(n.to_string(), "nico");
+    fn valid_signatures() -> Result<()> {
+        // let n = Name::from_str("nico")?;
+        // assert_eq!(n.to_string(), "nico");
 
-        let n2 = Name::from_str("eosio.token")?;
-        assert_eq!(n2.to_string(), "eosio.token");
+        // let n2 = Name::from_str("eosio.token")?;
+        // assert_eq!(n2.to_string(), "eosio.token");
 
-        let n3 = Name::from_str("a.b.c.d.e")?;
-        assert_eq!(n3.to_string(), "a.b.c.d.e");
+        // let n3 = Name::from_str("a.b.c.d.e")?;
+        // assert_eq!(n3.to_string(), "a.b.c.d.e");
 
-        assert_eq!(Name::from_str("")?,
-                   Name::from_u64(0));
+        // assert_eq!(Name::from_str("")?,
+        //            Name::from_u64(0));
 
-        assert_eq!(Name::from_str("foobar")?,
-                   Name::from_u64(6712742083569909760));
+        // assert_eq!(Name::from_str("foobar")?,
+        //            Name::from_u64(6712742083569909760));
 
         Ok(())
     }
 
     #[test]
-    fn invalid_names() {
-        let names = [
-            "yepthatstoolong", // too long
-            "abcDef",          // invalid chars
-            "a.",              // not normalized
-            "A",
-            "zzzzzzzzzzzzzz",
-            "á",
-            ".",
-            "....",
-            "zzzzzzzzzzzzz",
-            "aaaaaaaaaaaaz",
-            "............z",
+    fn invalid_signatures() {
+        // let names = [
+        //     "yepthatstoolong", // too long
+        //     "abcDef",          // invalid chars
+        //     "a.",              // not normalized
+        //     "A",
+        //     "zzzzzzzzzzzzzz",
+        //     "á",
+        //     ".",
+        //     "....",
+        //     "zzzzzzzzzzzzz",
+        //     "aaaaaaaaaaaaz",
+        //     "............z",
 
-        ];
+        // ];
 
-        for n in names {
-            assert!(Name::from_str(n).is_err());
-        }
+        // for n in names {
+        //     assert!(Name::from_str(n).is_err());
+        // }
     }
 
 }
