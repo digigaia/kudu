@@ -6,7 +6,7 @@ pub mod crypto;
 pub use name::{Name, InvalidName};
 pub use symbol::{Symbol, InvalidSymbol};
 pub use asset::{Asset, InvalidAsset};
-pub use crypto::{Signature};
+pub use crypto::{Signature, InvalidSignature};
 
 use std::num::{ParseFloatError, ParseIntError, TryFromIntError};
 use std::str::{from_utf8, Utf8Error, ParseBoolError};
@@ -58,6 +58,7 @@ pub enum AntelopeType {
     Symbol(Symbol),
     Asset(Asset),
 
+    Signature(Signature),
 }
 
 impl AntelopeType {
@@ -85,6 +86,7 @@ impl AntelopeType {
             "name" => Self::Name(Name::from_str(repr)?),
             "symbol" => Self::Symbol(Symbol::from_str(repr)?),
             "asset" => Self::Asset(Asset::from_str(repr)?),
+            "signature" => Self::Signature(Signature::from_str(repr)?),
             _ => { return Err(InvalidValue::InvalidType(typename.to_owned())); },
         })
     }
@@ -119,6 +121,7 @@ impl AntelopeType {
             Self::Name(name) => json!(name.to_string()),
             Self::Symbol(sym) => json!(sym.to_string()),
             Self::Asset(asset) => json!(asset.to_string()),
+            Self::Signature(sig) => json!(sig.to_string()),
         }
     }
 
@@ -155,6 +158,7 @@ impl AntelopeType {
             "name" => Self::from_str("name", v.as_str().ok_or_else(incompatible_types)?)?,
             "symbol" => Self::from_str("symbol", v.as_str().ok_or_else(incompatible_types)?)?,
             "asset" => Self::from_str("asset", v.as_str().ok_or_else(incompatible_types)?)?,
+            "signature" => Self::from_str("signature", v.as_str().ok_or_else(incompatible_types)?)?,
             _ => { return Err(InvalidValue::InvalidType(typename.to_owned())); },
         })
     }
@@ -192,6 +196,7 @@ impl AntelopeType {
             Self::Name(name) => name.encode(stream),
             Self::Symbol(sym) => sym.encode(stream),
             Self::Asset(asset) => asset.encode(stream),
+            Self::Signature(sig) => sig.encode(stream),
         }
     }
 
@@ -223,6 +228,7 @@ impl AntelopeType {
             "name" => Self::Name(Name::decode(stream)?),
             "symbol" => Self::Symbol(Symbol::decode(stream)?),
             "asset" => Self::Asset(Asset::decode(stream)?),
+            "signature" => Self::Signature(Signature::decode(stream)?),
             _ => { return Err(InvalidValue::InvalidType(typename.to_owned())); },
         })
     }
@@ -441,6 +447,9 @@ pub enum InvalidValue {
 
     #[error("invalid asset")]
     Asset(#[from] InvalidAsset),
+
+    #[error("invalid signature")]
+    Signature(#[from] InvalidSignature),
 
     #[error("stream error")]
     StreamError(#[from] StreamError),
