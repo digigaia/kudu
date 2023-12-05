@@ -6,7 +6,7 @@ use thiserror::Error;
 use bs58;
 use ripemd::{Ripemd160, Digest};
 
-use crate::{AntelopeType, ByteStream, InvalidValue};
+use crate::{ByteStream, InvalidValue};
 
 #[derive(Error, Debug)]
 pub enum InvalidSignature {
@@ -29,6 +29,15 @@ pub enum KeyType {
 }
 
 impl KeyType {
+    pub fn from_index(i: u8) -> Self {
+        match i {
+            0 => Self::K1,
+            1 => Self::R1,
+            2 => Self::WebAuthn,
+            _ => panic!("invalid key type index: {}", i),
+        }
+    }
+
     pub fn index(&self) -> u8 {
         match self {
             Self::K1 => 0,
@@ -77,13 +86,14 @@ impl Signature {
     }
 
     pub fn encode(&self, stream: &mut ByteStream) {
-        todo!()
+        stream.write_byte(self.key_type.index());
+        stream.write_bytes(&self.data);
     }
 
     pub fn decode(stream: &mut ByteStream) -> Result<Self, InvalidValue> {
-        todo!()
-        // let n: usize = AntelopeType::from_bin("uint64", stream)?.try_into()?;
-        // Ok(Name::from_u64(n as u64))
+        let key_type = KeyType::from_index(stream.read_byte()?);
+        let data = stream.read_bytes(65)?.try_into().unwrap();
+        Ok(Self { key_type, data })
     }
 }
 

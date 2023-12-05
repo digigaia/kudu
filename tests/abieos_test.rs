@@ -15,6 +15,9 @@ use antelope::{
 // following tests are coming from                                            //
 // https://github.com/AntelopeIO/abieos/blob/main/src/test.cpp#L577           //
 //                                                                            //
+// to get the hex representation of each test, you need to compile and run    //
+// the `test_abieos` binary from this repo                                    //
+//                                                                            //
 ////////////////////////////////////////////////////////////////////////////////
 
 
@@ -522,11 +525,13 @@ fn try_encode(abi: &ABIEncoder, typename: &str, data: &str) -> Result<()> {
     Ok(())
 }
 
-fn round_trip(abi: &ABIEncoder, typename: &str, data: &str, expected: &str) -> Result<()> {
+fn round_trip(abi: &ABIEncoder, typename: &str, data: &str, hex: &str, expected: &str) -> Result<()> {
     debug!(r#"==== round-tripping type "{typename}" with value {data}"#);
     let mut ds = ByteStream::new();
     let value: Value = serde_json::from_str(data)?;
     abi.encode_variant(&mut ds, typename, &value)?;
+
+    assert_eq!(ds.hex_data(), hex.to_ascii_lowercase());
 
     let decoded = abi.decode_variant(&mut ds, typename)?;
 
@@ -555,16 +560,18 @@ fn check_error<F, T>(f: F, expected_error_msg: &str)
 }
 
 /// check roundtrip JSON -> variant -> bin -> variant -> JSON
-fn check_round_trip(abi: &ABIEncoder, typename: &str, data: &str) {
-    round_trip(abi, typename, data, data).unwrap()
+fn check_round_trip(abi: &ABIEncoder, typename: &str, data: &str, hex: &str) {
+    round_trip(abi, typename, data, hex, data).unwrap()
 }
 
-fn check_round_trip2(abi: &ABIEncoder, typename: &str, data: &str, expected: &str) {
-    round_trip(abi, typename, data, expected).unwrap()
+fn check_round_trip2(abi: &ABIEncoder, typename: &str, data: &str, hex: &str, expected: &str) {
+    round_trip(abi, typename, data, hex, expected).unwrap()
 }
 
+
+///// FIXME FIXME: what about the expected hex?
 fn _check_error_trip(abi: &ABIEncoder, typename: &str, data: &str, error_msg: &str) {
-    check_error(|| round_trip(abi, typename, data, data), error_msg);
+    check_error(|| round_trip(abi, typename, data, "", data), error_msg);
 }
 
 fn str_to_hex(s: &str) -> String {
@@ -604,8 +611,8 @@ fn roundtrip_bool() -> Result<()> {
     let transaction_abi = ABIEncoder::from_abi(&transaction_abi_def);
     let abi = &transaction_abi;
 
-    check_round_trip(abi, "bool", "true");
-    check_round_trip(abi, "bool", "false");
+    check_round_trip(abi, "bool", "true", "01");
+    check_round_trip(abi, "bool", "false", "00");
 
     check_error(|| try_encode(abi, "bool", ""), "cannot parse JSON string");
     check_error(|| try_encode(abi, "bool", "trues"), "cannot parse JSON string");
@@ -624,23 +631,23 @@ fn roundtrip_i8() -> Result<()> {
     let abi = &transaction_abi;
 
 
-    check_round_trip(abi, "int8", "0");
-    check_round_trip(abi, "int8", "127");
-    check_round_trip(abi, "int8", "-128");
-    check_round_trip(abi, "uint8", "0");
-    check_round_trip(abi, "uint8", "1");
-    check_round_trip(abi, "uint8", "254");
-    check_round_trip(abi, "uint8", "255");
+    check_round_trip(abi, "int8", "0", "00");
+    check_round_trip(abi, "int8", "127", "7F");
+    check_round_trip(abi, "int8", "-128", "80");
+    check_round_trip(abi, "uint8", "0", "00");
+    check_round_trip(abi, "uint8", "1", "01");
+    check_round_trip(abi, "uint8", "254", "FE");
+    check_round_trip(abi, "uint8", "255", "FF");
 
     check_error(|| try_encode(abi, "int8", "128"), "integer out of range");
     check_error(|| try_encode(abi, "int8", "-129"), "integer out of range");
     check_error(|| try_encode(abi, "uint8", "-1"), "cannot convert given variant");
     check_error(|| try_encode(abi, "uint8", "256"), "integer out of range");
 
-    check_round_trip(abi, "uint8[]", "[]");
-    check_round_trip(abi, "uint8[]", "[10]");
-    check_round_trip(abi, "uint8[]", "[10,9]");
-    check_round_trip(abi, "uint8[]", "[10,9,8]");
+    check_round_trip(abi, "uint8[]", "[]", "00");
+    check_round_trip(abi, "uint8[]", "[10]", "010A");
+    check_round_trip(abi, "uint8[]", "[10,9]", "020A09");
+    check_round_trip(abi, "uint8[]", "[10,9,8]", "030A0908");
 
     Ok(())
 }
@@ -653,11 +660,11 @@ fn roundtrip_i16() -> Result<()> {
     let transaction_abi = ABIEncoder::from_abi(&transaction_abi_def);
     let abi = &transaction_abi;
 
-    check_round_trip(abi, "int16", "0");
-    check_round_trip(abi, "int16", "32767");
-    check_round_trip(abi, "int16", "-32768");
-    check_round_trip(abi, "uint16", "0");
-    check_round_trip(abi, "uint16", "65535");
+    check_round_trip(abi, "int16", "0", "0000");
+    check_round_trip(abi, "int16", "32767", "FF7F");
+    check_round_trip(abi, "int16", "-32768", "0080");
+    check_round_trip(abi, "uint16", "0", "0000");
+    check_round_trip(abi, "uint16", "65535", "FFFF");
 
     check_error(|| try_encode(abi, "int16", "32768"), "integer out of range");
     check_error(|| try_encode(abi, "int16", "-32769"), "integer out of range");
@@ -676,11 +683,11 @@ fn roundtrip_i32() -> Result<()> {
     let abi = &transaction_abi;
 
 
-    check_round_trip(abi, "int32", "0");
-    check_round_trip(abi, "int32", "2147483647");
-    check_round_trip(abi, "int32", "-2147483648");
-    check_round_trip(abi, "uint32", "0");
-    check_round_trip(abi, "uint32", "4294967295");
+    check_round_trip(abi, "int32", "0", "00000000");
+    check_round_trip(abi, "int32", "2147483647", "FFFFFF7F");
+    check_round_trip(abi, "int32", "-2147483648", "00000080");
+    check_round_trip(abi, "uint32", "0", "00000000");
+    check_round_trip(abi, "uint32", "4294967295", "FFFFFFFF");
 
     check_error(|| try_encode(abi, "int32", "2147483648"), "integer out of range");
     check_error(|| try_encode(abi, "int32", "-2147483649"), "integer out of range");
@@ -699,11 +706,13 @@ fn roundtrip_i64() -> Result<()> {
     let abi = &transaction_abi;
 
 
-    check_round_trip(abi, "int64", "0");
-    check_round_trip(abi, "int64", "9223372036854775807");
-    check_round_trip(abi, "int64", "-9223372036854775808");
-    check_round_trip(abi, "uint64", "0");
-    check_round_trip(abi, "uint64", "18446744073709551615");
+    check_round_trip(abi, "int64", "0", "0000000000000000");
+    check_round_trip(abi, "int64", "1", "0100000000000000");
+    check_round_trip(abi, "int64", "-1", "FFFFFFFFFFFFFFFF");
+    check_round_trip(abi, "int64", "9223372036854775807", "FFFFFFFFFFFFFF7F");
+    check_round_trip(abi, "int64", "-9223372036854775808", "0000000000000080");
+    check_round_trip(abi, "uint64", "0", "0000000000000000");
+    check_round_trip(abi, "uint64", "18446744073709551615", "FFFFFFFFFFFFFFFF");
 
     check_error(|| try_encode(abi, "int64", "9223372036854775808"), "cannot convert given variant");
     check_error(|| try_encode(abi, "int64", "-9223372036854775809"), "cannot convert given variant");
@@ -722,15 +731,18 @@ fn roundtrip_i128() -> Result<()> {
     let abi = &transaction_abi;
 
 
-    check_round_trip(abi, "int128", r#""0""#);
-    check_round_trip(abi, "int128", r#""1""#);
-    check_round_trip(abi, "int128", r#""-1""#);
-    check_round_trip(abi, "int128", r#""18446744073709551615""#);
-    check_round_trip(abi, "int128", r#""-18446744073709551615""#);
-    check_round_trip(abi, "int128", r#""170141183460469231731687303715884105727""#);
-    check_round_trip(abi, "int128", r#""-170141183460469231731687303715884105728""#);
-    check_round_trip(abi, "uint128", r#""0""#);
-    check_round_trip(abi, "uint128", r#""340282366920938463463374607431768211455""#);
+    check_round_trip(abi, "int128", r#""0""#, "00000000000000000000000000000000");
+    check_round_trip(abi, "int128", r#""1""#, "01000000000000000000000000000000");
+    check_round_trip(abi, "int128", r#""-1""#, "FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF");
+    check_round_trip(abi, "int128", r#""18446744073709551615""#, "FFFFFFFFFFFFFFFF0000000000000000");
+    check_round_trip(abi, "int128", r#""-18446744073709551615""#, "0100000000000000FFFFFFFFFFFFFFFF");
+    check_round_trip(abi, "int128", r#""170141183460469231731687303715884105727""#, "FFFFFFFFFFFFFFFFFFFFFFFFFFFFFF7F");
+    check_round_trip(abi, "int128", r#""-170141183460469231731687303715884105727""#, "01000000000000000000000000000080");
+    check_round_trip(abi, "int128", r#""-170141183460469231731687303715884105728""#, "00000000000000000000000000000080");
+    check_round_trip(abi, "uint128", r#""0""#, "00000000000000000000000000000000");
+    check_round_trip(abi, "uint128", r#""18446744073709551615""#, "FFFFFFFFFFFFFFFF0000000000000000");
+    check_round_trip(abi, "uint128", r#""340282366920938463463374607431768211454""#, "FEFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF");
+    check_round_trip(abi, "uint128", r#""340282366920938463463374607431768211455""#, "FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF");
 
     check_error(|| try_encode(abi, "int128", r#""170141183460469231731687303715884105728""#), "invalid integer");
     check_error(|| try_encode(abi, "int128", r#""-170141183460469231731687303715884105729""#), "invalid integer");
@@ -749,30 +761,30 @@ fn roundtrip_varints() -> Result<()> {
     let abi = &transaction_abi;
 
 
-    check_round_trip(abi, "varuint32", "0");
-    check_round_trip(abi, "varuint32", "127");
-    check_round_trip(abi, "varuint32", "128");
-    check_round_trip(abi, "varuint32", "129");
-    check_round_trip(abi, "varuint32", "16383");
-    check_round_trip(abi, "varuint32", "16384");
-    check_round_trip(abi, "varuint32", "16385");
-    check_round_trip(abi, "varuint32", "2097151");
-    check_round_trip(abi, "varuint32", "2097152");
-    check_round_trip(abi, "varuint32", "2097153");
-    check_round_trip(abi, "varuint32", "268435455");
-    check_round_trip(abi, "varuint32", "268435456");
-    check_round_trip(abi, "varuint32", "268435457");
-    check_round_trip(abi, "varuint32", "4294967294");
-    check_round_trip(abi, "varuint32", "4294967295");
+    check_round_trip(abi, "varuint32", "0", "00");
+    check_round_trip(abi, "varuint32", "127", "7F");
+    check_round_trip(abi, "varuint32", "128", "8001");
+    check_round_trip(abi, "varuint32", "129", "8101");
+    check_round_trip(abi, "varuint32", "16383", "FF7F");
+    check_round_trip(abi, "varuint32", "16384", "808001");
+    check_round_trip(abi, "varuint32", "16385", "818001");
+    check_round_trip(abi, "varuint32", "2097151", "FFFF7F");
+    check_round_trip(abi, "varuint32", "2097152", "80808001");
+    check_round_trip(abi, "varuint32", "2097153", "81808001");
+    check_round_trip(abi, "varuint32", "268435455", "FFFFFF7F");
+    check_round_trip(abi, "varuint32", "268435456", "8080808001");
+    check_round_trip(abi, "varuint32", "268435457", "8180808001");
+    check_round_trip(abi, "varuint32", "4294967294", "FEFFFFFF0F");
+    check_round_trip(abi, "varuint32", "4294967295", "FFFFFFFF0F");
 
-    check_round_trip(abi, "varint32", "0");
-    check_round_trip(abi, "varint32", "-1");
-    check_round_trip(abi, "varint32", "1");
-    check_round_trip(abi, "varint32", "-2");
-    check_round_trip(abi, "varint32", "2");
-    check_round_trip(abi, "varint32", "-2147483647");
-    check_round_trip(abi, "varint32", "2147483647");
-    check_round_trip(abi, "varint32", "-2147483648");
+    check_round_trip(abi, "varint32", "0", "00");
+    check_round_trip(abi, "varint32", "-1", "01");
+    check_round_trip(abi, "varint32", "1", "02");
+    check_round_trip(abi, "varint32", "-2", "03");
+    check_round_trip(abi, "varint32", "2", "04");
+    check_round_trip(abi, "varint32", "-2147483647", "FDFFFFFF0F");
+    check_round_trip(abi, "varint32", "2147483647", "FEFFFFFF0F");
+    check_round_trip(abi, "varint32", "-2147483648", "FFFFFFFF0F");
 
     check_error(|| try_encode(abi, "varuint32", "4294967296"), "out of range");
     check_error(|| try_encode(abi, "varuint32", "-1"), "cannot convert given variant");
@@ -791,12 +803,12 @@ fn roundtrip_floats() -> Result<()> {
     let abi = &transaction_abi;
 
 
-    check_round_trip(abi, "float32", "0.0");
-    check_round_trip(abi, "float32", "0.125");
-    check_round_trip(abi, "float32", "-0.125");
-    check_round_trip(abi, "float64", "0.0");
-    check_round_trip(abi, "float64", "0.125");
-    check_round_trip(abi, "float64", "-0.125");
+    check_round_trip(abi, "float32", "0.0", "00000000");
+    check_round_trip(abi, "float32", "0.125", "0000003E");
+    check_round_trip(abi, "float32", "-0.125", "000000BE");
+    check_round_trip(abi, "float64", "0.0", "0000000000000000");
+    check_round_trip(abi, "float64", "0.125", "000000000000C03F");
+    check_round_trip(abi, "float64", "-0.125", "000000000000C0BF");
 
     Ok(())
 }
@@ -811,18 +823,18 @@ fn roundtrip_datetimes() -> Result<()> {
     let abi = &transaction_abi;
 
 
-    check_round_trip(abi, "time_point_sec", r#""1970-01-01T00:00:00.000""#);
-    check_round_trip(abi, "time_point_sec", r#""2018-06-15T19:17:47.000""#);
-    check_round_trip(abi, "time_point_sec", r#""2030-06-15T19:17:47.000""#);
-    check_round_trip(abi, "time_point", r#""1970-01-01T00:00:00.000""#);
-    check_round_trip(abi, "time_point", r#""1970-01-01T00:00:00.001""#);
-    check_round_trip(abi, "time_point", r#""1970-01-01T00:00:00.002""#);
-    check_round_trip(abi, "time_point", r#""1970-01-01T00:00:00.010""#);
-    check_round_trip(abi, "time_point", r#""1970-01-01T00:00:00.100""#);
-    check_round_trip(abi, "time_point", r#""2018-06-15T19:17:47.000""#);
-    check_round_trip(abi, "time_point", r#""2018-06-15T19:17:47.999""#);
-    check_round_trip(abi, "time_point", r#""2030-06-15T19:17:47.999""#);
-    check_round_trip2(abi, "time_point", r#""2000-12-31T23:59:59.999999""#, r#""2000-12-31T23:59:59.999""#);
+    check_round_trip(abi, "time_point_sec", r#""1970-01-01T00:00:00.000""#, "00000000");
+    check_round_trip(abi, "time_point_sec", r#""2018-06-15T19:17:47.000""#, "DB10245B");
+    check_round_trip(abi, "time_point_sec", r#""2030-06-15T19:17:47.000""#, "5B6FB671");
+    check_round_trip(abi, "time_point", r#""1970-01-01T00:00:00.000""#, "0000000000000000");
+    check_round_trip(abi, "time_point", r#""1970-01-01T00:00:00.001""#, "E803000000000000");
+    check_round_trip(abi, "time_point", r#""1970-01-01T00:00:00.002""#, "D007000000000000");
+    check_round_trip(abi, "time_point", r#""1970-01-01T00:00:00.010""#, "1027000000000000");
+    check_round_trip(abi, "time_point", r#""1970-01-01T00:00:00.100""#, "A086010000000000");
+    check_round_trip(abi, "time_point", r#""2018-06-15T19:17:47.000""#, "C0AC3112B36E0500");
+    check_round_trip(abi, "time_point", r#""2018-06-15T19:17:47.999""#, "18EB4012B36E0500");
+    check_round_trip(abi, "time_point", r#""2030-06-15T19:17:47.999""#, "188BB5FC1DC70600");
+    check_round_trip2(abi, "time_point", r#""2000-12-31T23:59:59.999999""#, "FF1F23E5C3790300", r#""2000-12-31T23:59:59.999""#);
 
     Ok(())
 }
@@ -835,9 +847,9 @@ fn roundtrip_bytes() -> Result<()> {
     let transaction_abi = ABIEncoder::from_abi(&transaction_abi_def);
     let abi = &transaction_abi;
 
-    check_round_trip(abi, "bytes", r#""""#);
-    check_round_trip(abi, "bytes", r#""00""#);
-    check_round_trip(abi, "bytes", r#""AABBCCDDEEFF00010203040506070809""#);
+    check_round_trip(abi, "bytes", r#""""#, "00");
+    check_round_trip(abi, "bytes", r#""00""#, "0100");
+    check_round_trip(abi, "bytes", r#""AABBCCDDEEFF00010203040506070809""#, "10AABBCCDDEEFF00010203040506070809");
 
     check_error(|| try_encode(abi, "bytes", r#""0""#), "odd number of chars");
     check_error(|| try_encode(abi, "bytes", r#""yz""#), "invalid hex character");
@@ -853,9 +865,9 @@ fn roundtrip_symbol() -> Result<()> {
     let transaction_abi = ABIEncoder::from_abi(&transaction_abi_def);
     let abi = &transaction_abi;
 
-    check_round_trip(abi, "symbol", r#""0,A""#);
-    check_round_trip(abi, "symbol", r#""1,Z""#);
-    check_round_trip(abi, "symbol", r#""4,SYS""#);
+    check_round_trip(abi, "symbol", r#""0,A""#, "0041000000000000");
+    check_round_trip(abi, "symbol", r#""1,Z""#, "015A000000000000");
+    check_round_trip(abi, "symbol", r#""4,SYS""#, "0453595300000000");
 
     Ok(())
 }
@@ -868,18 +880,18 @@ fn roundtrip_asset() -> Result<()> {
     let transaction_abi = ABIEncoder::from_abi(&transaction_abi_def);
     let abi = &transaction_abi;
 
-    check_round_trip(abi, "asset", r#""0 FOO""#);
-    check_round_trip(abi, "asset", r#""0.0 FOO""#);
-    check_round_trip(abi, "asset", r#""0.00 FOO""#);
-    check_round_trip(abi, "asset", r#""0.000 FOO""#);
-    check_round_trip(abi, "asset", r#""1.2345 SYS""#);
-    check_round_trip(abi, "asset", r#""-1.2345 SYS""#);
+    check_round_trip(abi, "asset", r#""0 FOO""#, "000000000000000000464F4F00000000");
+    check_round_trip(abi, "asset", r#""0.0 FOO""#, "000000000000000001464F4F00000000");
+    check_round_trip(abi, "asset", r#""0.00 FOO""#, "000000000000000002464F4F00000000");
+    check_round_trip(abi, "asset", r#""0.000 FOO""#, "000000000000000003464F4F00000000");
+    check_round_trip(abi, "asset", r#""1.2345 SYS""#, "39300000000000000453595300000000");
+    check_round_trip(abi, "asset", r#""-1.2345 SYS""#, "C7CFFFFFFFFFFFFF0453595300000000");
 
-    check_round_trip(abi, "asset[]", r#"[]"#);
-    check_round_trip(abi, "asset[]", r#"["0 FOO"]"#);
-    check_round_trip(abi, "asset[]", r#"["0 FOO","0.000 FOO"]"#);
-    check_round_trip(abi, "asset?", r#"null"#);
-    check_round_trip(abi, "asset?", r#""0.123456 SIX""#);
+    check_round_trip(abi, "asset[]", r#"[]"#, "00");
+    check_round_trip(abi, "asset[]", r#"["0 FOO"]"#, "01000000000000000000464F4F00000000");
+    check_round_trip(abi, "asset[]", r#"["0 FOO","0.000 FOO"]"#, "02000000000000000000464F4F00000000000000000000000003464F4F00000000");
+    check_round_trip(abi, "asset?", r#"null"#, "00");
+    check_round_trip(abi, "asset?", r#""0.123456 SIX""#, "0140E20100000000000653495800000000");
 
     Ok(())
 }
@@ -894,25 +906,32 @@ fn roundtrip_transaction() -> Result<()> {
     let packed_trx_abi_def = ABIDefinition::from_str(PACKED_TRANSACTION_ABI)?;
     let packed_trx_abi = &ABIEncoder::from_abi(&packed_trx_abi_def);
 
-    check_round_trip(token_abi, "transfer", r#"{"from":"useraaaaaaaa","to":"useraaaaaaab","quantity":"0.0001 SYS","memo":"test memo"}"#);
+    check_round_trip(token_abi, "transfer",
+                     r#"{"from":"useraaaaaaaa","to":"useraaaaaaab","quantity":"0.0001 SYS","memo":"test memo"}"#,
+                     "608C31C6187315D6708C31C6187315D6010000000000000004535953000000000974657374206D656D6F");
 
-    check_round_trip(trx_abi, "transaction", r#"{"expiration":"2009-02-13T23:31:31.000","ref_block_num":1234,"ref_block_prefix":5678,"max_net_usage_words":0,"max_cpu_usage_ms":0,"delay_sec":0,"context_free_actions":[],"actions":[{"account":"eosio.token","name":"transfer","authorization":[{"actor":"useraaaaaaaa","permission":"active"}],"data":"608C31C6187315D6708C31C6187315D60100000000000000045359530000000000"}],"transaction_extensions":[]}"#);
+    check_round_trip(trx_abi, "transaction",
+                     r#"{"expiration":"2009-02-13T23:31:31.000","ref_block_num":1234,"ref_block_prefix":5678,"max_net_usage_words":0,"max_cpu_usage_ms":0,"delay_sec":0,"context_free_actions":[],"actions":[{"account":"eosio.token","name":"transfer","authorization":[{"actor":"useraaaaaaaa","permission":"active"}],"data":"608C31C6187315D6708C31C6187315D60100000000000000045359530000000000"}],"transaction_extensions":[]}"#,
+                     "D3029649D2042E160000000000000100A6823403EA3055000000572D3CCDCD01608C31C6187315D600000000A8ED323221608C31C6187315D6708C31C6187315D6010000000000000004535953000000000000");
 
     check_round_trip2(
         token_abi, "transfer",
         r#"{"to":"useraaaaaaab","memo":"test memo","from":"useraaaaaaaa","quantity":"0.0001 SYS"}"#,
+        "608C31C6187315D6708C31C6187315D6010000000000000004535953000000000974657374206D656D6F",
         r#"{"from":"useraaaaaaaa","to":"useraaaaaaab","quantity":"0.0001 SYS","memo":"test memo"}"#,
     );
 
     check_round_trip2(
         trx_abi, "transaction",
         r#"{"ref_block_num":1234,"ref_block_prefix":5678,"expiration":"2009-02-13T23:31:31.000","max_net_usage_words":0,"max_cpu_usage_ms":0,"delay_sec":0,"context_free_actions":[],"actions":[{"account":"eosio.token","name":"transfer","authorization":[{"actor":"useraaaaaaaa","permission":"active"}],"data":"608C31C6187315D6708C31C6187315D60100000000000000045359530000000000"}],"transaction_extensions":[]}"#,
+        "D3029649D2042E160000000000000100A6823403EA3055000000572D3CCDCD01608C31C6187315D600000000A8ED323221608C31C6187315D6708C31C6187315D6010000000000000004535953000000000000",
         r#"{"expiration":"2009-02-13T23:31:31.000","ref_block_num":1234,"ref_block_prefix":5678,"max_net_usage_words":0,"max_cpu_usage_ms":0,"delay_sec":0,"context_free_actions":[],"actions":[{"account":"eosio.token","name":"transfer","authorization":[{"actor":"useraaaaaaaa","permission":"active"}],"data":"608C31C6187315D6708C31C6187315D60100000000000000045359530000000000"}],"transaction_extensions":[]}"#,
     );
 
     check_round_trip(
         packed_trx_abi, "packed_transaction_v0",
-        r#"{"signatures":["SIG_K1_K5PGhrkUBkThs8zdTD9mGUJZvxL4eU46UjfYJSEdZ9PXS2Cgv5jAk57yTx4xnrdSocQm6DDvTaEJZi5WLBsoZC4XYNS8b3"],"compression":0,"packed_context_free_data":"","packed_trx":{"expiration":"2009-02-13T23:31:31.000","ref_block_num":1234,"ref_block_prefix":5678,"max_net_usage_words":0,"max_cpu_usage_ms":0,"delay_sec":0,"context_free_actions":[],"actions":[{"account":"eosio.token","name":"transfer","authorization":[{"actor":"useraaaaaaaa","permission":"active"}],"data":"608C31C6187315D6708C31C6187315D60100000000000000045359530000000000"}],"transaction_extensions":[]}}"#
+        r#"{"signatures":["SIG_K1_K5PGhrkUBkThs8zdTD9mGUJZvxL4eU46UjfYJSEdZ9PXS2Cgv5jAk57yTx4xnrdSocQm6DDvTaEJZi5WLBsoZC4XYNS8b3"],"compression":0,"packed_context_free_data":"","packed_trx":{"expiration":"2009-02-13T23:31:31.000","ref_block_num":1234,"ref_block_prefix":5678,"max_net_usage_words":0,"max_cpu_usage_ms":0,"delay_sec":0,"context_free_actions":[],"actions":[{"account":"eosio.token","name":"transfer","authorization":[{"actor":"useraaaaaaaa","permission":"active"}],"data":"608C31C6187315D6708C31C6187315D60100000000000000045359530000000000"}],"transaction_extensions":[]}}"#,
+        "01001F4D6C791D32E38CA1A0A5F3139B8D1D521B641FE2EE675311FCA4C755ACDFCA2D13FE4DEE9953D2504FCB4382EEACBCEF90E3E8034BDD32EBA11F1904419DF6AF0000D3029649D2042E160000000000000100A6823403EA3055000000572D3CCDCD01608C31C6187315D600000000A8ED323221608C31C6187315D6708C31C6187315D6010000000000000004535953000000000000"
     );
 
     Ok(())

@@ -3,6 +3,7 @@ use std::fmt::Display;
 use serde_json::json;
 // use anyhow::Result;
 use color_eyre::eyre::Result;
+use chrono::NaiveDate;
 
 use antelope::abi::*;
 use antelope::{
@@ -160,6 +161,13 @@ fn test_serialize_struct() {
     // assert_eq!(dec.to_string(), r#"{"one":"one","two":2,"three":"two","four":["f","o","u","r"]}"#);
 }
 
+
+////////////////////////////////////////////////////////////////////////////////
+//                                                                            //
+// following tests come from:                                                 //
+// https://github.com/FACINGS/pyntelope/blob/main/tests/unit/types_test.py    //
+//                                                                            //
+////////////////////////////////////////////////////////////////////////////////
 
 fn test_serialize<T, const N: usize, const M: usize, F>(vals: [(T, &[u8; N]); M], convert: F)
 where
@@ -411,6 +419,43 @@ fn test_string() {
         AntelopeType::String(val.to_string()).to_bin(&mut ds);
         assert_eq!(ds.data(), *repr);
     }
+}
+
+#[test]
+fn test_time_point_sec() -> Result<()> {
+    fn dt(year: i32, month: u32, day: u32, hour: u32, min: u32, sec: u32) -> u32 {
+        NaiveDate::from_ymd_opt(year, month, day).unwrap().and_hms_opt(hour, min, sec).unwrap().timestamp() as u32
+    }
+
+    let vals = [
+        (dt(1970, 1, 1, 0, 0, 0), b"\x00\x00\x00\x00"),
+        (dt(2040, 12, 31, 23, 59, 0), b"\x44\x03\x8D\x85"),
+        (dt(2021, 8, 26, 14, 1, 47), b"\xCB\x9E\x27\x61"),
+        (NaiveDate::from_ymd_opt(2021, 8, 26).unwrap().and_hms_micro_opt(14, 1, 47, 184549).unwrap().timestamp() as u32,  b"\xCB\x9E\x27\x61"),
+    ];
+
+    test_serialize(vals, AntelopeType::TimePointSec);
+    Ok(())
+}
+
+#[test]
+fn test_time_point() -> Result<()> {
+    fn dt(year: i32, month: u32, day: u32, hour: u32, min: u32, sec: u32, micro: u32) -> i64 {
+        NaiveDate::from_ymd_opt(year, month, day).unwrap().and_hms_micro_opt(hour, min, sec, micro).unwrap().timestamp_micros()
+    }
+
+    let vals = [
+        (dt(1970, 1, 1, 0, 0, 0, 0), b"\x00\x00\x00\x00\x00\x00\x00\x00"),
+        (dt(1970, 1, 1, 0, 0, 0, 1000), b"\xe8\x03\x00\x00\x00\x00\x00\x00"),
+        (dt(1970, 1, 1, 0, 0, 0, 2000), b"\xd0\x07\x00\x00\x00\x00\x00\x00"),
+        (dt(1970, 1, 1, 0, 0, 0, 3000), b"\xb8\x0b\x00\x00\x00\x00\x00\x00"),
+        (dt(1970, 1, 1, 0, 0, 1, 0), b"@B\x0f\x00\x00\x00\x00\x00"),
+        (dt(2040, 12, 31, 23, 59, 0, 0), b"\x00Y\x14\xef\xd2\xf5\x07\x00"),
+        (dt(2021, 8, 26, 14, 1, 47, 0), b"\xc0\x08\xbd\xcev\xca\x05\x00"),
+    ];
+
+    test_serialize(vals, AntelopeType::TimePoint);
+    Ok(())
 }
 
 #[test]
