@@ -920,6 +920,9 @@ fn roundtrip_symbol() -> Result<()> {
     let transaction_abi = ABIEncoder::from_abi(&transaction_abi_def);
     let abi = &transaction_abi;
 
+    check_round_trip(abi, "symbol_code", r#""A""#, "4100000000000000");
+    check_round_trip(abi, "symbol_code", r#""B""#, "4200000000000000");
+    check_round_trip(abi, "symbol_code", r#""SYS""#, "5359530000000000");
     check_round_trip(abi, "symbol", r#""0,A""#, "0041000000000000");
     check_round_trip(abi, "symbol", r#""1,Z""#, "015A000000000000");
     check_round_trip(abi, "symbol", r#""4,SYS""#, "0453595300000000");

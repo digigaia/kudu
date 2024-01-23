@@ -4,7 +4,7 @@ pub mod asset;
 pub mod crypto;
 
 pub use name::{Name, InvalidName};
-pub use symbol::{Symbol, InvalidSymbol};
+pub use symbol::{Symbol, InvalidSymbol, string_to_symbol_code, symbol_code_to_string};
 pub use asset::{Asset, InvalidAsset};
 pub use crypto::{Signature, InvalidSignature};
 
@@ -56,6 +56,7 @@ pub enum AntelopeType {
     BlockTimestampType(u32),
 
     Name(Name),
+    SymbolCode(u64),
     Symbol(Symbol),
     Asset(Asset),
 
@@ -87,6 +88,7 @@ impl AntelopeType {
             "time_point_sec" => Self::TimePointSec(parse_date(repr)?.timestamp() as u32),
             "block_timestamp_type" => Self::BlockTimestampType(timestamp_to_block_slot(&parse_date(repr)?)),
             "name" => Self::Name(Name::from_str(repr)?),
+            "symbol_code" => Self::SymbolCode(string_to_symbol_code(repr.as_bytes())?),
             "symbol" => Self::Symbol(Symbol::from_str(repr)?),
             "asset" => Self::Asset(Asset::from_str(repr)?),
             "signature" => Self::Signature(Signature::from_str(repr)?),
@@ -128,6 +130,7 @@ impl AntelopeType {
                 json!(format!("{}", dt.format(DATE_FORMAT)))
             }
             Self::Name(name) => json!(name.to_string()),
+            Self::SymbolCode(sym) => json!(symbol_code_to_string(*sym)),
             Self::Symbol(sym) => json!(sym.to_string()),
             Self::Asset(asset) => json!(asset.to_string()),
             Self::Signature(sig) => json!(sig.to_string()),
@@ -170,6 +173,7 @@ impl AntelopeType {
             },
             "name" => Self::from_str("name", v.as_str().ok_or_else(incompatible_types)?)?,
             "symbol" => Self::from_str("symbol", v.as_str().ok_or_else(incompatible_types)?)?,
+            "symbol_code" => Self::from_str("symbol_code", v.as_str().ok_or_else(incompatible_types)?)?,
             "asset" => Self::from_str("asset", v.as_str().ok_or_else(incompatible_types)?)?,
             "signature" => Self::from_str("signature", v.as_str().ok_or_else(incompatible_types)?)?,
             _ => { return Err(InvalidValue::InvalidType(typename.to_owned())); },
@@ -209,6 +213,7 @@ impl AntelopeType {
             Self::BlockTimestampType(t) => stream.write_bytes(cast_ref::<u32, [u8; 4]>(&t)),
             Self::Name(name) => name.encode(stream),
             Self::Symbol(sym) => sym.encode(stream),
+            Self::SymbolCode(sym) => stream.write_bytes(cast_ref::<u64, [u8; 8]>(&sym)),
             Self::Asset(asset) => asset.encode(stream),
             Self::Signature(sig) => sig.encode(stream),
         }
@@ -242,6 +247,7 @@ impl AntelopeType {
             "block_timestamp_type" => Self::BlockTimestampType(pod_read_unaligned(stream.read_bytes(4)?)),
             "name" => Self::Name(Name::decode(stream)?),
             "symbol" => Self::Symbol(Symbol::decode(stream)?),
+            "symbol_code" => Self::SymbolCode(pod_read_unaligned(stream.read_bytes(8)?)),
             "asset" => Self::Asset(Asset::decode(stream)?),
             "signature" => Self::Signature(Signature::decode(stream)?),
             _ => { return Err(InvalidValue::InvalidType(typename.to_owned())); },

@@ -84,15 +84,7 @@ impl Symbol {
     }
 
     pub fn name(&self) -> String {
-        let mut v: u64 = self.value;
-        let mut result = String::new();
-        v >>= 8;
-        while v != 0 {
-            let c = (v & 0xFF) as u8;
-            result.push(c as char);
-            v >>= 8;
-        }
-        result
+        symbol_code_to_string(self.value >> 8)
     }
 
     // useless for now, this has been verified during construction with from_str
@@ -167,7 +159,7 @@ impl<'de> Deserialize<'de> for Symbol {
 }
 
 // see ref implementation in AntelopeIO/leap/libraries/chain/symbol.{hpp,cpp}
-fn string_to_symbol(precision: u8, s: &[u8]) -> Result<u64, InvalidSymbol> {
+pub fn string_to_symbol_code(s: &[u8]) -> Result<u64, InvalidSymbol> {
     let mut result: u64 = 0;
     if s.is_empty() { return Err(InvalidSymbol::Empty); }
 
@@ -176,10 +168,25 @@ fn string_to_symbol(precision: u8, s: &[u8]) -> Result<u64, InvalidSymbol> {
 
     for i in 0..s.len() {
         if !(s[i] >= b'A' && s[i] <= b'Z') { return Err(InvalidSymbol::InvalidChar(name, s[i] as char)); } //, "invalid character in symbol name");
-        result = result | ((s[i] as u64) << (8 * (i+1)));
+        result = result | ((s[i] as u64) << (8 * i));
     }
-    Ok(result | (precision as u64))
+    Ok(result)
 }
+
+fn string_to_symbol(precision: u8, s: &[u8]) -> Result<u64, InvalidSymbol> {
+    Ok(string_to_symbol_code(s)? << 8 | (precision as u64))
+}
+
+pub fn symbol_code_to_string(value: u64) -> String {
+        let mut v: u64 = value;
+        let mut result = String::new();
+        while v != 0 {
+            let c = (v & 0xFF) as u8;
+            result.push(c as char);
+            v >>= 8;
+        }
+        result
+    }
 
 
 #[cfg(test)]
