@@ -20,6 +20,27 @@ use antelope::{
 //                                                                            //
 ////////////////////////////////////////////////////////////////////////////////
 
+////////////////////////////////////////////////////////////////////////////////
+//                                                                            //
+// TODO: MISSING TYPES                                                        //
+//  - f128                                                                    //
+//  - string                                                                  //
+//  - checksum{160,256,512}                                                   //
+//  - public_key                                                              //
+//  - private_key                                                             //
+//  - signature                                                               //
+//  - symbol_code                                                             //
+//  - extended_asset                                                          //
+//  - transaction_trace                                                       //
+//  - transaction_trace_msg                                                   //
+//  -                                                                         //
+
+// implement .prefix() for name type
+// check unittests and validity of non-normalized names
+
+//                                                                            //
+////////////////////////////////////////////////////////////////////////////////
+
 
 static TEST_ABI: &str = r#"{
     "version": "eosio::abi/1.1",
@@ -809,6 +830,8 @@ fn roundtrip_floats() -> Result<()> {
     check_round_trip(abi, "float64", "0.0", "0000000000000000");
     check_round_trip(abi, "float64", "0.125", "000000000000C03F");
     check_round_trip(abi, "float64", "-0.125", "000000000000C0BF");
+    check_round_trip2(abi, "float64", "151115727451828646838272.0", "000000000000C044", "1.5111572745182865e23");
+    check_round_trip2(abi, "float64", "-151115727451828646838272.0", "000000000000C0C4", "-1.5111572745182865e23");
 
     Ok(())
 }
@@ -826,6 +849,7 @@ fn roundtrip_datetimes() -> Result<()> {
     check_round_trip(abi, "time_point_sec", r#""1970-01-01T00:00:00.000""#, "00000000");
     check_round_trip(abi, "time_point_sec", r#""2018-06-15T19:17:47.000""#, "DB10245B");
     check_round_trip(abi, "time_point_sec", r#""2030-06-15T19:17:47.000""#, "5B6FB671");
+
     check_round_trip(abi, "time_point", r#""1970-01-01T00:00:00.000""#, "0000000000000000");
     check_round_trip(abi, "time_point", r#""1970-01-01T00:00:00.001""#, "E803000000000000");
     check_round_trip(abi, "time_point", r#""1970-01-01T00:00:00.002""#, "D007000000000000");
@@ -835,6 +859,37 @@ fn roundtrip_datetimes() -> Result<()> {
     check_round_trip(abi, "time_point", r#""2018-06-15T19:17:47.999""#, "18EB4012B36E0500");
     check_round_trip(abi, "time_point", r#""2030-06-15T19:17:47.999""#, "188BB5FC1DC70600");
     check_round_trip2(abi, "time_point", r#""2000-12-31T23:59:59.999999""#, "FF1F23E5C3790300", r#""2000-12-31T23:59:59.999""#);
+
+    check_round_trip(abi, "block_timestamp_type", r#""2000-01-01T00:00:00.000""#, "00000000");
+    check_round_trip(abi, "block_timestamp_type", r#""2000-01-01T00:00:00.500""#, "01000000");
+    check_round_trip(abi, "block_timestamp_type", r#""2000-01-01T00:00:01.000""#, "02000000");
+    check_round_trip(abi, "block_timestamp_type", r#""2018-06-15T19:17:47.500""#, "B79A6D45");
+    check_round_trip(abi, "block_timestamp_type", r#""2018-06-15T19:17:48.000""#, "B89A6D45");
+
+    check_error(|| try_encode(abi, "time_point_sec", "true"), "cannot convert given variant");
+    check_error(|| try_encode(abi, "time_point", "true"), "cannot convert given variant");
+    check_error(|| try_encode(abi, "block_timestamp_type", "true"), "cannot convert given variant");
+
+    Ok(())
+}
+
+#[test]
+fn roundtrip_names() -> Result<()> {
+    init();
+
+    let transaction_abi_def = ABIDefinition::from_str(TRANSACTION_ABI)?;
+    let transaction_abi = ABIEncoder::from_abi(&transaction_abi_def);
+    let abi = &transaction_abi;
+
+    check_round_trip(abi, "name", r#""""#, "0000000000000000");
+    check_round_trip(abi, "name", r#""1""#, "0000000000000008");
+    check_round_trip(abi, "name", r#""abcd""#, "000000000090D031");
+    check_round_trip(abi, "name", r#""ab.cd.ef""#, "0000004B8184C031");
+    check_round_trip(abi, "name", r#""ab.cd.ef.1234""#, "3444004B8184C031");
+    // check_round_trip2(abi, "name", r#""..ab.cd.ef..""#, "00C0522021700C00", r#""..ab.cd.ef""#);
+    check_round_trip(abi, "name", r#""zzzzzzzzzzzz""#, "F0FFFFFFFFFFFFFF");
+
+    // check_error(|| try_encode(abi, "bytes", r#""0""#), "odd number of chars");
 
     Ok(())
 }
@@ -890,7 +945,7 @@ fn roundtrip_asset() -> Result<()> {
     check_round_trip(abi, "asset[]", r#"[]"#, "00");
     check_round_trip(abi, "asset[]", r#"["0 FOO"]"#, "01000000000000000000464F4F00000000");
     check_round_trip(abi, "asset[]", r#"["0 FOO","0.000 FOO"]"#, "02000000000000000000464F4F00000000000000000000000003464F4F00000000");
-    check_round_trip(abi, "asset?", r#"null"#, "00");
+    check_round_trip(abi, "asset?", "null", "00");
     check_round_trip(abi, "asset?", r#""0.123456 SIX""#, "0140E20100000000000653495800000000");
 
     Ok(())

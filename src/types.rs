@@ -17,7 +17,7 @@ use thiserror::Error;
 use strum::EnumVariantNames;
 use chrono::{NaiveDateTime, ParseError as ChronoParseError};
 
-use super::{ByteStream, StreamError, bin_to_hex, hex_to_bin};
+use super::{ByteStream, StreamError, bin_to_hex, hex_to_bin, config};
 
 const DATE_FORMAT: &str = "%Y-%m-%dT%H:%M:%S%.3f";
 
@@ -53,6 +53,7 @@ pub enum AntelopeType {
 
     TimePoint(i64),
     TimePointSec(u32),
+    BlockTimestampType(u32),
 
     Name(Name),
     Symbol(Symbol),
@@ -60,6 +61,7 @@ pub enum AntelopeType {
 
     Signature(Signature),
 }
+
 
 impl AntelopeType {
     pub fn from_str(typename: &str, repr: &str) -> Result<Self, InvalidValue> {
@@ -83,6 +85,7 @@ impl AntelopeType {
             "string" => Self::String(repr.to_owned()),
             "time_point" => Self::TimePoint(parse_date(repr)?.timestamp_micros()),
             "time_point_sec" => Self::TimePointSec(parse_date(repr)?.timestamp() as u32),
+            "block_timestamp_type" => Self::BlockTimestampType(timestamp_to_block_slot(&parse_date(repr)?)),
             "name" => Self::Name(Name::from_str(repr)?),
             "symbol" => Self::Symbol(Symbol::from_str(repr)?),
             "asset" => Self::Asset(Asset::from_str(repr)?),
@@ -118,6 +121,12 @@ impl AntelopeType {
                 let dt = NaiveDateTime::from_timestamp_micros(*t as i64 * 1_000_000).unwrap();
                 json!(format!("{}", dt.format(DATE_FORMAT)))
             },
+            Self::BlockTimestampType(t) => {
+                let dt = NaiveDateTime::from_timestamp_micros(
+                    ((*t as i64 * config::BLOCK_INTERVAL_MS as i64) + config::BLOCK_TIMESTAMP_EPOCH as i64) * 1000
+                ).unwrap();
+                json!(format!("{}", dt.format(DATE_FORMAT)))
+            }
             Self::Name(name) => json!(name.to_string()),
             Self::Symbol(sym) => json!(sym.to_string()),
             Self::Asset(asset) => json!(asset.to_string()),
@@ -154,6 +163,10 @@ impl AntelopeType {
             "time_point_sec" => {
                 let dt = parse_date(v.as_str().ok_or_else(incompatible_types)?)?;
                 Self::TimePointSec(dt.timestamp() as u32)
+            },
+            "block_timestamp_type" => {
+                let dt = parse_date(v.as_str().ok_or_else(incompatible_types)?)?;
+                Self::BlockTimestampType(timestamp_to_block_slot(&dt))
             },
             "name" => Self::from_str("name", v.as_str().ok_or_else(incompatible_types)?)?,
             "symbol" => Self::from_str("symbol", v.as_str().ok_or_else(incompatible_types)?)?,
@@ -193,6 +206,7 @@ impl AntelopeType {
             },
             Self::TimePoint(t) => stream.write_bytes(cast_ref::<i64, [u8; 8]>(&t)),
             Self::TimePointSec(t) => stream.write_bytes(cast_ref::<u32, [u8; 4]>(&t)),
+            Self::BlockTimestampType(t) => stream.write_bytes(cast_ref::<u32, [u8; 4]>(&t)),
             Self::Name(name) => name.encode(stream),
             Self::Symbol(sym) => sym.encode(stream),
             Self::Asset(asset) => asset.encode(stream),
@@ -225,6 +239,7 @@ impl AntelopeType {
             "string" => Self::String(read_str(stream)?.to_owned()),
             "time_point" => Self::TimePoint(pod_read_unaligned(stream.read_bytes(8)?)),
             "time_point_sec" => Self::TimePointSec(pod_read_unaligned(stream.read_bytes(4)?)),
+            "block_timestamp_type" => Self::BlockTimestampType(pod_read_unaligned(stream.read_bytes(4)?)),
             "name" => Self::Name(Name::decode(stream)?),
             "symbol" => Self::Symbol(Symbol::decode(stream)?),
             "asset" => Self::Asset(Asset::decode(stream)?),
@@ -232,6 +247,13 @@ impl AntelopeType {
             _ => { return Err(InvalidValue::InvalidType(typename.to_owned())); },
         })
     }
+}
+
+
+fn timestamp_to_block_slot(dt: &NaiveDateTime) -> u32 {
+    let ms_since_epoch = (dt.timestamp_micros() / 1000) as u64 - config::BLOCK_TIMESTAMP_EPOCH;
+    let result = ms_since_epoch / (config::BLOCK_INTERVAL_MS as u64);
+    result as u32
 }
 
 

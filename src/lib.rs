@@ -1,3 +1,4 @@
+pub mod config;
 pub mod abi;
 pub mod base64u;
 pub mod types;

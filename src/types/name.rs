@@ -201,7 +201,7 @@ mod tests {
         ];
 
         for n in names {
-            assert!(Name::from_str(n).is_err());
+            assert!(Name::from_str(n).is_err(), "Name \"{}\" should fail constructing but does not", n);
         }
     }
 
