@@ -23,6 +23,8 @@
 
 - check that bin encoding for Bytes is correct (len as varuint32?)
 
+- move all bin_to_hex and hex_to_bin functions into a dedicated hexutils crate (with dedicated error type)
+
 - check whether we can fix this test for abieos float printing:
   `check_round_trip2(abi, "float64", "151115727451828646838272.0", "000000000000C044", "151115727451828650000000"`
 

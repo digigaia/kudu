@@ -226,6 +226,18 @@ pub fn hex_to_bin(s: &str) -> Result<Vec<u8>, StreamError> {
     }
 }
 
+pub fn hex_to_boxed_array<const N: usize>(s: &str) -> Result<Box<[u8; N]>, StreamError> {
+    if s.len() != 2 * N {
+        return Err(StreamError::OddLength); // FIXME: wrong error type, need a new one
+    }
+
+    let mut result = [0_u8; N];
+    for i in 0..N {
+        result[i] = u8::from_str_radix(&s[2*i..2*(i+1)], 16)?;
+    }
+    Ok(Box::new(result))
+}
+
 pub fn bin_to_hex(data: &[u8]) -> String {
     let mut result = String::with_capacity(2 * data.len());
     for byte in data {

@@ -913,6 +913,36 @@ fn roundtrip_bytes() -> Result<()> {
 }
 
 #[test]
+fn roundtrip_crypto_types() -> Result<()> {
+    init();
+
+    let transaction_abi_def = ABIDefinition::from_str(TRANSACTION_ABI)?;
+    let transaction_abi = ABIEncoder::from_abi(&transaction_abi_def);
+    let abi = &transaction_abi;
+
+    check_round_trip(abi, "checksum160",
+                     r#""0000000000000000000000000000000000000000""#,
+                     "0000000000000000000000000000000000000000");
+    check_round_trip(abi, "checksum160",
+                     r#""123456789abcdef01234567890abcdef70123456""#,
+                     "123456789abcdef01234567890abcdef70123456");
+    check_round_trip(abi, "checksum256",
+                     r#""0000000000000000000000000000000000000000000000000000000000000000""#,
+                     "0000000000000000000000000000000000000000000000000000000000000000");
+    check_round_trip(abi, "checksum256",
+                     r#""0987654321abcdef0987654321ffff1234567890abcdef001234567890abcdef""#,
+                     "0987654321abcdef0987654321ffff1234567890abcdef001234567890abcdef");
+    check_round_trip(abi, "checksum512",
+                     r#""00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000""#,
+                     "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000");
+    check_round_trip(abi, "checksum512",
+                     r#""0987654321abcdef0987654321ffff1234567890abcdef001234567890abcdef0987654321abcdef0987654321ffff1234567890abcdef001234567890abcdef""#,
+                     "0987654321abcdef0987654321ffff1234567890abcdef001234567890abcdef0987654321abcdef0987654321ffff1234567890abcdef001234567890abcdef");
+
+    Ok(())
+}
+
+#[test]
 fn roundtrip_symbol() -> Result<()> {
     init();
 

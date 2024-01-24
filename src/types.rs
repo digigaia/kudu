@@ -8,6 +8,7 @@ pub use symbol::{Symbol, InvalidSymbol, string_to_symbol_code, symbol_code_to_st
 pub use asset::{Asset, InvalidAsset};
 pub use crypto::{Signature, InvalidSignature};
 
+use std::array::TryFromSliceError;
 use std::num::{ParseFloatError, ParseIntError, TryFromIntError};
 use std::str::{from_utf8, Utf8Error, ParseBoolError};
 
@@ -17,7 +18,7 @@ use thiserror::Error;
 use strum::EnumVariantNames;
 use chrono::{NaiveDateTime, ParseError as ChronoParseError};
 
-use super::{ByteStream, StreamError, bin_to_hex, hex_to_bin, config};
+use super::{ByteStream, StreamError, bin_to_hex, hex_to_bin, hex_to_boxed_array, config};
 
 const DATE_FORMAT: &str = "%Y-%m-%dT%H:%M:%S%.3f";
 
@@ -55,6 +56,10 @@ pub enum AntelopeType {
     TimePointSec(u32),
     BlockTimestampType(u32),
 
+    Checksum160(Box<[u8; 20]>),
+    Checksum256(Box<[u8; 32]>),
+    Checksum512(Box<[u8; 64]>),
+
     Name(Name),
     SymbolCode(u64),
     Symbol(Symbol),
@@ -87,6 +92,9 @@ impl AntelopeType {
             "time_point" => Self::TimePoint(parse_date(repr)?.timestamp_micros()),
             "time_point_sec" => Self::TimePointSec(parse_date(repr)?.timestamp() as u32),
             "block_timestamp_type" => Self::BlockTimestampType(timestamp_to_block_slot(&parse_date(repr)?)),
+            "checksum160" => Self::Checksum160(hex_to_boxed_array(repr)?),
+            "checksum256" => Self::Checksum256(hex_to_boxed_array(repr)?),
+            "checksum512" => Self::Checksum512(hex_to_boxed_array(repr)?),
             "name" => Self::Name(Name::from_str(repr)?),
             "symbol_code" => Self::SymbolCode(string_to_symbol_code(repr.as_bytes())?),
             "symbol" => Self::Symbol(Symbol::from_str(repr)?),
@@ -129,6 +137,9 @@ impl AntelopeType {
                 ).unwrap();
                 json!(format!("{}", dt.format(DATE_FORMAT)))
             }
+            Self::Checksum160(c) => json!(bin_to_hex(&c[..])),
+            Self::Checksum256(c) => json!(bin_to_hex(&c[..])),
+            Self::Checksum512(c) => json!(bin_to_hex(&c[..])),
             Self::Name(name) => json!(name.to_string()),
             Self::SymbolCode(sym) => json!(symbol_code_to_string(*sym)),
             Self::Symbol(sym) => json!(sym.to_string()),
@@ -171,6 +182,9 @@ impl AntelopeType {
                 let dt = parse_date(v.as_str().ok_or_else(incompatible_types)?)?;
                 Self::BlockTimestampType(timestamp_to_block_slot(&dt))
             },
+            "checksum160" => Self::Checksum160(hex_to_boxed_array(v.as_str().ok_or_else(incompatible_types)?)?),
+            "checksum256" => Self::Checksum256(hex_to_boxed_array(v.as_str().ok_or_else(incompatible_types)?)?),
+            "checksum512" => Self::Checksum512(hex_to_boxed_array(v.as_str().ok_or_else(incompatible_types)?)?),
             "name" => Self::from_str("name", v.as_str().ok_or_else(incompatible_types)?)?,
             "symbol" => Self::from_str("symbol", v.as_str().ok_or_else(incompatible_types)?)?,
             "symbol_code" => Self::from_str("symbol_code", v.as_str().ok_or_else(incompatible_types)?)?,
@@ -211,6 +225,9 @@ impl AntelopeType {
             Self::TimePoint(t) => stream.write_bytes(cast_ref::<i64, [u8; 8]>(&t)),
             Self::TimePointSec(t) => stream.write_bytes(cast_ref::<u32, [u8; 4]>(&t)),
             Self::BlockTimestampType(t) => stream.write_bytes(cast_ref::<u32, [u8; 4]>(&t)),
+            Self::Checksum160(c) => stream.write_bytes(&c[..]),
+            Self::Checksum256(c) => stream.write_bytes(&c[..]),
+            Self::Checksum512(c) => stream.write_bytes(&c[..]),
             Self::Name(name) => name.encode(stream),
             Self::Symbol(sym) => sym.encode(stream),
             Self::SymbolCode(sym) => stream.write_bytes(cast_ref::<u64, [u8; 8]>(&sym)),
@@ -245,6 +262,9 @@ impl AntelopeType {
             "time_point" => Self::TimePoint(pod_read_unaligned(stream.read_bytes(8)?)),
             "time_point_sec" => Self::TimePointSec(pod_read_unaligned(stream.read_bytes(4)?)),
             "block_timestamp_type" => Self::BlockTimestampType(pod_read_unaligned(stream.read_bytes(4)?)),
+            "checksum160" => Self::Checksum160(Box::new(stream.read_bytes(20)?.try_into().unwrap())),
+            "checksum256" => Self::Checksum256(Box::new(stream.read_bytes(32)?.try_into().unwrap())),
+            "checksum512" => Self::Checksum512(Box::new(stream.read_bytes(64)?.try_into().unwrap())),
             "name" => Self::Name(Name::decode(stream)?),
             "symbol" => Self::Symbol(Symbol::decode(stream)?),
             "symbol_code" => Self::SymbolCode(pod_read_unaligned(stream.read_bytes(8)?)),
@@ -490,6 +510,9 @@ pub enum InvalidValue {
 
     #[error("cannot parse date/time")]
     DateTimeParseError(#[from] ChronoParseError),
+
+    #[error("incorrect array size for checksum")]
+    IncorrectChecksumSize(#[from] TryFromSliceError),
 
     #[error("{0}")]
     InvalidData(String),  // acts as a generic error type with a given message
