@@ -34,7 +34,7 @@ impl KeyType {
         }
     }
 
-    pub fn suffix(&self) -> &'static str {
+    pub fn prefix(&self) -> &'static str {
         match self {
             Self::K1 => "K1",
             Self::R1 => "R1",
@@ -88,12 +88,12 @@ impl<T: CryptoDataType, const DATA_SIZE: usize> CryptoData<T, DATA_SIZE> {
         }
         else if s.starts_with(&format!("{}_K1_", T::PREFIX)) {
             let key_type = KeyType::K1;
-            let data = string_to_key_data(&s[7..], Some(key_type.suffix()))?;
+            let data = string_to_key_data(&s[7..], Some(key_type.prefix()))?;
             Ok(Self { key_type, data: Self::vec_to_data(data), phantom: PhantomData })
         }
         else if s.starts_with(&format!("{}_R1_", T::PREFIX)) {
             let key_type = KeyType::R1;
-            let data = string_to_key_data(&s[7..], Some(key_type.suffix()))?;
+            let data = string_to_key_data(&s[7..], Some(key_type.prefix()))?;
             Ok(Self { key_type, data: Self::vec_to_data(data), phantom: PhantomData })
             // unimplemented!()
         }
@@ -126,7 +126,7 @@ impl<T: CryptoDataType, const DATA_SIZE: usize> CryptoData<T, DATA_SIZE> {
 impl<T: CryptoDataType, const DATA_SIZE: usize> fmt::Display for CryptoData<T, DATA_SIZE> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if self.key_type == KeyType::WebAuthn { panic!("unsupported key type: {:?}", self.key_type); }
-        write!(f, "{}_{}", T::PREFIX, key_data_to_string(&self.data,  self.key_type.suffix()))
+        write!(f, "{}_{}", T::PREFIX, key_data_to_string(&self.data,  self.key_type.prefix()))
    }
 }
 

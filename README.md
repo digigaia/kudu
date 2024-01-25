@@ -19,8 +19,6 @@
 
 - rename AntelopeType to AntelopeValue, use variant names as AntelopeType, and rewrite method that take a typename as str to method taking the typename as AntelopeType
 
-- rename keytype.suffix() to keytype.prefix()
-
 
 ### CORRECTNESS / TESTING
 
