@@ -25,19 +25,9 @@ use antelope::{
 // TODO: MISSING TYPES                                                        //
 //  - f128                                                                    //
 //  - string                                                                  //
-//  - checksum{160,256,512}                                                   //
-//  - public_key                                                              //
-//  - private_key                                                             //
-//  - signature                                                               //
-//  - symbol_code                                                             //
 //  - extended_asset                                                          //
 //  - transaction_trace                                                       //
 //  - transaction_trace_msg                                                   //
-//  -                                                                         //
-
-// implement .prefix() for name type
-// check unittests and validity of non-normalized names
-
 //                                                                            //
 ////////////////////////////////////////////////////////////////////////////////
 
