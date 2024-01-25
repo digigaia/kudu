@@ -68,6 +68,7 @@ pub enum AntelopeType {
     SymbolCode(u64),
     Symbol(Symbol),
     Asset(Asset),
+    ExtendedAsset(Asset, Name),
 
 }
 
@@ -105,6 +106,7 @@ impl AntelopeType {
             "symbol_code" => Self::SymbolCode(string_to_symbol_code(repr.as_bytes())?),
             "symbol" => Self::Symbol(Symbol::from_str(repr)?),
             "asset" => Self::Asset(Asset::from_str(repr)?),
+            "extended_asset" => Self::from_variant(typename, &serde_json::from_str(repr)?)?,
             _ => { return Err(InvalidValue::InvalidType(typename.to_owned())); },
         })
     }
@@ -152,6 +154,10 @@ impl AntelopeType {
             Self::SymbolCode(sym) => json!(symbol_code_to_string(*sym)),
             Self::Symbol(sym) => json!(sym.to_string()),
             Self::Asset(asset) => json!(asset.to_string()),
+            Self::ExtendedAsset(quantity, contract) => json!({
+                "quantity": quantity,
+                "contract": contract,
+            }),
         }
     }
 
@@ -199,6 +205,13 @@ impl AntelopeType {
             "symbol" => Self::from_str("symbol", v.as_str().ok_or_else(incompatible_types)?)?,
             "symbol_code" => Self::from_str("symbol_code", v.as_str().ok_or_else(incompatible_types)?)?,
             "asset" => Self::from_str("asset", v.as_str().ok_or_else(incompatible_types)?)?,
+            "extended_asset" => {
+                let ea = v.as_object().ok_or_else(incompatible_types)?;
+                Self::ExtendedAsset(
+                    Asset::from_str(ea["quantity"].as_str().ok_or_else(incompatible_types)?)?,
+                    Name::from_str(ea["contract"].as_str().ok_or_else(incompatible_types)?)?,
+                )
+            },
             _ => { return Err(InvalidValue::InvalidType(typename.to_owned())); },
         })
     }
@@ -244,6 +257,10 @@ impl AntelopeType {
             Self::Symbol(sym) => sym.encode(stream),
             Self::SymbolCode(sym) => stream.write_bytes(cast_ref::<u64, [u8; 8]>(&sym)),
             Self::Asset(asset) => asset.encode(stream),
+            Self::ExtendedAsset(quantity, contract) => {
+                quantity.encode(stream);
+                contract.encode(stream);
+            },
         }
     }
 
@@ -283,6 +300,10 @@ impl AntelopeType {
             "symbol" => Self::Symbol(Symbol::decode(stream)?),
             "symbol_code" => Self::SymbolCode(pod_read_unaligned(stream.read_bytes(8)?)),
             "asset" => Self::Asset(Asset::decode(stream)?),
+            "extended_asset" => Self::ExtendedAsset(
+                Asset::decode(stream)?,
+                Name::decode(stream)?,
+            ),
             _ => { return Err(InvalidValue::InvalidType(typename.to_owned())); },
         })
     }

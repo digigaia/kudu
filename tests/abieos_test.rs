@@ -903,6 +903,23 @@ fn roundtrip_bytes() -> Result<()> {
 }
 
 #[test]
+fn roundtrip_strings() -> Result<()> {
+    init();
+
+    let transaction_abi_def = ABIDefinition::from_str(TRANSACTION_ABI)?;
+    let transaction_abi = ABIEncoder::from_abi(&transaction_abi_def);
+    let abi = &transaction_abi;
+
+    check_round_trip(abi, "string", r#""""#, "00");
+    check_round_trip(abi, "string", r#""z""#, "017A");
+    check_round_trip(abi, "string", r#""This is a string.""#, "1154686973206973206120737472696E672E");
+    check_round_trip(abi, "string", r#""' + '*'.repeat(128) + '""#, "1727202B20272A272E7265706561742831323829202B2027");
+    check_round_trip(abi, "string", r#""\u0000  这是一个测试  Это тест  هذا اختبار 👍""#, "40002020E8BF99E698AFE4B880E4B8AAE6B58BE8AF952020D0ADD182D0BE20D182D0B5D181D1822020D987D8B0D8A720D8A7D8AED8AAD8A8D8A7D8B120F09F918D");
+
+    Ok(())
+}
+
+#[test]
 fn roundtrip_crypto_types() -> Result<()> {
     init();
 
@@ -1002,6 +1019,9 @@ fn roundtrip_asset() -> Result<()> {
     check_round_trip(abi, "asset[]", r#"["0 FOO","0.000 FOO"]"#, "02000000000000000000464F4F00000000000000000000000003464F4F00000000");
     check_round_trip(abi, "asset?", "null", "00");
     check_round_trip(abi, "asset?", r#""0.123456 SIX""#, "0140E20100000000000653495800000000");
+
+    check_round_trip(abi, "extended_asset", r#"{"quantity":"0 FOO","contract":"bar"}"#, "000000000000000000464F4F00000000000000000000AE39");
+    check_round_trip(abi, "extended_asset", r#"{"quantity":"0.123456 SIX","contract":"seven"}"#, "40E201000000000006534958000000000000000080A9B6C2");
 
     Ok(())
 }
