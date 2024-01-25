@@ -6,7 +6,7 @@ pub mod crypto;
 pub use name::{Name, InvalidName};
 pub use symbol::{Symbol, InvalidSymbol, string_to_symbol_code, symbol_code_to_string};
 pub use asset::{Asset, InvalidAsset};
-pub use crypto::{Signature, InvalidSignature};
+pub use crypto::{PublicKey, PrivateKey, Signature, InvalidCryptoData};
 
 use std::array::TryFromSliceError;
 use std::num::{ParseFloatError, ParseIntError, TryFromIntError};
@@ -60,12 +60,15 @@ pub enum AntelopeType {
     Checksum256(Box<[u8; 32]>),
     Checksum512(Box<[u8; 64]>),
 
+    PublicKey(PublicKey),
+    PrivateKey(PrivateKey),
+    Signature(Signature),
+
     Name(Name),
     SymbolCode(u64),
     Symbol(Symbol),
     Asset(Asset),
 
-    Signature(Signature),
 }
 
 
@@ -95,11 +98,13 @@ impl AntelopeType {
             "checksum160" => Self::Checksum160(hex_to_boxed_array(repr)?),
             "checksum256" => Self::Checksum256(hex_to_boxed_array(repr)?),
             "checksum512" => Self::Checksum512(hex_to_boxed_array(repr)?),
+            "public_key" => Self::PublicKey(PublicKey::from_str(repr)?),
+            "private_key" => Self::PrivateKey(PrivateKey::from_str(repr)?),
+            "signature" => Self::Signature(Signature::from_str(repr)?),
             "name" => Self::Name(Name::from_str(repr)?),
             "symbol_code" => Self::SymbolCode(string_to_symbol_code(repr.as_bytes())?),
             "symbol" => Self::Symbol(Symbol::from_str(repr)?),
             "asset" => Self::Asset(Asset::from_str(repr)?),
-            "signature" => Self::Signature(Signature::from_str(repr)?),
             _ => { return Err(InvalidValue::InvalidType(typename.to_owned())); },
         })
     }
@@ -140,11 +145,13 @@ impl AntelopeType {
             Self::Checksum160(c) => json!(bin_to_hex(&c[..])),
             Self::Checksum256(c) => json!(bin_to_hex(&c[..])),
             Self::Checksum512(c) => json!(bin_to_hex(&c[..])),
+            Self::PublicKey(sig) => json!(sig.to_string()),
+            Self::PrivateKey(sig) => json!(sig.to_string()),
+            Self::Signature(sig) => json!(sig.to_string()),
             Self::Name(name) => json!(name.to_string()),
             Self::SymbolCode(sym) => json!(symbol_code_to_string(*sym)),
             Self::Symbol(sym) => json!(sym.to_string()),
             Self::Asset(asset) => json!(asset.to_string()),
-            Self::Signature(sig) => json!(sig.to_string()),
         }
     }
 
@@ -185,11 +192,13 @@ impl AntelopeType {
             "checksum160" => Self::Checksum160(hex_to_boxed_array(v.as_str().ok_or_else(incompatible_types)?)?),
             "checksum256" => Self::Checksum256(hex_to_boxed_array(v.as_str().ok_or_else(incompatible_types)?)?),
             "checksum512" => Self::Checksum512(hex_to_boxed_array(v.as_str().ok_or_else(incompatible_types)?)?),
+            "public_key" => Self::from_str("public_key", v.as_str().ok_or_else(incompatible_types)?)?,
+            "private_key" => Self::from_str("private_key", v.as_str().ok_or_else(incompatible_types)?)?,
+            "signature" => Self::from_str("signature", v.as_str().ok_or_else(incompatible_types)?)?,
             "name" => Self::from_str("name", v.as_str().ok_or_else(incompatible_types)?)?,
             "symbol" => Self::from_str("symbol", v.as_str().ok_or_else(incompatible_types)?)?,
             "symbol_code" => Self::from_str("symbol_code", v.as_str().ok_or_else(incompatible_types)?)?,
             "asset" => Self::from_str("asset", v.as_str().ok_or_else(incompatible_types)?)?,
-            "signature" => Self::from_str("signature", v.as_str().ok_or_else(incompatible_types)?)?,
             _ => { return Err(InvalidValue::InvalidType(typename.to_owned())); },
         })
     }
@@ -228,11 +237,13 @@ impl AntelopeType {
             Self::Checksum160(c) => stream.write_bytes(&c[..]),
             Self::Checksum256(c) => stream.write_bytes(&c[..]),
             Self::Checksum512(c) => stream.write_bytes(&c[..]),
+            Self::PublicKey(sig) => sig.encode(stream),
+            Self::PrivateKey(sig) => sig.encode(stream),
+            Self::Signature(sig) => sig.encode(stream),
             Self::Name(name) => name.encode(stream),
             Self::Symbol(sym) => sym.encode(stream),
             Self::SymbolCode(sym) => stream.write_bytes(cast_ref::<u64, [u8; 8]>(&sym)),
             Self::Asset(asset) => asset.encode(stream),
-            Self::Signature(sig) => sig.encode(stream),
         }
     }
 
@@ -265,11 +276,13 @@ impl AntelopeType {
             "checksum160" => Self::Checksum160(Box::new(stream.read_bytes(20)?.try_into().unwrap())),
             "checksum256" => Self::Checksum256(Box::new(stream.read_bytes(32)?.try_into().unwrap())),
             "checksum512" => Self::Checksum512(Box::new(stream.read_bytes(64)?.try_into().unwrap())),
+            "public_key" => Self::PublicKey(PublicKey::decode(stream)?),
+            "private_key" => Self::PrivateKey(PrivateKey::decode(stream)?),
+            "signature" => Self::Signature(Signature::decode(stream)?),
             "name" => Self::Name(Name::decode(stream)?),
             "symbol" => Self::Symbol(Symbol::decode(stream)?),
             "symbol_code" => Self::SymbolCode(pod_read_unaligned(stream.read_bytes(8)?)),
             "asset" => Self::Asset(Asset::decode(stream)?),
-            "signature" => Self::Signature(Signature::decode(stream)?),
             _ => { return Err(InvalidValue::InvalidType(typename.to_owned())); },
         })
     }
@@ -496,8 +509,8 @@ pub enum InvalidValue {
     #[error("invalid asset")]
     Asset(#[from] InvalidAsset),
 
-    #[error("invalid signature")]
-    Signature(#[from] InvalidSignature),
+    #[error("invalid crypto data")]
+    CryptoData(#[from] InvalidCryptoData),
 
     #[error("stream error")]
     StreamError(#[from] StreamError),

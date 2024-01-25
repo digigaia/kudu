@@ -1,24 +1,12 @@
 use std::fmt;
-use serde::{Serialize, Serializer, Deserialize, Deserializer};
-use serde::de::{self, Visitor};
+use std::marker::PhantomData;
 use anyhow::Result;
 use thiserror::Error;
 use bs58;
 use ripemd::{Ripemd160, Digest};
+use sha2::Sha256;
 
-use crate::{ByteStream, InvalidValue};
-
-#[derive(Error, Debug)]
-pub enum InvalidSignature {
-    #[error("not a signature: {0}")]
-    NotASignature(String),
-
-    #[error("error while decoding base58 data")]
-    Base58Error(#[from] bs58::decode::Error),
-
-    #[error("invalid checksum for signature")]
-    InvalidChecksum,
-}
+use crate::{ByteStream, InvalidValue, bin_to_hex};
 
 
 #[derive(Eq, PartialEq, Hash, Debug, Copy, Clone)]
@@ -55,34 +43,70 @@ impl KeyType {
     }
 }
 
-type ECCSignature = [u8; 65];
 
-fn to_sig(v: Vec<u8>) -> ECCSignature {
-    v.try_into().unwrap_or_else(|v: Vec<u8>| panic!("wrong size for ECC signature, needs to be 65 but is: {}", v.len()))
+
+#[derive(Error, Debug)]
+pub enum InvalidCryptoData {
+    #[error("not crypto data: {0}")]
+    NotCryptoData(String),
+
+    #[error("error while decoding base58 data")]
+    Base58Error(#[from] bs58::decode::Error),
+
+    #[error("invalid checksum for crypto data")]
+    InvalidChecksum,
+}
+
+pub trait CryptoDataType {
+    const DISPLAY_NAME: &'static str;
+    const PREFIX: &'static str;
+    // const DATA_SIZE: usize;
 }
 
 #[derive(Eq, Hash, PartialEq, Debug, Clone)]
-pub struct Signature {
+pub struct CryptoData<T: CryptoDataType, const DATA_SIZE: usize> {
     key_type: KeyType,
-    data: ECCSignature,
+    data: [u8; DATA_SIZE],
+    phantom: PhantomData<T>,
 }
 
-impl Signature {
-    pub fn from_str(s: &str) -> Result<Self, InvalidSignature> {
-        if s.starts_with("SIG_K1_") {
+impl<T: CryptoDataType, const DATA_SIZE: usize> CryptoData<T, DATA_SIZE> {
+    pub fn from_str(s: &str) -> Result<Self, InvalidCryptoData> {
+        // check legacy formats first
+        if T::PREFIX == "PUB" && s.starts_with("EOS") {
+            // legacy format public key
             let key_type = KeyType::K1;
-            let data = string_to_key_data(&s[7..], &key_type)?;
-            Ok(Signature { key_type, data: to_sig(data) })
+            let data = string_to_key_data(&s[3..], None)?;
+            Ok(Self { key_type, data: Self::vec_to_data(data), phantom: PhantomData })
         }
-        else if s.starts_with("SIG_R1_") {
-            unimplemented!()
+        else if T::PREFIX == "PVT" && !s.contains("_") {
+            // legacy private key WIF format
+            let key_type = KeyType::K1;
+            let data = from_wif(s)?;
+            Ok(Self { key_type, data: Self::vec_to_data(data), phantom: PhantomData })
+
         }
-        else if s.starts_with("SIG_WA_") {
+        else if s.starts_with(&format!("{}_K1_", T::PREFIX)) {
+            let key_type = KeyType::K1;
+            let data = string_to_key_data(&s[7..], Some(key_type.suffix()))?;
+            Ok(Self { key_type, data: Self::vec_to_data(data), phantom: PhantomData })
+        }
+        else if s.starts_with(&format!("{}_R1_", T::PREFIX)) {
+            let key_type = KeyType::R1;
+            let data = string_to_key_data(&s[7..], Some(key_type.suffix()))?;
+            Ok(Self { key_type, data: Self::vec_to_data(data), phantom: PhantomData })
+            // unimplemented!()
+        }
+        else if s.starts_with(&format!("{}_WA_", T::PREFIX)) {
             unimplemented!()
         }
         else {
-            Err(InvalidSignature::NotASignature(s.to_owned()))
+            Err(InvalidCryptoData::NotCryptoData(s.to_owned()))
         }
+    }
+
+    pub fn vec_to_data(v: Vec<u8>) -> [u8; DATA_SIZE] {
+        v.try_into().unwrap_or_else(|v: Vec<u8>| panic!("wrong size for {}, needs to be {} but is: {}", T::DISPLAY_NAME, DATA_SIZE, v.len()))
     }
 
     pub fn encode(&self, stream: &mut ByteStream) {
@@ -92,31 +116,98 @@ impl Signature {
 
     pub fn decode(stream: &mut ByteStream) -> Result<Self, InvalidValue> {
         let key_type = KeyType::from_index(stream.read_byte()?);
-        let data = stream.read_bytes(65)?.try_into().unwrap();
-        Ok(Self { key_type, data })
+        let data = stream.read_bytes(DATA_SIZE)?.try_into().unwrap();
+        Ok(Self { key_type, data, phantom: PhantomData })
     }
+
 }
 
 
-fn string_to_key_data(enc_data: &str, key_type: &KeyType) -> Result<Vec<u8>, InvalidSignature> {
+impl<T: CryptoDataType, const DATA_SIZE: usize> fmt::Display for CryptoData<T, DATA_SIZE> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if self.key_type == KeyType::WebAuthn { panic!("unsupported key type: {:?}", self.key_type); }
+        write!(f, "{}_{}", T::PREFIX, key_data_to_string(&self.data,  self.key_type.suffix()))
+   }
+}
+
+
+#[derive(Debug)]
+pub struct PublicKeyType;
+
+impl CryptoDataType for PublicKeyType {
+    const DISPLAY_NAME: &'static str = "public key";
+    const PREFIX: &'static str = "PUB";
+}
+
+pub type PublicKey = CryptoData<PublicKeyType, 33>;
+
+
+#[derive(Debug)]
+pub struct PrivateKeyType;
+
+impl CryptoDataType for PrivateKeyType {
+    const DISPLAY_NAME: &'static str = "private key";
+    const PREFIX: &'static str = "PVT";
+}
+
+pub type PrivateKey = CryptoData<PrivateKeyType, 32>;
+
+
+#[derive(Debug)]
+pub struct SignatureType;
+
+impl CryptoDataType for SignatureType {
+    const DISPLAY_NAME: &'static str = "signature";
+    const PREFIX: &'static str = "SIG";
+}
+
+pub type Signature = CryptoData<SignatureType, 65>;
+
+
+
+
+
+fn string_to_key_data(enc_data: &str, prefix: Option<&str>) -> Result<Vec<u8>, InvalidCryptoData> {
     let data = bs58::decode(enc_data).into_vec()?;
 
     let mut hasher = Ripemd160::new();
     hasher.update(&data[..data.len()-4]);
-    hasher.update(key_type.suffix());
+    if let Some(prefix) = prefix {
+        hasher.update(prefix);
+    }
     let digest = hasher.finalize();
 
-    assert_eq!(&digest[..4], &data[data.len()-4..]);
+    let actual = &digest[..4];
+    let expected = &data[data.len()-4..];
+
+    assert_eq!(actual, expected,
+               "hash don't match, actual: {:?} - expected {:?}",
+               bin_to_hex(actual), bin_to_hex(expected));
 
     Ok(data[..data.len()-4].to_owned())
 }
 
-fn key_data_to_string(k: &ECCSignature, key_type: KeyType) -> String {
-    if key_type != KeyType::K1 { panic!("unsupported key type: {:?}", key_type); }
+fn from_wif(enc_data: &str) -> Result<Vec<u8>, InvalidCryptoData> {
+    let data = bs58::decode(enc_data).into_vec()?;
+    let digest = Sha256::digest(&data[..data.len()-4]);
+    let digest2 = Sha256::digest(digest);
 
+    let actual = &digest[..4];
+    let actual2 = &digest2[..4];
+    let expected = &data[data.len()-4..];
+
+    assert!(actual == expected || actual2 == expected,
+            "hash don't match, actual: {:?} - expected {:?}",
+            bin_to_hex(actual2), bin_to_hex(expected));
+
+    Ok(data[1..data.len()-4].to_owned())
+}
+
+
+fn key_data_to_string<const N: usize>(k: &[u8; N], prefix: &str) -> String {
     let mut hasher = Ripemd160::new();
     hasher.update(k);
-    hasher.update(key_type.suffix());
+    hasher.update(prefix);
     let digest = hasher.finalize();
 
     let mut data: Vec<u8> = Vec::from(k.clone());
@@ -124,97 +215,5 @@ fn key_data_to_string(k: &ECCSignature, key_type: KeyType) -> String {
 
     let enc_data = bs58::encode(data).into_string();
 
-    format!("SIG_{}_{}", key_type.suffix(), enc_data)
-}
-
-impl Serialize for Signature {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        self.to_string().serialize(serializer)
-    }
-}
-
-struct SignatureVisitor;
-
-impl<'de> Visitor<'de> for SignatureVisitor {
-    type Value = Signature;
-
-    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-        write!(formatter, "a string that is a valid EOS signature")
-    }
-
-    fn visit_str<E>(self, s: &str) -> Result<Signature, E>
-    where
-        E: de::Error,
-    {
-        Signature::from_str(s).map_err(|e| de::Error::custom(e.to_string()))
-    }
-}
-impl<'de> Deserialize<'de> for Signature {
-    fn deserialize<D>(deserializer: D) -> Result<Signature, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        deserializer.deserialize_str(SignatureVisitor)
-    }
-}
-
-
-impl fmt::Display for Signature {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        if self.key_type != KeyType::K1 { panic!("unsupported key type: {:?}", self.key_type); }
-        write!(f, "{}", key_data_to_string(&self.data, self.key_type))
-   }
-}
-
-
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn valid_signatures() -> Result<()> {
-        // let n = Name::from_str("nico")?;
-        // assert_eq!(n.to_string(), "nico");
-
-        // let n2 = Name::from_str("eosio.token")?;
-        // assert_eq!(n2.to_string(), "eosio.token");
-
-        // let n3 = Name::from_str("a.b.c.d.e")?;
-        // assert_eq!(n3.to_string(), "a.b.c.d.e");
-
-        // assert_eq!(Name::from_str("")?,
-        //            Name::from_u64(0));
-
-        // assert_eq!(Name::from_str("foobar")?,
-        //            Name::from_u64(6712742083569909760));
-
-        Ok(())
-    }
-
-    #[test]
-    fn invalid_signatures() {
-        // let names = [
-        //     "yepthatstoolong", // too long
-        //     "abcDef",          // invalid chars
-        //     "a.",              // not normalized
-        //     "A",
-        //     "zzzzzzzzzzzzzz",
-        //     "á",
-        //     ".",
-        //     "....",
-        //     "zzzzzzzzzzzzz",
-        //     "aaaaaaaaaaaaz",
-        //     "............z",
-
-        // ];
-
-        // for n in names {
-        //     assert!(Name::from_str(n).is_err());
-        // }
-    }
-
+    format!("{}_{}", prefix, enc_data)
 }

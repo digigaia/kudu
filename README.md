@@ -23,10 +23,18 @@
 
 - check that bin encoding for Bytes is correct (len as varuint32?)
 
+- check abieos/test.cpp to ensure we cover also all the error cases with proper error messages
+
 - move all bin_to_hex and hex_to_bin functions into a dedicated hexutils crate (with dedicated error type)
 
 - check whether we can fix this test for abieos float printing:
   `check_round_trip2(abi, "float64", "151115727451828646838272.0", "000000000000C044", "151115727451828650000000"`
+
+- check if we need to Box a few types in the AntelopeType enum (eg: PublicKey, Signature,...)
+
+- rename keytype.suffix() to keytype.prefix()
+
+- crypto primitives do not implement WebAuthn key and signatures yet
 
 // TODO: do the other tests from here: https://github.com/FACINGS/pyntelope/blob/main/tests/unit/types_test.py
 // missing for now:

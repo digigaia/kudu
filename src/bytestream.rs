@@ -11,8 +11,8 @@ use crate::AntelopeType;
 
 #[derive(Error, Debug)]
 pub enum StreamError {
-    #[error("stream ended")]
-    Ended,
+    #[error("stream ended, tried to read {0} but only {1} available")]
+    Ended(usize, usize),
 
     #[error("invalid hex character")]
     InvalidHexChar(#[from] ParseIntError),
@@ -104,13 +104,13 @@ impl ByteStream {
             Ok(self.data[pos])
         }
         else {
-            Err(StreamError::Ended)
+            Err(StreamError::Ended(1, 0))
         }
     }
 
     pub fn read_bytes(&mut self, n: usize) -> Result<&[u8], StreamError> {
         if self.read_pos + n > self.data.len() {
-            Err(StreamError::Ended)
+            Err(StreamError::Ended(n, self.data.len() - self.read_pos))
         }
         else {
             let result = &self.data[self.read_pos..self.read_pos+n];
