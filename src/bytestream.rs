@@ -1,10 +1,10 @@
-use std::fmt::Write;
 use std::mem;
 use std::num::ParseIntError;
 
 use bytemuck::cast_ref;
 use thiserror::Error;
 use log::trace;
+use hex;
 
 use crate::AntelopeType;
 
@@ -239,9 +239,10 @@ pub fn hex_to_boxed_array<const N: usize>(s: &str) -> Result<Box<[u8; N]>, Strea
 }
 
 pub fn bin_to_hex(data: &[u8]) -> String {
-    let mut result = String::with_capacity(2 * data.len());
-    for byte in data {
-        write!(&mut result, "{:02x}", byte).unwrap();
-    }
-    result
+    hex::encode_upper(data)
+    // let mut result = String::with_capacity(2 * data.len());
+    // for byte in data {
+    //     write!(&mut result, "{:02x}", byte).unwrap();
+    // }
+    // result
 }

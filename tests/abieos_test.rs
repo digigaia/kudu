@@ -13,6 +13,7 @@ use antelope::{
 
 use abi_files::{
     test_abi::TEST_ABI,
+    token_abi::TOKEN_HEX_ABI,
     trx_abi::{TRANSACTION_ABI, PACKED_TRANSACTION_ABI},
     ship_abi::STATE_HISTORY_PLUGIN_ABI,
 };
@@ -31,151 +32,11 @@ use abi_files::{
 //                                                                            //
 // TODO: MISSING TYPES                                                        //
 //  - f128                                                                    //
-//  - string                                                                  //
-//  - extended_asset                                                          //
 //  - transaction_trace                                                       //
 //  - transaction_trace_msg                                                   //
 //                                                                            //
 ////////////////////////////////////////////////////////////////////////////////
 
-
-static TOKEN_HEX_ABI: &str = concat!(
-    "0e656f73696f3a3a6162692f312e30010c6163636f756e745f6e616d65046e61",
-    "6d6505087472616e7366657200040466726f6d0c6163636f756e745f6e616d65",
-    "02746f0c6163636f756e745f6e616d65087175616e7469747905617373657404",
-    "6d656d6f06737472696e67066372656174650002066973737565720c6163636f",
-    "756e745f6e616d650e6d6178696d756d5f737570706c79056173736574056973",
-    "737565000302746f0c6163636f756e745f6e616d65087175616e746974790561",
-    "73736574046d656d6f06737472696e67076163636f756e7400010762616c616e",
-    "63650561737365740e63757272656e63795f7374617473000306737570706c79",
-    "0561737365740a6d61785f737570706c79056173736574066973737565720c61",
-    "63636f756e745f6e616d6503000000572d3ccdcd087472616e73666572000000",
-    "000000a531760569737375650000000000a86cd4450663726561746500020000",
-    "00384f4d113203693634010863757272656e6379010675696e74363407616363",
-    "6f756e740000000000904dc603693634010863757272656e6379010675696e74",
-    "36340e63757272656e63795f7374617473000000");
-
-
-
-static _TEST_KV_TABLES_ABI: &str = r#"{
-    "version": "eosio::abi/1.2",
-    "types": [],
-    "structs": [
-        {
-            "name": "get",
-            "base": "",
-            "fields": []
-        },
-        {
-            "name": "iteration",
-            "base": "",
-            "fields": []
-        },
-        {
-            "name": "my_struct",
-            "base": "",
-            "fields": [
-                {
-                    "name": "primary",
-                    "type": "name"
-                },
-                {
-                    "name": "foo",
-                    "type": "string"
-                },
-                {
-                    "name": "bar",
-                    "type": "uint64"
-                },
-                {
-                    "name": "fullname",
-                    "type": "string"
-                },
-                {
-                    "name": "age",
-                    "type": "uint32"
-                }
-            ]
-        },
-        {
-            "name": "nonunique",
-            "base": "",
-            "fields": []
-        },
-        {
-            "name": "setup",
-            "base": "",
-            "fields": []
-        },
-        {
-            "name": "tuple_string_uint32",
-            "base": "",
-            "fields": [
-                {
-                    "name": "field_0",
-                    "type": "string"
-                },
-                {
-                    "name": "field_1",
-                    "type": "uint32"
-                }
-            ]
-        },
-        {
-            "name": "update",
-            "base": "",
-            "fields": []
-        },
-        {
-            "name": "updateerr1",
-            "base": "",
-            "fields": []
-        },
-        {
-            "name": "updateerr2",
-            "base": "",
-            "fields": []
-        }
-    ],
-    "actions": [
-        {
-            "name": "get",
-            "type": "get",
-            "ricardian_contract": ""
-        },
-        {
-            "name": "iteration",
-            "type": "iteration",
-            "ricardian_contract": ""
-        },
-        {
-            "name": "nonunique",
-            "type": "nonunique",
-            "ricardian_contract": ""
-        },
-        {
-            "name": "setup",
-            "type": "setup",
-            "ricardian_contract": ""
-        },
-        {
-            "name": "update",
-            "type": "update",
-            "ricardian_contract": ""
-        },
-        {
-            "name": "updateerr1",
-            "type": "updateerr1",
-            "ricardian_contract": ""
-        },
-        {
-            "name": "updateerr2",
-            "type": "updateerr2",
-            "ricardian_contract": ""
-        }
-    ],
-    "tables": []
-}"#;
 
 
 fn init() {
@@ -195,7 +56,7 @@ fn round_trip(abi: &ABIEncoder, typename: &str, data: &str, hex: &str, expected:
     let value: Value = serde_json::from_str(data)?;
     abi.encode_variant(&mut ds, typename, &value)?;
 
-    assert_eq!(ds.hex_data(), hex.to_ascii_lowercase());
+    assert_eq!(ds.hex_data(), hex.to_ascii_uppercase());
 
     let decoded = abi.decode_variant(&mut ds, typename)?;
 
@@ -370,18 +231,18 @@ fn roundtrip_i64() -> Result<()> {
     let abi = &transaction_abi;
 
 
-    check_round_trip(abi, "int64", "0", "0000000000000000");
-    check_round_trip(abi, "int64", "1", "0100000000000000");
-    check_round_trip(abi, "int64", "-1", "FFFFFFFFFFFFFFFF");
-    check_round_trip(abi, "int64", "9223372036854775807", "FFFFFFFFFFFFFF7F");
-    check_round_trip(abi, "int64", "-9223372036854775808", "0000000000000080");
-    check_round_trip(abi, "uint64", "0", "0000000000000000");
-    check_round_trip(abi, "uint64", "18446744073709551615", "FFFFFFFFFFFFFFFF");
+    check_round_trip(abi, "int64", r#""0""#, "0000000000000000");
+    check_round_trip(abi, "int64", r#""1""#, "0100000000000000");
+    check_round_trip(abi, "int64", r#""-1""#, "FFFFFFFFFFFFFFFF");
+    check_round_trip(abi, "int64", r#""9223372036854775807""#, "FFFFFFFFFFFFFF7F");
+    check_round_trip(abi, "int64", r#""-9223372036854775808""#, "0000000000000080");
+    check_round_trip(abi, "uint64", r#""0""#, "0000000000000000");
+    check_round_trip(abi, "uint64", r#""18446744073709551615""#, "FFFFFFFFFFFFFFFF");
 
-    check_error(|| try_encode(abi, "int64", "9223372036854775808"), "cannot convert given variant");
-    check_error(|| try_encode(abi, "int64", "-9223372036854775809"), "cannot convert given variant");
-    check_error(|| try_encode(abi, "uint64", "-1"), "cannot convert given variant");
-    check_error(|| try_encode(abi, "uint64", "18446744073709551616"), "cannot convert given variant");
+    check_error(|| try_encode(abi, "int64", r#""9223372036854775808""#), "number too large to fit in target type");
+    check_error(|| try_encode(abi, "int64", r#""-9223372036854775809""#), "number too small to fit in target type");
+    check_error(|| try_encode(abi, "uint64", r#""-1""#), "invalid digit");
+    check_error(|| try_encode(abi, "uint64", r#""18446744073709551616""#), "number too large to fit in target type");
 
     Ok(())
 }
@@ -584,20 +445,20 @@ fn roundtrip_crypto_types() -> Result<()> {
                      r#""0000000000000000000000000000000000000000""#,
                      "0000000000000000000000000000000000000000");
     check_round_trip(abi, "checksum160",
-                     r#""123456789abcdef01234567890abcdef70123456""#,
-                     "123456789abcdef01234567890abcdef70123456");
+                     r#""123456789ABCDEF01234567890ABCDEF70123456""#,
+                     "123456789ABCDEF01234567890ABCDEF70123456");
     check_round_trip(abi, "checksum256",
                      r#""0000000000000000000000000000000000000000000000000000000000000000""#,
                      "0000000000000000000000000000000000000000000000000000000000000000");
     check_round_trip(abi, "checksum256",
-                     r#""0987654321abcdef0987654321ffff1234567890abcdef001234567890abcdef""#,
-                     "0987654321abcdef0987654321ffff1234567890abcdef001234567890abcdef");
+                     r#""0987654321ABCDEF0987654321FFFF1234567890ABCDEF001234567890ABCDEF""#,
+                     "0987654321ABCDEF0987654321FFFF1234567890ABCDEF001234567890ABCDEF");
     check_round_trip(abi, "checksum512",
                      r#""00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000""#,
                      "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000");
     check_round_trip(abi, "checksum512",
-                     r#""0987654321abcdef0987654321ffff1234567890abcdef001234567890abcdef0987654321abcdef0987654321ffff1234567890abcdef001234567890abcdef""#,
-                     "0987654321abcdef0987654321ffff1234567890abcdef001234567890abcdef0987654321abcdef0987654321ffff1234567890abcdef001234567890abcdef");
+                     r#""0987654321ABCDEF0987654321FFFF1234567890ABCDEF001234567890ABCDEF0987654321ABCDEF0987654321FFFF1234567890ABCDEF001234567890ABCDEF""#,
+                     "0987654321ABCDEF0987654321FFFF1234567890ABCDEF001234567890ABCDEF0987654321ABCDEF0987654321FFFF1234567890ABCDEF001234567890ABCDEF");
 
     check_round_trip2(abi, "public_key", r#""EOS1111111111111111111111111111111114T1Anm""#, "00000000000000000000000000000000000000000000000000000000000000000000", r#""PUB_K1_11111111111111111111111111111111149Mr2R""#);
     check_round_trip2(abi, "public_key", r#""EOS11111111111111111111111115qCHTcgbQwptSz99m""#, "0000000000000000000000000000000000000000000000000000FFFFFFFFFFFFFFFF", r#""PUB_K1_11111111111111111111111115qCHTcgbQwpvP72Uq""#);

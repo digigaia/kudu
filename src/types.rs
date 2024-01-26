@@ -10,13 +10,16 @@ pub use crypto::{PublicKey, PrivateKey, Signature, InvalidCryptoData};
 
 use std::array::TryFromSliceError;
 use std::num::{ParseFloatError, ParseIntError, TryFromIntError};
-use std::str::{from_utf8, Utf8Error, ParseBoolError};
+use std::convert::From;
+use std::any::type_name;
+use std::str::{FromStr, from_utf8, Utf8Error, ParseBoolError};
 
 use bytemuck::{cast_ref, pod_read_unaligned};
 use serde_json::{json, Value, Error as JsonError};
 use thiserror::Error;
 use strum::EnumVariantNames;
 use chrono::{NaiveDateTime, ParseError as ChronoParseError};
+use num::{Integer, Signed, Unsigned};
 
 use super::{ByteStream, StreamError, bin_to_hex, hex_to_bin, hex_to_boxed_array, config};
 
@@ -80,13 +83,13 @@ impl AntelopeType {
             "int8" => Self::Int8(repr.parse()?),
             "int16" => Self::Int16(repr.parse()?),
             "int32" => Self::Int32(repr.parse()?),
-            "int64" => Self::Int64(repr.parse()?),
-            "int128" => Self::Int128(repr.parse()?),
+            "int64" => Self::Int64(variant_to_int(&json!(repr))?),
+            "int128" => Self::Int128(variant_to_int(&json!(repr))?),
             "uint8" => Self::Uint8(repr.parse()?),
             "uint16" => Self::Uint16(repr.parse()?),
             "uint32" => Self::Uint32(repr.parse()?),
-            "uint64" => Self::Uint64(repr.parse()?),
-            "uint128" => Self::Uint128(repr.parse()?),
+            "uint64" => Self::Uint64(variant_to_uint(&json!(repr))?),
+            "uint128" => Self::Uint128(variant_to_uint(&json!(repr))?),
             "varint32" => Self::VarInt32(repr.parse()?),
             "varuint32" => Self::VarUint32(repr.parse()?),
             "float32" => Self::Float32(repr.parse()?),
@@ -117,12 +120,12 @@ impl AntelopeType {
             Self::Int8(n) => json!(n),
             Self::Int16(n) => json!(n),
             Self::Int32(n) => json!(n),
-            Self::Int64(n) => json!(n),
+            Self::Int64(n) => json!(n.to_string()),
             Self::Int128(n) => json!(n.to_string()),
             Self::Uint8(n) => json!(n),
             Self::Uint16(n) => json!(n),
             Self::Uint32(n) => json!(n),
-            Self::Uint64(n) => json!(n),
+            Self::Uint64(n) => json!(n.to_string()),
             Self::Uint128(n) => json!(n.to_string()),
             Self::VarInt32(n) => json!(n),
             Self::VarUint32(n) => json!(n),
@@ -170,13 +173,13 @@ impl AntelopeType {
             "int8" => Self::Int8(v.as_i64().ok_or_else(incompatible_types)?.try_into()?),
             "int16" => Self::Int16(v.as_i64().ok_or_else(incompatible_types)?.try_into()?),
             "int32" => Self::Int32(v.as_i64().ok_or_else(incompatible_types)?.try_into()?),
-            "int64" => Self::Int64(v.as_i64().ok_or_else(incompatible_types)?),
-            "int128" => Self::Int128(variant_to_i128(v)?),
+            "int64" => Self::Int64(variant_to_int(v)?),
+            "int128" => Self::Int128(variant_to_int(v)?),
             "uint8" => Self::Uint8(v.as_u64().ok_or_else(incompatible_types)?.try_into()?),
             "uint16" => Self::Uint16(v.as_u64().ok_or_else(incompatible_types)?.try_into()?),
             "uint32" => Self::Uint32(v.as_u64().ok_or_else(incompatible_types)?.try_into()?),
-            "uint64" => Self::Uint64(v.as_u64().ok_or_else(incompatible_types)?),
-            "uint128" => Self::Uint128(variant_to_u128(v)?),
+            "uint64" => Self::Uint64(variant_to_uint(v)?),
+            "uint128" => Self::Uint128(variant_to_uint(v)?),
             "varint32" => Self::VarInt32(v.as_i64().ok_or_else(incompatible_types)?.try_into()?),
             "varuint32" => Self::VarUint32(v.as_u64().ok_or_else(incompatible_types)?.try_into()?),
             "float32" => Self::Float32(f64_to_f32(v.as_f64().ok_or_else(incompatible_types)?)?),
@@ -455,20 +458,27 @@ impl TryFrom<AntelopeType> for String {
 }
 
 
-
-fn variant_to_i128(v: &Value) -> Result<i128, InvalidValue> {
+fn variant_to_int<T>(v: &Value) -> Result<T, InvalidValue>
+where
+    T: Integer + Signed + FromStr + From<i64>,
+    InvalidValue: From<<T as FromStr>::Err>,
+{
     match v {
-        v if v.is_i64() => Ok(v.as_i64().unwrap() as i128),
+        v if v.is_i64() => Ok(v.as_i64().unwrap().into()),
         v if v.is_string() => Ok(v.as_str().unwrap().parse()?),
-        _ => Err(InvalidValue::IncompatibleVariantTypes("i128".to_owned(), v.clone())),
+        _ => Err(InvalidValue::IncompatibleVariantTypes(type_name::<T>().to_owned(), v.clone())),
     }
 }
 
-fn variant_to_u128(v: &Value) -> Result<u128, InvalidValue> {
+fn variant_to_uint<T>(v: &Value) -> Result<T, InvalidValue>
+where
+    T: Integer + Unsigned + FromStr + From<u64>,
+    InvalidValue: From<<T as FromStr>::Err>,
+{
     match v {
-        v if v.is_u64() => Ok(v.as_u64().unwrap() as u128),
+        v if v.is_u64() => Ok(v.as_u64().unwrap().into()),
         v if v.is_string() => Ok(v.as_str().unwrap().parse()?),
-        _ => Err(InvalidValue::IncompatibleVariantTypes("u128".to_owned(), v.clone())),
+        _ => Err(InvalidValue::IncompatibleVariantTypes(type_name::<T>().to_owned(), v.clone())),
     }
 }
 

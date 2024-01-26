@@ -30,7 +30,7 @@ fn test_serialize_ints() {
 
     ds.clear();
     abi.encode(&mut ds, &i2);
-    assert_eq!(ds.hex_data(), "e9ffffffffffffff");
+    assert_eq!(ds.hex_data(), "E9FFFFFFFFFFFFFF");
 }
 
 #[test]
@@ -39,11 +39,11 @@ fn test_serialize_string() {
     let mut ds = ByteStream::new();
 
     abi.encode(&mut ds, &AntelopeType::String("foo".to_owned()));
-    assert_eq!(ds.hex_data(), "03666f6f");
+    assert_eq!(ds.hex_data(), "03666F6F");
 
     ds.clear();
     abi.encode(&mut ds, &AntelopeType::String("Hello world!".to_owned()));
-    assert_eq!(ds.hex_data(), "0c48656c6c6f20776f726c6421");
+    assert_eq!(ds.hex_data(), "0C48656C6C6F20776F726C6421");
 }
 
 #[test]
@@ -53,18 +53,18 @@ fn test_serialize_array() {
     let mut ds = ByteStream::new();
 
     abi.encode_variant(&mut ds, "string[]", &json!(a)).unwrap();
-    assert_eq!(ds.hex_data(), "0303666f6f036261720362617a");
+    assert_eq!(ds.hex_data(), "0303666F6F036261720362617A");
 
     ds.clear();
     let v = vec!["foo", "bar", "baz"];
     abi.encode_variant(&mut ds, "string[]", &json!(v)).unwrap();
-    assert_eq!(ds.hex_data(), "0303666f6f036261720362617a");
+    assert_eq!(ds.hex_data(), "0303666F6F036261720362617A");
 }
 
 
 #[test]
 fn test_serialize_name() {
-    let data = "000000005c73285d";
+    let data = "000000005C73285D";
     let obj = Name::from_str("foobar").unwrap();
     let json = r#""foobar""#;
 
@@ -82,7 +82,7 @@ fn test_serialize_name() {
 
 #[test]
 fn test_serialize_symbol() {
-    let data = "04464f4f00000000";
+    let data = "04464F4F00000000";
     let obj = Symbol::from_str("4,FOO").unwrap();
     let json = r#""4,FOO""#;
 
@@ -101,7 +101,7 @@ fn test_serialize_symbol() {
 
 #[test]
 fn test_serialize_asset() {
-    let data = "393000000000000004464f4f00000000";
+    let data = "393000000000000004464F4F00000000";
     let obj = Asset::from_str("1.2345 FOO").unwrap();
     let json = r#""1.2345 FOO""#;
 
@@ -154,7 +154,7 @@ fn test_serialize_struct() {
     let mut ds = ByteStream::new();
     abi.encode_variant(&mut ds, &"bar", &obj).unwrap();
 
-    assert_eq!(&ds.hex_data(), "036f6e65020100000000000028cf01040166016f01750172");
+    assert_eq!(&ds.hex_data(), "036F6E65020100000000000028CF01040166016F01750172");
 
     // FIXME: implement me!
     // let dec = abi.decode_variant(&ds, &"bar");
