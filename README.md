@@ -41,9 +41,6 @@
 
 ### MISC
 
-- move all bin_to_hex and hex_to_bin functions into a dedicated hexutils crate (with dedicated error type)
-  ACTUALLY: use the `hex` crate
-
 - for Name type: implement .prefix() and check unittests and validity of non-normalized names
 
 - check if we need to Box a few types in the AntelopeType enum (eg: PublicKey, Signature,...)

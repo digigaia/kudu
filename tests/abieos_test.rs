@@ -7,7 +7,7 @@ use log::debug;
 
 use antelope::abi::*;
 use antelope::{
-    ABIEncoder, ByteStream, bin_to_hex,
+    ABIEncoder, ByteStream,
     types::InvalidValue,
 };
 
@@ -32,8 +32,6 @@ use abi_files::{
 //                                                                            //
 // TODO: MISSING TYPES                                                        //
 //  - f128                                                                    //
-//  - transaction_trace                                                       //
-//  - transaction_trace_msg                                                   //
 //                                                                            //
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -100,7 +98,7 @@ fn _check_error_trip(abi: &ABIEncoder, typename: &str, data: &str, error_msg: &s
 }
 
 fn str_to_hex(s: &str) -> String {
-    format!("{:02x}{}", s.len(), bin_to_hex(s.as_bytes()))
+    format!("{:02x}{}", s.len(), hex::encode_upper(s.as_bytes()))
 }
 
 
@@ -410,8 +408,8 @@ fn roundtrip_bytes() -> Result<()> {
     check_round_trip(abi, "bytes", r#""00""#, "0100");
     check_round_trip(abi, "bytes", r#""AABBCCDDEEFF00010203040506070809""#, "10AABBCCDDEEFF00010203040506070809");
 
-    check_error(|| try_encode(abi, "bytes", r#""0""#), "odd number of chars");
-    check_error(|| try_encode(abi, "bytes", r#""yz""#), "invalid hex character");
+    check_error(|| try_encode(abi, "bytes", r#""0""#), "Odd number of digits");
+    check_error(|| try_encode(abi, "bytes", r#""yz""#), "Invalid character");
 
     Ok(())
 }

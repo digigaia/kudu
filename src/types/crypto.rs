@@ -6,7 +6,7 @@ use bs58;
 use ripemd::{Ripemd160, Digest};
 use sha2::Sha256;
 
-use crate::{ByteStream, InvalidValue, bin_to_hex};
+use crate::{ByteStream, InvalidValue};
 
 
 #[derive(Eq, PartialEq, Hash, Debug, Copy, Clone)]
@@ -182,7 +182,7 @@ fn string_to_key_data(enc_data: &str, prefix: Option<&str>) -> Result<Vec<u8>, I
 
     assert_eq!(actual, expected,
                "hash don't match, actual: {:?} - expected {:?}",
-               bin_to_hex(actual), bin_to_hex(expected));
+               hex::encode_upper(actual), hex::encode_upper(expected));
 
     Ok(data[..data.len()-4].to_owned())
 }
@@ -198,7 +198,7 @@ fn from_wif(enc_data: &str) -> Result<Vec<u8>, InvalidCryptoData> {
 
     assert!(actual == expected || actual2 == expected,
             "hash don't match, actual: {:?} - expected {:?}",
-            bin_to_hex(actual2), bin_to_hex(expected));
+            hex::encode_upper(actual2), hex::encode_upper(expected));
 
     Ok(data[1..data.len()-4].to_owned())
 }

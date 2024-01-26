@@ -83,7 +83,7 @@ impl ByteStream {
     }
 
     pub fn hex_data(&self) -> String {
-        bin_to_hex(&self.data)
+        hex::encode_upper(&self.data)
     }
 
 
@@ -99,7 +99,7 @@ impl ByteStream {
     pub fn read_byte(&mut self) -> Result<u8, StreamError> {
         let pos = self.read_pos;
         if pos != self.data.len() {
-            trace!("read 1 byte - hex: {}", bin_to_hex(&self.data[pos..pos+1]));
+            trace!("read 1 byte - hex: {}", hex::encode_upper(&self.data[pos..pos+1]));
             self.read_pos += 1;
             Ok(self.data[pos])
         }
@@ -114,7 +114,7 @@ impl ByteStream {
         }
         else {
             let result = &self.data[self.read_pos..self.read_pos+n];
-            trace!("read {n} bytes - hex: {}", bin_to_hex(result));
+            trace!("read {n} bytes - hex: {}", hex::encode_upper(result));
             self.read_pos += n;
             Ok(result)
         }
@@ -211,38 +211,4 @@ impl ByteStream {
     }
 
 
-}
-
-
-pub fn hex_to_bin(s: &str) -> Result<Vec<u8>, StreamError> {
-    if s.len() % 2 != 0 {
-        Err(StreamError::OddLength)
-    }
-    else {
-        (0..s.len())
-            .step_by(2)
-            .map(|i| u8::from_str_radix(&s[i..i + 2], 16).map_err(|e| e.into()))
-            .collect()
-    }
-}
-
-pub fn hex_to_boxed_array<const N: usize>(s: &str) -> Result<Box<[u8; N]>, StreamError> {
-    if s.len() != 2 * N {
-        return Err(StreamError::OddLength); // FIXME: wrong error type, need a new one
-    }
-
-    let mut result = [0_u8; N];
-    for i in 0..N {
-        result[i] = u8::from_str_radix(&s[2*i..2*(i+1)], 16)?;
-    }
-    Ok(Box::new(result))
-}
-
-pub fn bin_to_hex(data: &[u8]) -> String {
-    hex::encode_upper(data)
-    // let mut result = String::with_capacity(2 * data.len());
-    // for byte in data {
-    //     write!(&mut result, "{:02x}", byte).unwrap();
-    // }
-    // result
 }

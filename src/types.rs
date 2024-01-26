@@ -20,8 +20,9 @@ use thiserror::Error;
 use strum::EnumVariantNames;
 use chrono::{NaiveDateTime, ParseError as ChronoParseError};
 use num::{Integer, Signed, Unsigned};
+use hex::FromHexError;
 
-use super::{ByteStream, StreamError, bin_to_hex, hex_to_bin, hex_to_boxed_array, config};
+use super::{ByteStream, StreamError, config};
 
 const DATE_FORMAT: &str = "%Y-%m-%dT%H:%M:%S%.3f";
 
@@ -94,7 +95,7 @@ impl AntelopeType {
             "varuint32" => Self::VarUint32(repr.parse()?),
             "float32" => Self::Float32(repr.parse()?),
             "float64" => Self::Float64(repr.parse()?),
-            "bytes" => Self::Bytes(hex_to_bin(repr)?),
+            "bytes" => Self::Bytes(hex::decode(repr)?),
             "string" => Self::String(repr.to_owned()),
             "time_point" => Self::TimePoint(parse_date(repr)?.timestamp_micros()),
             "time_point_sec" => Self::TimePointSec(parse_date(repr)?.timestamp() as u32),
@@ -131,7 +132,7 @@ impl AntelopeType {
             Self::VarUint32(n) => json!(n),
             Self::Float32(x) => json!(x),
             Self::Float64(x) => json!(x),
-            Self::Bytes(b) => json!(bin_to_hex(b).to_ascii_uppercase()),
+            Self::Bytes(b) => json!(hex::encode_upper(b)),
             Self::String(s) => json!(s),
             Self::TimePoint(t) => {
                 let dt = NaiveDateTime::from_timestamp_micros(*t).unwrap();
@@ -147,9 +148,9 @@ impl AntelopeType {
                 ).unwrap();
                 json!(format!("{}", dt.format(DATE_FORMAT)))
             }
-            Self::Checksum160(c) => json!(bin_to_hex(&c[..])),
-            Self::Checksum256(c) => json!(bin_to_hex(&c[..])),
-            Self::Checksum512(c) => json!(bin_to_hex(&c[..])),
+            Self::Checksum160(c) => json!(hex::encode_upper(&c[..])),
+            Self::Checksum256(c) => json!(hex::encode_upper(&c[..])),
+            Self::Checksum512(c) => json!(hex::encode_upper(&c[..])),
             Self::PublicKey(sig) => json!(sig.to_string()),
             Self::PrivateKey(sig) => json!(sig.to_string()),
             Self::Signature(sig) => json!(sig.to_string()),
@@ -184,7 +185,7 @@ impl AntelopeType {
             "varuint32" => Self::VarUint32(v.as_u64().ok_or_else(incompatible_types)?.try_into()?),
             "float32" => Self::Float32(f64_to_f32(v.as_f64().ok_or_else(incompatible_types)?)?),
             "float64" => Self::Float64(v.as_f64().ok_or_else(incompatible_types)?),
-            "bytes" => Self::Bytes(hex_to_bin(v.as_str().ok_or_else(incompatible_types)?)?),
+            "bytes" => Self::Bytes(hex::decode(v.as_str().ok_or_else(incompatible_types)?)?),
             "string" => Self::String(v.as_str().ok_or_else(incompatible_types)?.to_owned()),
             "time_point" => {
                 let dt = parse_date(v.as_str().ok_or_else(incompatible_types)?)?;
@@ -487,6 +488,12 @@ fn parse_date(s: &str) -> Result<NaiveDateTime, InvalidValue> {
     Ok(NaiveDateTime::parse_from_str(s, DATE_FORMAT)?)
 }
 
+pub fn hex_to_boxed_array<const N: usize>(s: &str) -> Result<Box<[u8; N]>, FromHexError> {
+    let mut result = [0_u8; N];
+    hex::decode_to_slice(s, &mut result)?;
+    Ok(Box::new(result))
+}
+
 
 #[cfg(test)]
 mod tests {
@@ -539,6 +546,9 @@ pub enum InvalidValue {
 
     #[error("invalid asset")]
     Asset(#[from] InvalidAsset),
+
+    #[error("invalid hex representation")]
+    FromHex(#[from] FromHexError),
 
     #[error("invalid crypto data")]
     CryptoData(#[from] InvalidCryptoData),

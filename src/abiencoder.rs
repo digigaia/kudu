@@ -43,7 +43,7 @@ impl ABIEncoder {
     pub fn with_abi(abi: &ABIDefinition) -> Self { Self::from_abi(abi) }
 
     pub fn from_hex_abi(abi: &str) -> Result<Self, InvalidValue> {
-        Self::from_bin_abi(&hex_to_bin(abi)?) //.unwrap())
+        Self::from_bin_abi(&hex::decode(abi)?)
     }
 
     pub fn from_bin_abi(abi: &[u8]) -> Result<Self, InvalidValue> {
