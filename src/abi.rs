@@ -85,11 +85,19 @@ pub struct Table {
     pub name: TableName,
     #[serde(rename = "type")]
     pub type_: TypeName, // TODO: should map into a struct defined within the ABI
+    #[serde(default)]
     pub index_type: TypeName,
     pub key_names: Vec<FieldName>,
+    #[serde(default)]
     pub key_types: Vec<TypeName>,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct Variant {
+    pub name: TypeName,
+    #[serde(default)]
+    pub types: Vec<TypeName>,
+}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ABIDefinition {
@@ -102,6 +110,8 @@ pub struct ABIDefinition {
     pub actions: Vec<Action>,
     #[serde(default)]
     pub tables: Vec<Table>,
+    #[serde(default)]
+    pub variants: Vec<Variant>,
 
     // TODO: implement ricardian_clauses and abi_extensions
 }
@@ -128,6 +138,7 @@ impl ABIDefinition {
             "structs": BIN_ABI_PARSER.decode_variant(data, "struct[]")?,
             "actions": BIN_ABI_PARSER.decode_variant(data, "action[]")?,
             "tables": BIN_ABI_PARSER.decode_variant(data, "table[]")?,
+            // FIXME: we also need to decode "variants" here
         });
 
         assert_eq!(data.leftover(), [0u8; 3]);
@@ -144,6 +155,7 @@ impl Default for ABIDefinition {
             structs: vec![],
             actions: vec![],
             tables: vec![],
+            variants: vec![],
         }
     }
 }
@@ -153,7 +165,7 @@ lazy_static! {
     static ref ABI_SCHEMA: ABIDefinition = ABIDefinition {
         structs: vec![
             Struct {
-                name: String::from("typedef"),
+                name: "typedef".to_owned(),
                 base: "".to_owned(),
                 fields: vec![
                     Field { name: "new_type_name".to_owned(), type_: "string".to_owned() },
@@ -197,6 +209,7 @@ lazy_static! {
                     Field { name: "type".to_owned(), type_: "string".to_owned() },
                 ],
             },
+            // FIXME: need also Variant here
 
         ],
         ..ABIDefinition::default()

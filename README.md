@@ -19,6 +19,8 @@
 
 - rename AntelopeType to AntelopeValue, use variant names as AntelopeType, and rewrite method that take a typename as str to method taking the typename as AntelopeType
 
+- replace lazy_static with once_cell
+
 
 ### CORRECTNESS / TESTING
 
@@ -40,12 +42,15 @@
 ### MISC
 
 - move all bin_to_hex and hex_to_bin functions into a dedicated hexutils crate (with dedicated error type)
+  ACTUALLY: use the `hex` crate
 
 - for Name type: implement .prefix() and check unittests and validity of non-normalized names
 
 - check if we need to Box a few types in the AntelopeType enum (eg: PublicKey, Signature,...)
 
 - crypto primitives do not implement WebAuthn key and signatures yet
+
+- implement action_result in abi and abi_parser
 
 
 ## NOTES

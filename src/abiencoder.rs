@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use serde_json::{Map, Value};
+use serde_json::{Map, Value, json};
 // use anyhow::Result;
 use color_eyre::eyre::Result;
 use strum::VariantNames;
@@ -15,9 +15,7 @@ pub struct ABIEncoder {
     structs: HashMap<TypeName, Struct>,
     actions: HashMap<Name, TypeName>,
     tables: HashMap<Name, TypeName>,
-
-    // FIXME: not implemented for now
-    variants: HashMap<TypeName, TypeName>, // FIXME: check this is the correct type
+    variants: HashMap<TypeName, Variant>,
 
     // TODO: missing https://github.com/AntelopeIO/leap/blob/6817911900a088c60f91563995cf482d6b380b2d/libraries/chain/abi_serializer.cpp#L140-L142
 
@@ -32,9 +30,6 @@ impl ABIEncoder {
             structs: HashMap::new(),
             actions: HashMap::new(),
             tables: HashMap::new(),
-            // builtin_types: get_packing_functions(),
-
-            // FIXME: not implemented for now
             variants: HashMap::new(),
         }
     }
@@ -57,11 +52,13 @@ impl ABIEncoder {
         Ok(Self::from_abi(&abi_def))
     }
 
+    // FIXME: we should probably move abi in there instead of passing a ref
     pub fn set_abi(&mut self, abi: &ABIDefinition) {
         self.typedefs.clear();
         self.structs.clear();
         self.actions.clear();
         self.tables.clear();
+        self.variants.clear();
 
         // FIXME: check if we have to clone objects here or if it is ok to keep refs only
         //        maybe we want to move the whole ABIDefinition inside the encoder so it
@@ -76,12 +73,14 @@ impl ABIEncoder {
 
         for a in &abi.actions { self.actions.insert(a.name.clone(), a.type_.clone()); }
         for t in &abi.tables { self.tables.insert(t.name.clone(), t.type_.clone()); }
+        for v in &abi.variants { self.variants.insert(v.name.clone(), v.clone()); }
 
         // The ABI vector may contain duplicates which would make it an invalid ABI
         assert_eq!(self.typedefs.len(), abi.types.len(), "duplicate type definition detected");
         assert_eq!(self.structs.len(), abi.structs.len(), "duplicate struct definition detected");
         assert_eq!(self.actions.len(), abi.actions.len(), "duplicate action definition detected");
         assert_eq!(self.tables.len(), abi.tables.len(), "duplicate table definition detected");
+        assert_eq!(self.variants.len(), abi.variants.len(), "duplicate variants definition detected");
 
         self.validate();
     }
@@ -166,6 +165,23 @@ impl ABIEncoder {
                     false => AntelopeType::Bool(false).to_bin(ds),
                 }
             }
+            else if let Some(variant_def) = self.variants.get(rtype) {
+                debug!("serializing type {:?} with variant: {:?}", rtype, object);
+                assert!(object.is_array() && object.as_array().unwrap().len() == 2,
+                        "expected input to be an array of 2 elements while processing variant: {}",
+                        &object);
+                assert!(object[0].is_string(), "expected variant typename to be a string: {}",
+                        object[0]);
+                let variant_type = object[0].as_str().unwrap();
+                if let Some(vpos) = variant_def.types.iter().position(|v| v == variant_type) {
+                    ds.write_var_u32(vpos as u32);
+                    self.encode_variant(ds, variant_type, &object[1])?;
+                }
+                else {
+                    panic!("specified type {} is not valid within the variant {}",
+                           variant_type, rtype);
+                }
+            }
             else if let Some(struct_def) = self.structs.get(rtype) {
                 if object.is_object() {
                     if !struct_def.base.is_empty() {
@@ -181,14 +197,15 @@ impl ABIEncoder {
                     }
                 }
                 else if object.is_array() {
+                    unimplemented!();
                 }
                 else {
                     // error
+                    unimplemented!();
                 }
-
             }
             else {
-                assert!(false, "Do not know how to serialize type: {}", rtype);
+                panic!("Do not know how to serialize type: {}", rtype);
             }
         }
 
@@ -239,6 +256,13 @@ impl ABIEncoder {
                     true => self.decode_variant(ds, ftype)?,
                     false => Value::Null,
                 }
+            }
+            else if let Some(variant_def) = self.variants.get(rtype) {
+                let variant_tag: usize = AntelopeType::from_bin("varuint32", ds)?.try_into()?;
+                assert!(variant_tag < variant_def.types.len(),
+                        "deserialized invalid tag {} for variant {}", variant_tag, rtype);
+                let variant_type = &variant_def.types[variant_tag];
+                json!([variant_type, self.decode_variant(ds, variant_type)?])
             }
             else if let Some(struct_def) = self.structs.get(rtype) {
                 self.decode_struct(ds, struct_def)?
