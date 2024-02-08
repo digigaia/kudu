@@ -1,6 +1,6 @@
 use serde::{Serialize, Deserialize};
 use serde_json::json;
-use lazy_static::lazy_static;
+use std::sync::OnceLock;
 
 use crate::{AntelopeType, Name, ByteStream, ABIEncoder, InvalidValue};
 
@@ -132,12 +132,13 @@ impl ABIDefinition {
                 r#"unsupported ABI version: "{}""#, version_str)));
         }
 
+        let parser = bin_abi_parser();
         let abi = json!({
             "version": version,
-            "types": BIN_ABI_PARSER.decode_variant(data, "typedef[]")?,
-            "structs": BIN_ABI_PARSER.decode_variant(data, "struct[]")?,
-            "actions": BIN_ABI_PARSER.decode_variant(data, "action[]")?,
-            "tables": BIN_ABI_PARSER.decode_variant(data, "table[]")?,
+            "types": parser.decode_variant(data, "typedef[]")?,
+            "structs": parser.decode_variant(data, "struct[]")?,
+            "actions": parser.decode_variant(data, "action[]")?,
+            "tables": parser.decode_variant(data, "table[]")?,
             // FIXME: we also need to decode "variants" here
         });
 
@@ -160,9 +161,9 @@ impl Default for ABIDefinition {
     }
 }
 
-lazy_static! {
-
-    static ref ABI_SCHEMA: ABIDefinition = ABIDefinition {
+fn abi_schema() -> &'static ABIDefinition {
+    static ABI_SCHEMA: OnceLock<ABIDefinition> = OnceLock::new();
+    ABI_SCHEMA.get_or_init(|| { ABIDefinition {
         structs: vec![
             Struct {
                 name: "typedef".to_owned(),
@@ -213,9 +214,14 @@ lazy_static! {
 
         ],
         ..ABIDefinition::default()
-    };
+    }})
+}
 
-    static ref BIN_ABI_PARSER: ABIEncoder = ABIEncoder::with_abi(&ABI_SCHEMA);
+fn bin_abi_parser() -> &'static ABIEncoder {
+    static BIN_ABI_PARSER: OnceLock<ABIEncoder> = OnceLock::new();
+    BIN_ABI_PARSER.get_or_init(|| {
+        ABIEncoder::with_abi(abi_schema())
+    })
 }
 
 #[cfg(test)]

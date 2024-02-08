@@ -17,8 +17,6 @@
 
 - rename AntelopeType to AntelopeValue, use variant names as AntelopeType, and rewrite method that take a typename as str to method taking the typename as AntelopeType
 
-- replace lazy_static with once_cell
-
 - clean abiencoder.rs
 
 - investigate whether color_eyre::Result is the right result type for the library. Maybe we should use std::Result and reserve the usage of color_eyre::Result for the unittests?
