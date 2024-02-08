@@ -1,13 +1,12 @@
 pub mod abi_files;
 
-use serde_json::Value;
 // use anyhow::Result;
 use color_eyre::eyre::Result;
 use log::debug;
 
 use antelope::abi::*;
 use antelope::{
-    ABIEncoder, ByteStream,
+    JsonValue, ABIEncoder, ByteStream,
     types::InvalidValue,
 };
 
@@ -43,7 +42,7 @@ fn init() {
 
 fn try_encode(abi: &ABIEncoder, typename: &str, data: &str) -> Result<()> {
     let mut ds = ByteStream::new();
-    let value: Value = serde_json::from_str(data).map_err(InvalidValue::from)?;
+    let value: JsonValue = serde_json::from_str(data).map_err(InvalidValue::from)?;
     abi.encode_variant(&mut ds, typename, &value)?;
     Ok(())
 }
@@ -51,7 +50,7 @@ fn try_encode(abi: &ABIEncoder, typename: &str, data: &str) -> Result<()> {
 fn round_trip(abi: &ABIEncoder, typename: &str, data: &str, hex: &str, expected: &str) -> Result<()> {
     debug!(r#"==== round-tripping type "{typename}" with value {data}"#);
     let mut ds = ByteStream::new();
-    let value: Value = serde_json::from_str(data)?;
+    let value: JsonValue = serde_json::from_str(data)?;
     abi.encode_variant(&mut ds, typename, &value)?;
 
     assert_eq!(ds.hex_data(), hex.to_ascii_uppercase());

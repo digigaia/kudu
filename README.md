@@ -5,8 +5,6 @@
 
 ### API DESIGN
 
-- we should `pub use serde_json::Value as antelope::Variant` or find another type
-
 - rename `ABIEncoder::from_abi` to `ABIEncoder::with_abi` ?
 
 - rename ABISerializable to ABISerialize to be consistent with `serde`. Check other nomenclature as well.
@@ -21,6 +19,10 @@
 
 - replace lazy_static with once_cell
 
+- clean abiencoder.rs
+
+- investigate whether color_eyre::Result is the right result type for the library. Maybe we should use std::Result and reserve the usage of color_eyre::Result for the unittests?
+
 
 ### CORRECTNESS / TESTING
 
@@ -31,8 +33,6 @@
   https://github.com/AntelopeIO/leap/blob/6817911900a088c60f91563995cf482d6b380b2d/libraries/chain/include/eosio/chain/symbol.hpp#L34
 
 - check for `unwrap` and `panic!` everywhere
-
-- check that bin encoding for Bytes is correct (len as varuint32?)
 
 - check abieos/test.cpp to ensure we cover also all the error cases with proper error messages
 

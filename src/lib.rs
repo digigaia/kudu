@@ -5,6 +5,13 @@ pub mod types;
 pub mod abiencoder;
 pub mod bytestream;
 
+pub use serde_json::{
+    Map as JsonMap,
+    Value as JsonValue,
+    Error as JsonError,
+    json
+};
+
 pub use types::{
     AntelopeType, InvalidValue,
     Name, InvalidName,

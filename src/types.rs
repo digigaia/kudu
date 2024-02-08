@@ -15,14 +15,13 @@ use std::any::type_name;
 use std::str::{FromStr, from_utf8, Utf8Error, ParseBoolError};
 
 use bytemuck::{cast_ref, pod_read_unaligned};
-use serde_json::{json, Value, Error as JsonError};
 use thiserror::Error;
 use strum::EnumVariantNames;
 use chrono::{NaiveDateTime, ParseError as ChronoParseError};
 use num::{Integer, Signed, Unsigned};
 use hex::FromHexError;
 
-use super::{ByteStream, StreamError, config};
+use super::{json, JsonValue, JsonError, ByteStream, StreamError, config};
 
 const DATE_FORMAT: &str = "%Y-%m-%dT%H:%M:%S%.3f";
 
@@ -115,7 +114,7 @@ impl AntelopeType {
         })
     }
 
-    pub fn to_variant(&self) -> Value {
+    pub fn to_variant(&self) -> JsonValue {
         match self {
             Self::Bool(b) => json!(b),
             Self::Int8(n) => json!(n),
@@ -165,7 +164,7 @@ impl AntelopeType {
         }
     }
 
-    pub fn from_variant(typename: &str, v: &Value) -> Result<Self, InvalidValue> {
+    pub fn from_variant(typename: &str, v: &JsonValue) -> Result<Self, InvalidValue> {
         let incompatible_types = || {
             InvalidValue::IncompatibleVariantTypes(typename.to_owned(), v.clone())
         };
@@ -246,7 +245,7 @@ impl AntelopeType {
             },
             Self::String(s) => {
                 write_var_u32(stream, s.len() as u32);
-                stream.write_bytes(&s.as_bytes()[..]);
+                stream.write_bytes(s.as_bytes());
             },
             Self::TimePoint(t) => stream.write_bytes(cast_ref::<i64, [u8; 8]>(&t)),
             Self::TimePointSec(t) => stream.write_bytes(cast_ref::<u32, [u8; 4]>(&t)),
@@ -327,11 +326,11 @@ fn f64_to_f32(x: f64) -> Result<f32, InvalidValue> {
 }
 
 fn write_var_u32(stream: &mut ByteStream, n: u32) {
-    let mut n = n.clone();
+    let mut n = n;
     loop {
         if n >> 7 != 0 {
             stream.write_byte((0x80 | (n & 0x7f)) as u8);
-            n = n >> 7
+            n >>= 7
         }
         else {
             stream.write_byte(n as u8);
@@ -418,6 +417,7 @@ impl TryFrom<AntelopeType> for usize {
             AntelopeType::Uint16(n) => n as usize,
             AntelopeType::Uint32(n) => n as usize,
             AntelopeType::Uint64(n) => n as usize,
+            AntelopeType::VarInt32(n) => n as usize,
             AntelopeType::VarUint32(n) => n as usize,
             _ => return Err(InvalidValue::InvalidData( format!("cannot convert {:?} to usize", n))),
         })
@@ -437,6 +437,7 @@ impl TryFrom<AntelopeType> for i64 {
             AntelopeType::Uint16(n) => n as i64,
             AntelopeType::Uint32(n) => n as i64,
             AntelopeType::Uint64(n) => n as i64,
+            AntelopeType::VarInt32(n) => n as i64,
             AntelopeType::VarUint32(n) => n as i64,
             _ => return Err(InvalidValue::InvalidData( format!("cannot convert {:?} to i64", n))),
         })
@@ -459,7 +460,7 @@ impl TryFrom<AntelopeType> for String {
 }
 
 
-fn variant_to_int<T>(v: &Value) -> Result<T, InvalidValue>
+fn variant_to_int<T>(v: &JsonValue) -> Result<T, InvalidValue>
 where
     T: Integer + Signed + FromStr + From<i64>,
     InvalidValue: From<<T as FromStr>::Err>,
@@ -471,7 +472,7 @@ where
     }
 }
 
-fn variant_to_uint<T>(v: &Value) -> Result<T, InvalidValue>
+fn variant_to_uint<T>(v: &JsonValue) -> Result<T, InvalidValue>
 where
     T: Integer + Unsigned + FromStr + From<u64>,
     InvalidValue: From<<T as FromStr>::Err>,
@@ -521,7 +522,7 @@ pub enum InvalidValue {
     InvalidType(String),
 
     #[error(r#"cannot convert given variant {1} to Antelope type "{0}""#)]
-    IncompatibleVariantTypes(String, Value),
+    IncompatibleVariantTypes(String, JsonValue),
 
     #[error("invalid bool")]
     Bool(#[from] ParseBoolError),

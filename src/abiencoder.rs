@@ -1,12 +1,14 @@
 use std::collections::HashMap;
 
-use serde_json::{Map, Value, json};
 // use anyhow::Result;
 use color_eyre::eyre::Result;
 use strum::VariantNames;
 use log::debug;
 
-use crate::abi::*;
+use crate::{
+    JsonMap, JsonValue, json,
+    abi::*
+};
 use super::*;
 
 pub struct ABIEncoder {
@@ -104,7 +106,7 @@ impl ABIEncoder {
 
     }
 
-    pub fn json_to_bin(&self, typename: &str, obj: &Value) -> Result<Vec<u8>, InvalidValue> {
+    pub fn json_to_bin(&self, typename: &str, obj: &JsonValue) -> Result<Vec<u8>, InvalidValue> {
         let mut ds = ByteStream::new();
         self.encode_variant(&mut ds, typename, obj)?;
         Ok(ds.pop())
@@ -114,7 +116,7 @@ impl ABIEncoder {
         obj.to_bin(stream)
     }
 
-    pub fn encode_variant(&self, ds: &mut ByteStream, typename: &str, object: &Value) -> Result<(), InvalidValue> {
+    pub fn encode_variant(&self, ds: &mut ByteStream, typename: &str, object: &JsonValue) -> Result<(), InvalidValue> {
         // see C++ implementation here: https://github.com/AntelopeIO/leap/blob/main/libraries/chain/abi_serializer.cpp#L491
         let rtype = self.resolve_type(typename);
         let ftype = fundamental_type(rtype); //.to_owned();  // FIXME: remove this .to_owned()
@@ -150,7 +152,7 @@ impl ABIEncoder {
             // not a builtin type, we have to recurse down
 
             if is_array(rtype) {
-                let a: &Vec<Value> = object.as_array().unwrap();
+                let a: &Vec<JsonValue> = object.as_array().unwrap();
                 ds.write_var_u32(a.len() as u32);
                 for v in a {
                     self.encode_variant(ds, ftype, v)?;
@@ -212,7 +214,7 @@ impl ABIEncoder {
         Ok(())
     }
 
-    pub fn decode_variant(&self, ds: &mut ByteStream, typename: &str) -> Result<Value, InvalidValue> {
+    pub fn decode_variant(&self, ds: &mut ByteStream, typename: &str) -> Result<JsonValue, InvalidValue> {
         let rtype = self.resolve_type(typename);
         let ftype = fundamental_type(rtype);
 
@@ -226,13 +228,13 @@ impl ABIEncoder {
                 for _ in 0..item_count {
                     a.push(AntelopeType::from_bin(ftype, ds)?.to_variant());
                 }
-                Value::Array(a)
+                JsonValue::Array(a)
             }
             else if is_optional(rtype) {
                 let non_null: bool = AntelopeType::from_bin("bool", ds)?.into();
                 match non_null {
                     true => AntelopeType::from_bin(ftype, ds)?.to_variant(),
-                    false => Value::Null,
+                    false => JsonValue::Null,
                 }
             }
             else {
@@ -248,13 +250,13 @@ impl ABIEncoder {
                 for _ in 0..item_count {
                     a.push(self.decode_variant(ds, ftype)?);
                 }
-                Value::Array(a)
+                JsonValue::Array(a)
             }
             else if is_optional(rtype) {
                 let non_null = AntelopeType::from_bin("bool", ds)?.into();
                 match non_null {
                     true => self.decode_variant(ds, ftype)?,
-                    false => Value::Null,
+                    false => JsonValue::Null,
                 }
             }
             else if let Some(variant_def) = self.variants.get(rtype) {
@@ -296,11 +298,11 @@ pub struct Struct {
 }
      */
 
-    fn decode_struct(&self, ds: &mut ByteStream, struct_def: &Struct) -> Result<Value, InvalidValue> {
-        // let mut result: Map<String, Value> = Map::new();
+    fn decode_struct(&self, ds: &mut ByteStream, struct_def: &Struct) -> Result<JsonValue, InvalidValue> {
+        // let mut result: Map<String, JsonValue> = Map::new();
         // result.insert("name".to_owned(), json!(struct_def.name));
         // result.insert("base".to_owned(), json!(struct_def.base));
-        // result.insert("fields".to_owned(), Value::Array(vec![]));
+        // result.insert("fields".to_owned(), JsonValue::Array(vec![]));
 
         debug!(r#"reading struct with name "{}" and base "{}""#, struct_def.name, struct_def.base);
 
@@ -310,7 +312,7 @@ pub struct Struct {
         //     "fields": []
         // });
         // let mut result = json!({});
-        let mut result: Map<String, Value> = Map::new();
+        let mut result: JsonMap<String, JsonValue> = JsonMap::new();
 
         if !struct_def.base.is_empty() {
             // result.insert("base".to_owned(), json!(struct_def.base));
@@ -338,7 +340,7 @@ pub struct Struct {
         }
 
         debug!("fully decoded struct: {:#?}", result);
-        Ok(Value::Object(result))
+        Ok(JsonValue::Object(result))
     }
 
 }
