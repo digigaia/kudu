@@ -13,6 +13,7 @@ pub use serde_json::{
 };
 
 pub use types::{
+    AntelopeType,
     AntelopeValue, InvalidValue,
     Name, InvalidName,
     Symbol, InvalidSymbol,

@@ -4,7 +4,7 @@ use serde::de::{self, Visitor};
 use thiserror::Error;
 use std::num::ParseIntError;
 
-use crate::{AntelopeValue, ByteStream, Symbol, InvalidSymbol, InvalidValue};
+use crate::{AntelopeType, AntelopeValue, ByteStream, Symbol, InvalidSymbol, InvalidValue};
 
 
 #[derive(Error, Debug)]
@@ -111,7 +111,7 @@ impl Asset {
     }
 
     pub fn decode(stream: &mut ByteStream) -> Result<Self, InvalidValue> {
-        let amount: i64 = AntelopeValue::from_bin("int64", stream)?.try_into()?;
+        let amount: i64 = AntelopeValue::from_bin(AntelopeType::Int64, stream)?.try_into()?;
         let symbol = Symbol::decode(stream)?;
         Ok(Self {
             amount,

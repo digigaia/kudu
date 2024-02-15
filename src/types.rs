@@ -16,7 +16,7 @@ use std::str::{FromStr, from_utf8, Utf8Error, ParseBoolError};
 
 use bytemuck::{cast_ref, pod_read_unaligned};
 use thiserror::Error;
-use strum::EnumVariantNames;
+use strum::{VariantNames, EnumDiscriminants, EnumString, Display};
 use chrono::{NaiveDateTime, ParseError as ChronoParseError};
 use num::{Integer, Signed, Unsigned};
 use hex::FromHexError;
@@ -26,8 +26,11 @@ use super::{json, JsonValue, JsonError, ByteStream, StreamError, config};
 const DATE_FORMAT: &str = "%Y-%m-%dT%H:%M:%S%.3f";
 
 // see full list in: https://github.com/AntelopeIO/leap/blob/main/libraries/chain/abi_serializer.cpp#L89
-#[derive(Debug, EnumVariantNames)]
+#[derive(Debug, EnumDiscriminants, VariantNames)]
 #[strum(serialize_all = "snake_case")]
+#[strum_discriminants(name(AntelopeType))]
+#[strum_discriminants(derive(Display, EnumString))]
+#[strum_discriminants(strum(serialize_all = "snake_case"))]
 pub enum AntelopeValue {
     Bool(bool),
 
@@ -44,8 +47,10 @@ pub enum AntelopeValue {
     Uint128(u128),
 
     #[strum(serialize = "varint32")]
+    #[strum_discriminants(strum(serialize = "varint32"))]
     VarInt32(i32),
     #[strum(serialize = "varuint32")]
+    #[strum_discriminants(strum(serialize = "varuint32"))]
     VarUint32(u32),
 
     Float32(f32),
@@ -77,40 +82,40 @@ pub enum AntelopeValue {
 
 
 impl AntelopeValue {
-    pub fn from_str(typename: &str, repr: &str) -> Result<Self, InvalidValue> {
+    pub fn from_str(typename: AntelopeType, repr: &str) -> Result<Self, InvalidValue> {
         Ok(match typename {
-            "bool" => Self::Bool(repr.parse()?),
-            "int8" => Self::Int8(repr.parse()?),
-            "int16" => Self::Int16(repr.parse()?),
-            "int32" => Self::Int32(repr.parse()?),
-            "int64" => Self::Int64(variant_to_int(&json!(repr))?),
-            "int128" => Self::Int128(variant_to_int(&json!(repr))?),
-            "uint8" => Self::Uint8(repr.parse()?),
-            "uint16" => Self::Uint16(repr.parse()?),
-            "uint32" => Self::Uint32(repr.parse()?),
-            "uint64" => Self::Uint64(variant_to_uint(&json!(repr))?),
-            "uint128" => Self::Uint128(variant_to_uint(&json!(repr))?),
-            "varint32" => Self::VarInt32(repr.parse()?),
-            "varuint32" => Self::VarUint32(repr.parse()?),
-            "float32" => Self::Float32(repr.parse()?),
-            "float64" => Self::Float64(repr.parse()?),
-            "bytes" => Self::Bytes(hex::decode(repr)?),
-            "string" => Self::String(repr.to_owned()),
-            "time_point" => Self::TimePoint(parse_date(repr)?.timestamp_micros()),
-            "time_point_sec" => Self::TimePointSec(parse_date(repr)?.timestamp() as u32),
-            "block_timestamp_type" => Self::BlockTimestampType(timestamp_to_block_slot(&parse_date(repr)?)),
-            "checksum160" => Self::Checksum160(hex_to_boxed_array(repr)?),
-            "checksum256" => Self::Checksum256(hex_to_boxed_array(repr)?),
-            "checksum512" => Self::Checksum512(hex_to_boxed_array(repr)?),
-            "public_key" => Self::PublicKey(PublicKey::from_str(repr)?),
-            "private_key" => Self::PrivateKey(PrivateKey::from_str(repr)?),
-            "signature" => Self::Signature(Signature::from_str(repr)?),
-            "name" => Self::Name(Name::from_str(repr)?),
-            "symbol_code" => Self::SymbolCode(string_to_symbol_code(repr.as_bytes())?),
-            "symbol" => Self::Symbol(Symbol::from_str(repr)?),
-            "asset" => Self::Asset(Asset::from_str(repr)?),
-            "extended_asset" => Self::from_variant(typename, &serde_json::from_str(repr)?)?,
-            _ => { return Err(InvalidValue::InvalidType(typename.to_owned())); },
+            AntelopeType::Bool => Self::Bool(repr.parse()?),
+            AntelopeType::Int8 => Self::Int8(repr.parse()?),
+            AntelopeType::Int16 => Self::Int16(repr.parse()?),
+            AntelopeType::Int32 => Self::Int32(repr.parse()?),
+            AntelopeType::Int64 => Self::Int64(variant_to_int(&json!(repr))?),
+            AntelopeType::Int128 => Self::Int128(variant_to_int(&json!(repr))?),
+            AntelopeType::Uint8 => Self::Uint8(repr.parse()?),
+            AntelopeType::Uint16 => Self::Uint16(repr.parse()?),
+            AntelopeType::Uint32 => Self::Uint32(repr.parse()?),
+            AntelopeType::Uint64 => Self::Uint64(variant_to_uint(&json!(repr))?),
+            AntelopeType::Uint128 => Self::Uint128(variant_to_uint(&json!(repr))?),
+            AntelopeType::VarInt32 => Self::VarInt32(repr.parse()?),
+            AntelopeType::VarUint32 => Self::VarUint32(repr.parse()?),
+            AntelopeType::Float32 => Self::Float32(repr.parse()?),
+            AntelopeType::Float64 => Self::Float64(repr.parse()?),
+            AntelopeType::Bytes => Self::Bytes(hex::decode(repr)?),
+            AntelopeType::String => Self::String(repr.to_owned()),
+            AntelopeType::TimePoint => Self::TimePoint(parse_date(repr)?.timestamp_micros()),
+            AntelopeType::TimePointSec => Self::TimePointSec(parse_date(repr)?.timestamp() as u32),
+            AntelopeType::BlockTimestampType => Self::BlockTimestampType(timestamp_to_block_slot(&parse_date(repr)?)),
+            AntelopeType::Checksum160 => Self::Checksum160(hex_to_boxed_array(repr)?),
+            AntelopeType::Checksum256 => Self::Checksum256(hex_to_boxed_array(repr)?),
+            AntelopeType::Checksum512 => Self::Checksum512(hex_to_boxed_array(repr)?),
+            AntelopeType::PublicKey => Self::PublicKey(PublicKey::from_str(repr)?),
+            AntelopeType::PrivateKey => Self::PrivateKey(PrivateKey::from_str(repr)?),
+            AntelopeType::Signature => Self::Signature(Signature::from_str(repr)?),
+            AntelopeType::Name => Self::Name(Name::from_str(repr)?),
+            AntelopeType::SymbolCode => Self::SymbolCode(string_to_symbol_code(repr.as_bytes())?),
+            AntelopeType::Symbol => Self::Symbol(Symbol::from_str(repr)?),
+            AntelopeType::Asset => Self::Asset(Asset::from_str(repr)?),
+            AntelopeType::ExtendedAsset => Self::from_variant(typename, &serde_json::from_str(repr)?)?,
+            // _ => { return Err(InvalidValue::InvalidType(typename.to_string())); },
         })
     }
 
@@ -164,58 +169,57 @@ impl AntelopeValue {
         }
     }
 
-    pub fn from_variant(typename: &str, v: &JsonValue) -> Result<Self, InvalidValue> {
+    pub fn from_variant(typename: AntelopeType, v: &JsonValue) -> Result<Self, InvalidValue> {
         let incompatible_types = || {
-            InvalidValue::IncompatibleVariantTypes(typename.to_owned(), v.clone())
+            InvalidValue::IncompatibleVariantTypes(typename.to_string(), v.clone())
         };
         Ok(match typename {
-            "bool" => Self::Bool(v.as_bool().ok_or_else(incompatible_types)?),
-            "int8" => Self::Int8(v.as_i64().ok_or_else(incompatible_types)?.try_into()?),
-            "int16" => Self::Int16(v.as_i64().ok_or_else(incompatible_types)?.try_into()?),
-            "int32" => Self::Int32(v.as_i64().ok_or_else(incompatible_types)?.try_into()?),
-            "int64" => Self::Int64(variant_to_int(v)?),
-            "int128" => Self::Int128(variant_to_int(v)?),
-            "uint8" => Self::Uint8(v.as_u64().ok_or_else(incompatible_types)?.try_into()?),
-            "uint16" => Self::Uint16(v.as_u64().ok_or_else(incompatible_types)?.try_into()?),
-            "uint32" => Self::Uint32(v.as_u64().ok_or_else(incompatible_types)?.try_into()?),
-            "uint64" => Self::Uint64(variant_to_uint(v)?),
-            "uint128" => Self::Uint128(variant_to_uint(v)?),
-            "varint32" => Self::VarInt32(v.as_i64().ok_or_else(incompatible_types)?.try_into()?),
-            "varuint32" => Self::VarUint32(v.as_u64().ok_or_else(incompatible_types)?.try_into()?),
-            "float32" => Self::Float32(f64_to_f32(v.as_f64().ok_or_else(incompatible_types)?)?),
-            "float64" => Self::Float64(v.as_f64().ok_or_else(incompatible_types)?),
-            "bytes" => Self::Bytes(hex::decode(v.as_str().ok_or_else(incompatible_types)?)?),
-            "string" => Self::String(v.as_str().ok_or_else(incompatible_types)?.to_owned()),
-            "time_point" => {
+            AntelopeType::Bool => Self::Bool(v.as_bool().ok_or_else(incompatible_types)?),
+            AntelopeType::Int8 => Self::Int8(v.as_i64().ok_or_else(incompatible_types)?.try_into()?),
+            AntelopeType::Int16 => Self::Int16(v.as_i64().ok_or_else(incompatible_types)?.try_into()?),
+            AntelopeType::Int32 => Self::Int32(v.as_i64().ok_or_else(incompatible_types)?.try_into()?),
+            AntelopeType::Int64 => Self::Int64(variant_to_int(v)?),
+            AntelopeType::Int128 => Self::Int128(variant_to_int(v)?),
+            AntelopeType::Uint8 => Self::Uint8(v.as_u64().ok_or_else(incompatible_types)?.try_into()?),
+            AntelopeType::Uint16 => Self::Uint16(v.as_u64().ok_or_else(incompatible_types)?.try_into()?),
+            AntelopeType::Uint32 => Self::Uint32(v.as_u64().ok_or_else(incompatible_types)?.try_into()?),
+            AntelopeType::Uint64 => Self::Uint64(variant_to_uint(v)?),
+            AntelopeType::Uint128 => Self::Uint128(variant_to_uint(v)?),
+            AntelopeType::VarInt32 => Self::VarInt32(v.as_i64().ok_or_else(incompatible_types)?.try_into()?),
+            AntelopeType::VarUint32 => Self::VarUint32(v.as_u64().ok_or_else(incompatible_types)?.try_into()?),
+            AntelopeType::Float32 => Self::Float32(f64_to_f32(v.as_f64().ok_or_else(incompatible_types)?)?),
+            AntelopeType::Float64 => Self::Float64(v.as_f64().ok_or_else(incompatible_types)?),
+            AntelopeType::Bytes => Self::Bytes(hex::decode(v.as_str().ok_or_else(incompatible_types)?)?),
+            AntelopeType::String => Self::String(v.as_str().ok_or_else(incompatible_types)?.to_owned()),
+            AntelopeType::TimePoint => {
                 let dt = parse_date(v.as_str().ok_or_else(incompatible_types)?)?;
                 Self::TimePoint(dt.timestamp_micros())
             },
-            "time_point_sec" => {
+            AntelopeType::TimePointSec => {
                 let dt = parse_date(v.as_str().ok_or_else(incompatible_types)?)?;
                 Self::TimePointSec(dt.timestamp() as u32)
             },
-            "block_timestamp_type" => {
+            AntelopeType::BlockTimestampType => {
                 let dt = parse_date(v.as_str().ok_or_else(incompatible_types)?)?;
                 Self::BlockTimestampType(timestamp_to_block_slot(&dt))
             },
-            "checksum160" => Self::Checksum160(hex_to_boxed_array(v.as_str().ok_or_else(incompatible_types)?)?),
-            "checksum256" => Self::Checksum256(hex_to_boxed_array(v.as_str().ok_or_else(incompatible_types)?)?),
-            "checksum512" => Self::Checksum512(hex_to_boxed_array(v.as_str().ok_or_else(incompatible_types)?)?),
-            "public_key" => Self::from_str("public_key", v.as_str().ok_or_else(incompatible_types)?)?,
-            "private_key" => Self::from_str("private_key", v.as_str().ok_or_else(incompatible_types)?)?,
-            "signature" => Self::from_str("signature", v.as_str().ok_or_else(incompatible_types)?)?,
-            "name" => Self::from_str("name", v.as_str().ok_or_else(incompatible_types)?)?,
-            "symbol" => Self::from_str("symbol", v.as_str().ok_or_else(incompatible_types)?)?,
-            "symbol_code" => Self::from_str("symbol_code", v.as_str().ok_or_else(incompatible_types)?)?,
-            "asset" => Self::from_str("asset", v.as_str().ok_or_else(incompatible_types)?)?,
-            "extended_asset" => {
+            AntelopeType::Checksum160 => Self::Checksum160(hex_to_boxed_array(v.as_str().ok_or_else(incompatible_types)?)?),
+            AntelopeType::Checksum256 => Self::Checksum256(hex_to_boxed_array(v.as_str().ok_or_else(incompatible_types)?)?),
+            AntelopeType::Checksum512 => Self::Checksum512(hex_to_boxed_array(v.as_str().ok_or_else(incompatible_types)?)?),
+            AntelopeType::PublicKey |
+            AntelopeType::PrivateKey |
+            AntelopeType::Signature |
+            AntelopeType::Name |
+            AntelopeType::Symbol |
+            AntelopeType::SymbolCode |
+            AntelopeType::Asset => Self::from_str(typename, v.as_str().ok_or_else(incompatible_types)?)?,
+            AntelopeType::ExtendedAsset => {
                 let ea = v.as_object().ok_or_else(incompatible_types)?;
                 Self::ExtendedAsset(
                     Asset::from_str(ea["quantity"].as_str().ok_or_else(incompatible_types)?)?,
                     Name::from_str(ea["contract"].as_str().ok_or_else(incompatible_types)?)?,
                 )
             },
-            _ => { return Err(InvalidValue::InvalidType(typename.to_owned())); },
         })
     }
 
@@ -267,47 +271,46 @@ impl AntelopeValue {
         }
     }
 
-    pub fn from_bin(typename: &str, stream: &mut ByteStream) -> Result<Self, InvalidValue> {
+    pub fn from_bin(typename: AntelopeType, stream: &mut ByteStream) -> Result<Self, InvalidValue> {
         Ok(match typename {
-            "bool" => match stream.read_byte()? {
+            AntelopeType::Bool => match stream.read_byte()? {
                 1 => Self::Bool(true),
                 0 => Self::Bool(false),
                 _ => { return Err(InvalidValue::InvalidData("cannot parse bool from stream".to_owned())); },
             },
-            "int8" => Self::Int8(stream.read_byte()? as i8),
-            "int16" => Self::Int16(pod_read_unaligned(stream.read_bytes(2)?)),
-            "int32" => Self::Int32(pod_read_unaligned(stream.read_bytes(4)?)),
-            "int64" => Self::Int64(pod_read_unaligned(stream.read_bytes(8)?)),
-            "int128" => Self::Int128(pod_read_unaligned(stream.read_bytes(16)?)),
-            "uint8" => Self::Uint8(stream.read_byte()?),
-            "uint16" => Self::Uint16(pod_read_unaligned(stream.read_bytes(2)?)),
-            "uint32" => Self::Uint32(pod_read_unaligned(stream.read_bytes(4)?)),
-            "uint64" => Self::Uint64(pod_read_unaligned(stream.read_bytes(8)?)),
-            "uint128" => Self::Uint128(pod_read_unaligned(stream.read_bytes(16)?)),
-            "varint32" => Self::VarInt32(read_var_i32(stream)?),
-            "varuint32" => Self::VarUint32(read_var_u32(stream)?),
-            "float32" => Self::Float32(pod_read_unaligned(stream.read_bytes(4)?)),
-            "float64" => Self::Float64(pod_read_unaligned(stream.read_bytes(8)?)),
-            "bytes" => Self::Bytes(read_bytes(stream)?),
-            "string" => Self::String(read_str(stream)?.to_owned()),
-            "time_point" => Self::TimePoint(pod_read_unaligned(stream.read_bytes(8)?)),
-            "time_point_sec" => Self::TimePointSec(pod_read_unaligned(stream.read_bytes(4)?)),
-            "block_timestamp_type" => Self::BlockTimestampType(pod_read_unaligned(stream.read_bytes(4)?)),
-            "checksum160" => Self::Checksum160(Box::new(stream.read_bytes(20)?.try_into().unwrap())),
-            "checksum256" => Self::Checksum256(Box::new(stream.read_bytes(32)?.try_into().unwrap())),
-            "checksum512" => Self::Checksum512(Box::new(stream.read_bytes(64)?.try_into().unwrap())),
-            "public_key" => Self::PublicKey(PublicKey::decode(stream)?),
-            "private_key" => Self::PrivateKey(PrivateKey::decode(stream)?),
-            "signature" => Self::Signature(Signature::decode(stream)?),
-            "name" => Self::Name(Name::decode(stream)?),
-            "symbol" => Self::Symbol(Symbol::decode(stream)?),
-            "symbol_code" => Self::SymbolCode(pod_read_unaligned(stream.read_bytes(8)?)),
-            "asset" => Self::Asset(Asset::decode(stream)?),
-            "extended_asset" => Self::ExtendedAsset(
+            AntelopeType::Int8 => Self::Int8(stream.read_byte()? as i8),
+            AntelopeType::Int16 => Self::Int16(pod_read_unaligned(stream.read_bytes(2)?)),
+            AntelopeType::Int32 => Self::Int32(pod_read_unaligned(stream.read_bytes(4)?)),
+            AntelopeType::Int64 => Self::Int64(pod_read_unaligned(stream.read_bytes(8)?)),
+            AntelopeType::Int128 => Self::Int128(pod_read_unaligned(stream.read_bytes(16)?)),
+            AntelopeType::Uint8 => Self::Uint8(stream.read_byte()?),
+            AntelopeType::Uint16 => Self::Uint16(pod_read_unaligned(stream.read_bytes(2)?)),
+            AntelopeType::Uint32 => Self::Uint32(pod_read_unaligned(stream.read_bytes(4)?)),
+            AntelopeType::Uint64 => Self::Uint64(pod_read_unaligned(stream.read_bytes(8)?)),
+            AntelopeType::Uint128 => Self::Uint128(pod_read_unaligned(stream.read_bytes(16)?)),
+            AntelopeType::VarInt32 => Self::VarInt32(read_var_i32(stream)?),
+            AntelopeType::VarUint32 => Self::VarUint32(read_var_u32(stream)?),
+            AntelopeType::Float32 => Self::Float32(pod_read_unaligned(stream.read_bytes(4)?)),
+            AntelopeType::Float64 => Self::Float64(pod_read_unaligned(stream.read_bytes(8)?)),
+            AntelopeType::Bytes => Self::Bytes(read_bytes(stream)?),
+            AntelopeType::String => Self::String(read_str(stream)?.to_owned()),
+            AntelopeType::TimePoint => Self::TimePoint(pod_read_unaligned(stream.read_bytes(8)?)),
+            AntelopeType::TimePointSec => Self::TimePointSec(pod_read_unaligned(stream.read_bytes(4)?)),
+            AntelopeType::BlockTimestampType => Self::BlockTimestampType(pod_read_unaligned(stream.read_bytes(4)?)),
+            AntelopeType::Checksum160 => Self::Checksum160(Box::new(stream.read_bytes(20)?.try_into().unwrap())),
+            AntelopeType::Checksum256 => Self::Checksum256(Box::new(stream.read_bytes(32)?.try_into().unwrap())),
+            AntelopeType::Checksum512 => Self::Checksum512(Box::new(stream.read_bytes(64)?.try_into().unwrap())),
+            AntelopeType::PublicKey => Self::PublicKey(PublicKey::decode(stream)?),
+            AntelopeType::PrivateKey => Self::PrivateKey(PrivateKey::decode(stream)?),
+            AntelopeType::Signature => Self::Signature(Signature::decode(stream)?),
+            AntelopeType::Name => Self::Name(Name::decode(stream)?),
+            AntelopeType::Symbol => Self::Symbol(Symbol::decode(stream)?),
+            AntelopeType::SymbolCode => Self::SymbolCode(pod_read_unaligned(stream.read_bytes(8)?)),
+            AntelopeType::Asset => Self::Asset(Asset::decode(stream)?),
+            AntelopeType::ExtendedAsset => Self::ExtendedAsset(
                 Asset::decode(stream)?,
                 Name::decode(stream)?,
             ),
-            _ => { return Err(InvalidValue::InvalidType(typename.to_owned())); },
         })
     }
 }
@@ -504,8 +507,16 @@ mod tests {
     #[test]
     fn test_conversion() -> Result<(), Report> {
         let n = json!(23);
-        let n = AntelopeValue::from_variant("int8", &n)?;
+        let n = AntelopeValue::from_variant(AntelopeType::Int8, &n)?;
         println!("n = {n:?}");
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_antelope_types() -> Result<(), Report> {
+        assert_eq!(AntelopeType::from_str("int8")?, AntelopeType::Int8);
+        assert_eq!(AntelopeType::from_str("varint32")?, AntelopeType::VarInt32);
 
         Ok(())
     }
@@ -518,9 +529,6 @@ mod tests {
 
 #[derive(Error, Debug)]
 pub enum InvalidValue {
-    #[error("invalid type {0}")]
-    InvalidType(String),
-
     #[error(r#"cannot convert given variant {1} to Antelope type "{0}""#)]
     IncompatibleVariantTypes(String, JsonValue),
 
@@ -565,6 +573,9 @@ pub enum InvalidValue {
 
     #[error("cannot parse date/time")]
     DateTimeParseError(#[from] ChronoParseError),
+
+    #[error("cannot parse typename")]
+    TypenameParseError(#[from] strum::ParseError),
 
     #[error("incorrect array size for checksum")]
     IncorrectChecksumSize(#[from] TryFromSliceError),

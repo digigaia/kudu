@@ -132,20 +132,20 @@ impl ABIEncoder {
                 let a = object.as_array().ok_or_else(incompatible_types)?;
                 AntelopeValue::VarUint32(a.len() as u32).to_bin(ds);
                 for v in a {
-                    AntelopeValue::from_variant(ftype, v)?.to_bin(ds);
+                    AntelopeValue::from_variant(ftype.try_into()?, v)?.to_bin(ds);
                 }
             }
             else if is_optional(rtype) {
                 match !object.is_null() {
                     true => {
                         AntelopeValue::Bool(true).to_bin(ds);
-                        AntelopeValue::from_variant(ftype, object)?.to_bin(ds);
+                        AntelopeValue::from_variant(ftype.try_into()?, object)?.to_bin(ds);
                     },
                     false => AntelopeValue::Bool(false).to_bin(ds),
                 }
             }
             else {
-                AntelopeValue::from_variant(ftype, object)?.to_bin(ds);
+                AntelopeValue::from_variant(ftype.try_into()?, object)?.to_bin(ds);
             }
         }
         else {
@@ -222,29 +222,29 @@ impl ABIEncoder {
             // if our fundamental type is a builtin type, we can deserialize it directly
             // from the stream
             if is_array(rtype) {
-                let item_count: usize = AntelopeValue::from_bin("varuint32", ds)?.try_into()?;
+                let item_count: usize = AntelopeValue::from_bin(AntelopeType::VarUint32, ds)?.try_into()?;
                 debug!(r#"reading array of {item_count} elements of type "{ftype}""#);
                 let mut a = Vec::with_capacity(item_count);
                 for _ in 0..item_count {
-                    a.push(AntelopeValue::from_bin(ftype, ds)?.to_variant());
+                    a.push(AntelopeValue::from_bin(ftype.try_into()?, ds)?.to_variant());
                 }
                 JsonValue::Array(a)
             }
             else if is_optional(rtype) {
-                let non_null: bool = AntelopeValue::from_bin("bool", ds)?.into();
+                let non_null: bool = AntelopeValue::from_bin(AntelopeType::Bool, ds)?.into();
                 match non_null {
-                    true => AntelopeValue::from_bin(ftype, ds)?.to_variant(),
+                    true => AntelopeValue::from_bin(ftype.try_into()?, ds)?.to_variant(),
                     false => JsonValue::Null,
                 }
             }
             else {
-                AntelopeValue::from_bin(ftype, ds)?.to_variant()
+                AntelopeValue::from_bin(ftype.try_into()?, ds)?.to_variant()
             }
         }
         else {
             if is_array(rtype) {
                 // not a builtin type, we have to recurse down
-                let item_count: usize = AntelopeValue::from_bin("varuint32", ds)?.try_into()?;
+                let item_count: usize = AntelopeValue::from_bin(AntelopeType::VarUint32, ds)?.try_into()?;
                 debug!(r#"reading array of {item_count} elements of type "{ftype}""#);
                 let mut a = Vec::with_capacity(item_count);
                 for _ in 0..item_count {
@@ -253,14 +253,14 @@ impl ABIEncoder {
                 JsonValue::Array(a)
             }
             else if is_optional(rtype) {
-                let non_null = AntelopeValue::from_bin("bool", ds)?.into();
+                let non_null = AntelopeValue::from_bin(AntelopeType::Bool, ds)?.into();
                 match non_null {
                     true => self.decode_variant(ds, ftype)?,
                     false => JsonValue::Null,
                 }
             }
             else if let Some(variant_def) = self.variants.get(rtype) {
-                let variant_tag: usize = AntelopeValue::from_bin("varuint32", ds)?.try_into()?;
+                let variant_tag: usize = AntelopeValue::from_bin(AntelopeType::VarUint32, ds)?.try_into()?;
                 assert!(variant_tag < variant_def.types.len(),
                         "deserialized invalid tag {} for variant {}", variant_tag, rtype);
                 let variant_type = &variant_def.types[variant_tag];

@@ -42,6 +42,7 @@
 - for Name type: implement .prefix() and check unittests and validity of non-normalized names
 
 - check if we need to Box a few types in the AntelopeType enum (eg: PublicKey, Signature,...)
+  maybe we also want to box i128 types, they would double the size of the enum while being seldom(?) used
 
 - crypto primitives do not implement WebAuthn key and signatures yet
 
