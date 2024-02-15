@@ -89,7 +89,7 @@ impl ABIEncoder {
 
     pub fn is_type(&self, t: &str) -> bool {
         let t = fundamental_type(t);
-        AntelopeType::VARIANTS.contains(&t) ||
+        AntelopeValue::VARIANTS.contains(&t) ||
             (self.typedefs.contains_key(t) && self.is_type(self.typedefs.get(t).unwrap())) ||
             self.structs.contains_key(t) ||
             self.variants.contains_key(t)
@@ -112,7 +112,7 @@ impl ABIEncoder {
         Ok(ds.pop())
     }
 
-    pub fn encode(&self, stream: &mut ByteStream, obj: &AntelopeType) {
+    pub fn encode(&self, stream: &mut ByteStream, obj: &AntelopeValue) {
         obj.to_bin(stream)
     }
 
@@ -125,27 +125,27 @@ impl ABIEncoder {
             InvalidValue::IncompatibleVariantTypes(rtype.to_owned(), object.clone())
         };
 
-        if AntelopeType::VARIANTS.contains(&ftype) {
+        if AntelopeValue::VARIANTS.contains(&ftype) {
             // if our fundamental type is a builtin type, we can serialize it directly
             // to the stream
             if is_array(rtype) {
                 let a = object.as_array().ok_or_else(incompatible_types)?;
-                AntelopeType::VarUint32(a.len() as u32).to_bin(ds);
+                AntelopeValue::VarUint32(a.len() as u32).to_bin(ds);
                 for v in a {
-                    AntelopeType::from_variant(ftype, v)?.to_bin(ds);
+                    AntelopeValue::from_variant(ftype, v)?.to_bin(ds);
                 }
             }
             else if is_optional(rtype) {
                 match !object.is_null() {
                     true => {
-                        AntelopeType::Bool(true).to_bin(ds);
-                        AntelopeType::from_variant(ftype, object)?.to_bin(ds);
+                        AntelopeValue::Bool(true).to_bin(ds);
+                        AntelopeValue::from_variant(ftype, object)?.to_bin(ds);
                     },
-                    false => AntelopeType::Bool(false).to_bin(ds),
+                    false => AntelopeValue::Bool(false).to_bin(ds),
                 }
             }
             else {
-                AntelopeType::from_variant(ftype, object)?.to_bin(ds);
+                AntelopeValue::from_variant(ftype, object)?.to_bin(ds);
             }
         }
         else {
@@ -161,10 +161,10 @@ impl ABIEncoder {
             else if is_optional(rtype) {
                 match !object.is_null() {
                     true => {
-                        AntelopeType::Bool(true).to_bin(ds);
+                        AntelopeValue::Bool(true).to_bin(ds);
                         self.encode_variant(ds, ftype, object)?;
                     },
-                    false => AntelopeType::Bool(false).to_bin(ds),
+                    false => AntelopeValue::Bool(false).to_bin(ds),
                 }
             }
             else if let Some(variant_def) = self.variants.get(rtype) {
@@ -218,33 +218,33 @@ impl ABIEncoder {
         let rtype = self.resolve_type(typename);
         let ftype = fundamental_type(rtype);
 
-        Ok(if AntelopeType::VARIANTS.contains(&ftype) {
+        Ok(if AntelopeValue::VARIANTS.contains(&ftype) {
             // if our fundamental type is a builtin type, we can deserialize it directly
             // from the stream
             if is_array(rtype) {
-                let item_count: usize = AntelopeType::from_bin("varuint32", ds)?.try_into()?;
+                let item_count: usize = AntelopeValue::from_bin("varuint32", ds)?.try_into()?;
                 debug!(r#"reading array of {item_count} elements of type "{ftype}""#);
                 let mut a = Vec::with_capacity(item_count);
                 for _ in 0..item_count {
-                    a.push(AntelopeType::from_bin(ftype, ds)?.to_variant());
+                    a.push(AntelopeValue::from_bin(ftype, ds)?.to_variant());
                 }
                 JsonValue::Array(a)
             }
             else if is_optional(rtype) {
-                let non_null: bool = AntelopeType::from_bin("bool", ds)?.into();
+                let non_null: bool = AntelopeValue::from_bin("bool", ds)?.into();
                 match non_null {
-                    true => AntelopeType::from_bin(ftype, ds)?.to_variant(),
+                    true => AntelopeValue::from_bin(ftype, ds)?.to_variant(),
                     false => JsonValue::Null,
                 }
             }
             else {
-                AntelopeType::from_bin(ftype, ds)?.to_variant()
+                AntelopeValue::from_bin(ftype, ds)?.to_variant()
             }
         }
         else {
             if is_array(rtype) {
                 // not a builtin type, we have to recurse down
-                let item_count: usize = AntelopeType::from_bin("varuint32", ds)?.try_into()?;
+                let item_count: usize = AntelopeValue::from_bin("varuint32", ds)?.try_into()?;
                 debug!(r#"reading array of {item_count} elements of type "{ftype}""#);
                 let mut a = Vec::with_capacity(item_count);
                 for _ in 0..item_count {
@@ -253,14 +253,14 @@ impl ABIEncoder {
                 JsonValue::Array(a)
             }
             else if is_optional(rtype) {
-                let non_null = AntelopeType::from_bin("bool", ds)?.into();
+                let non_null = AntelopeValue::from_bin("bool", ds)?.into();
                 match non_null {
                     true => self.decode_variant(ds, ftype)?,
                     false => JsonValue::Null,
                 }
             }
             else if let Some(variant_def) = self.variants.get(rtype) {
-                let variant_tag: usize = AntelopeType::from_bin("varuint32", ds)?.try_into()?;
+                let variant_tag: usize = AntelopeValue::from_bin("varuint32", ds)?.try_into()?;
                 assert!(variant_tag < variant_def.types.len(),
                         "deserialized invalid tag {} for variant {}", variant_tag, rtype);
                 let variant_type = &variant_def.types[variant_tag];

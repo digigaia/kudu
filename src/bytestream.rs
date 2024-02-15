@@ -6,7 +6,7 @@ use thiserror::Error;
 use log::trace;
 use hex;
 
-use crate::AntelopeType;
+use crate::AntelopeValue;
 
 
 #[derive(Error, Debug)]
@@ -124,7 +124,7 @@ impl ByteStream {
         self.data.extend_from_slice(bytes)
     }
 
-    pub fn encode(&mut self, v: &AntelopeType) {
+    pub fn encode(&mut self, v: &AntelopeValue) {
         v.to_bin(self)
     }
 

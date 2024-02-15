@@ -2,7 +2,7 @@ use serde::{Serialize, Deserialize};
 use serde_json::json;
 use std::sync::OnceLock;
 
-use crate::{AntelopeType, Name, ByteStream, ABIEncoder, InvalidValue};
+use crate::{AntelopeValue, Name, ByteStream, ABIEncoder, InvalidValue};
 
 // see doc at: https://docs.eosnetwork.com/manuals/cdt/latest/best-practices/abi/understanding-abi-files/
 //             https://docs.eosnetwork.com/docs/latest/advanced-topics/understanding-ABI-files/
@@ -123,7 +123,7 @@ impl ABIDefinition {
     }
 
     pub fn from_bin(data: &mut ByteStream) -> Result<Self, InvalidValue> {
-        let version = AntelopeType::from_bin("string", data)?.to_variant();
+        let version = AntelopeValue::from_bin("string", data)?.to_variant();
         let version_str = version.as_str().ok_or(InvalidValue::InvalidData(format!(
             "expecting to read version string, instead got {:?}", version)))?;
 

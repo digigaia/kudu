@@ -28,7 +28,7 @@ const DATE_FORMAT: &str = "%Y-%m-%dT%H:%M:%S%.3f";
 // see full list in: https://github.com/AntelopeIO/leap/blob/main/libraries/chain/abi_serializer.cpp#L89
 #[derive(Debug, EnumVariantNames)]
 #[strum(serialize_all = "snake_case")]
-pub enum AntelopeType {
+pub enum AntelopeValue {
     Bool(bool),
 
     Int8(i8),
@@ -76,7 +76,7 @@ pub enum AntelopeType {
 }
 
 
-impl AntelopeType {
+impl AntelopeValue {
     pub fn from_str(typename: &str, repr: &str) -> Result<Self, InvalidValue> {
         Ok(match typename {
             "bool" => Self::Bool(repr.parse()?),
@@ -380,80 +380,80 @@ fn read_str(stream: &mut ByteStream) -> Result<&str, InvalidValue> {
 }
 
 
-impl From<AntelopeType> for bool {
-    fn from(n: AntelopeType) -> bool {
+impl From<AntelopeValue> for bool {
+    fn from(n: AntelopeValue) -> bool {
         match n {
-            AntelopeType::Bool(b) => b,
+            AntelopeValue::Bool(b) => b,
             _ => todo!(),
         }
     }
 }
 
-impl From<AntelopeType> for i32 {
-    fn from(n: AntelopeType) -> i32 {
+impl From<AntelopeValue> for i32 {
+    fn from(n: AntelopeValue) -> i32 {
         match n {
-            AntelopeType::Int8(n) => n as i32,
-            AntelopeType::Int16(n) => n as i32,
-            AntelopeType::Int32(n) => n,
-            AntelopeType::Uint8(n) => n as i32,
-            AntelopeType::Uint16(n) => n as i32,
-            AntelopeType::Uint32(n) => n as i32,
-            AntelopeType::VarUint32(n) => n as i32,
+            AntelopeValue::Int8(n) => n as i32,
+            AntelopeValue::Int16(n) => n as i32,
+            AntelopeValue::Int32(n) => n,
+            AntelopeValue::Uint8(n) => n as i32,
+            AntelopeValue::Uint16(n) => n as i32,
+            AntelopeValue::Uint32(n) => n as i32,
+            AntelopeValue::VarUint32(n) => n as i32,
             _ => todo!(),
         }
     }
 }
 
-impl TryFrom<AntelopeType> for usize {
+impl TryFrom<AntelopeValue> for usize {
     type Error = InvalidValue;
 
-    fn try_from(n: AntelopeType) -> Result<usize, Self::Error> {
+    fn try_from(n: AntelopeValue) -> Result<usize, Self::Error> {
         Ok(match n {
-            AntelopeType::Int8(n) => n as usize,
-            AntelopeType::Int16(n) => n as usize,
-            AntelopeType::Int32(n) => n as usize,
-            AntelopeType::Int64(n) => n as usize,
-            AntelopeType::Uint8(n) => n as usize,
-            AntelopeType::Uint16(n) => n as usize,
-            AntelopeType::Uint32(n) => n as usize,
-            AntelopeType::Uint64(n) => n as usize,
-            AntelopeType::VarInt32(n) => n as usize,
-            AntelopeType::VarUint32(n) => n as usize,
+            AntelopeValue::Int8(n) => n as usize,
+            AntelopeValue::Int16(n) => n as usize,
+            AntelopeValue::Int32(n) => n as usize,
+            AntelopeValue::Int64(n) => n as usize,
+            AntelopeValue::Uint8(n) => n as usize,
+            AntelopeValue::Uint16(n) => n as usize,
+            AntelopeValue::Uint32(n) => n as usize,
+            AntelopeValue::Uint64(n) => n as usize,
+            AntelopeValue::VarInt32(n) => n as usize,
+            AntelopeValue::VarUint32(n) => n as usize,
             _ => return Err(InvalidValue::InvalidData( format!("cannot convert {:?} to usize", n))),
         })
     }
 }
 
-impl TryFrom<AntelopeType> for i64 {
+impl TryFrom<AntelopeValue> for i64 {
     type Error = InvalidValue;
 
-    fn try_from(n: AntelopeType) -> Result<i64, Self::Error> {
+    fn try_from(n: AntelopeValue) -> Result<i64, Self::Error> {
         Ok(match n {
-            AntelopeType::Int8(n) => n as i64,
-            AntelopeType::Int16(n) => n as i64,
-            AntelopeType::Int32(n) => n as i64,
-            AntelopeType::Int64(n) => n,
-            AntelopeType::Uint8(n) => n as i64,
-            AntelopeType::Uint16(n) => n as i64,
-            AntelopeType::Uint32(n) => n as i64,
-            AntelopeType::Uint64(n) => n as i64,
-            AntelopeType::VarInt32(n) => n as i64,
-            AntelopeType::VarUint32(n) => n as i64,
+            AntelopeValue::Int8(n) => n as i64,
+            AntelopeValue::Int16(n) => n as i64,
+            AntelopeValue::Int32(n) => n as i64,
+            AntelopeValue::Int64(n) => n,
+            AntelopeValue::Uint8(n) => n as i64,
+            AntelopeValue::Uint16(n) => n as i64,
+            AntelopeValue::Uint32(n) => n as i64,
+            AntelopeValue::Uint64(n) => n as i64,
+            AntelopeValue::VarInt32(n) => n as i64,
+            AntelopeValue::VarUint32(n) => n as i64,
             _ => return Err(InvalidValue::InvalidData( format!("cannot convert {:?} to i64", n))),
         })
     }
 }
 
 
-impl TryFrom<AntelopeType> for String {
+impl TryFrom<AntelopeValue> for String {
     type Error = InvalidValue;
 
-    fn try_from(s: AntelopeType) -> Result<String, Self::Error> {
+    fn try_from(s: AntelopeValue) -> Result<String, Self::Error> {
         Ok(match s {
-            AntelopeType::String(s) => s,
-            AntelopeType::Name(s) => s.to_string(),
-            AntelopeType::Symbol(s) => s.to_string(),
-            AntelopeType::Asset(s) => s.to_string(),
+            AntelopeValue::String(s) => s,
+            AntelopeValue::Name(s) => s.to_string(),
+            AntelopeValue::Symbol(s) => s.to_string(),
+            AntelopeValue::Asset(s) => s.to_string(),
             _ => return Err(InvalidValue::InvalidData( format!("cannot convert {:?} to string", s))),
         })
     }
@@ -504,7 +504,7 @@ mod tests {
     #[test]
     fn test_conversion() -> Result<(), Report> {
         let n = json!(23);
-        let n = AntelopeType::from_variant("int8", &n)?;
+        let n = AntelopeValue::from_variant("int8", &n)?;
         println!("n = {n:?}");
 
         Ok(())

@@ -4,7 +4,7 @@ use serde::de::{self, Visitor};
 use thiserror::Error;
 use std::num::ParseIntError;
 
-use crate::{AntelopeType, ByteStream, InvalidValue};
+use crate::{AntelopeValue, ByteStream, InvalidValue};
 
 
 #[derive(Error, Debug)]
@@ -98,11 +98,11 @@ impl Symbol {
     }
 
     pub fn encode(&self, stream: &mut ByteStream) {
-        AntelopeType::Uint64(self.value).to_bin(stream);
+        AntelopeValue::Uint64(self.value).to_bin(stream);
     }
 
     pub fn decode(stream: &mut ByteStream) -> Result<Self, InvalidValue> {
-        let n: usize = AntelopeType::from_bin("uint64", stream)?.try_into()?;
+        let n: usize = AntelopeValue::from_bin("uint64", stream)?.try_into()?;
         Ok(Symbol::from_u64(n as u64))
     }
 }
