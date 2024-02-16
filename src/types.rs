@@ -68,15 +68,15 @@ pub enum AntelopeValue {
     Checksum256(Box<[u8; 32]>),
     Checksum512(Box<[u8; 64]>),
 
-    PublicKey(PublicKey),
-    PrivateKey(PrivateKey),
-    Signature(Signature),
+    PublicKey(Box<PublicKey>),
+    PrivateKey(Box<PrivateKey>),
+    Signature(Box<Signature>),
 
     Name(Name),
     SymbolCode(u64),
     Symbol(Symbol),
     Asset(Asset),
-    ExtendedAsset(Asset, Name),
+    ExtendedAsset(Box<(Asset, Name)>),
 
 }
 
@@ -107,9 +107,9 @@ impl AntelopeValue {
             AntelopeType::Checksum160 => Self::Checksum160(hex_to_boxed_array(repr)?),
             AntelopeType::Checksum256 => Self::Checksum256(hex_to_boxed_array(repr)?),
             AntelopeType::Checksum512 => Self::Checksum512(hex_to_boxed_array(repr)?),
-            AntelopeType::PublicKey => Self::PublicKey(PublicKey::from_str(repr)?),
-            AntelopeType::PrivateKey => Self::PrivateKey(PrivateKey::from_str(repr)?),
-            AntelopeType::Signature => Self::Signature(Signature::from_str(repr)?),
+            AntelopeType::PublicKey => Self::PublicKey(Box::new(PublicKey::from_str(repr)?)),
+            AntelopeType::PrivateKey => Self::PrivateKey(Box::new(PrivateKey::from_str(repr)?)),
+            AntelopeType::Signature => Self::Signature(Box::new(Signature::from_str(repr)?)),
             AntelopeType::Name => Self::Name(Name::from_str(repr)?),
             AntelopeType::SymbolCode => Self::SymbolCode(string_to_symbol_code(repr.as_bytes())?),
             AntelopeType::Symbol => Self::Symbol(Symbol::from_str(repr)?),
@@ -162,10 +162,13 @@ impl AntelopeValue {
             Self::SymbolCode(sym) => json!(symbol_code_to_string(*sym)),
             Self::Symbol(sym) => json!(sym.to_string()),
             Self::Asset(asset) => json!(asset.to_string()),
-            Self::ExtendedAsset(quantity, contract) => json!({
-                "quantity": quantity,
-                "contract": contract,
-            }),
+            Self::ExtendedAsset(ea) => {
+                let (ref quantity, ref contract) = **ea;
+                json!({
+                    "quantity": quantity,
+                    "contract": contract,
+                })
+            },
         }
     }
 
@@ -215,10 +218,10 @@ impl AntelopeValue {
             AntelopeType::Asset => Self::from_str(typename, v.as_str().ok_or_else(incompatible_types)?)?,
             AntelopeType::ExtendedAsset => {
                 let ea = v.as_object().ok_or_else(incompatible_types)?;
-                Self::ExtendedAsset(
+                Self::ExtendedAsset(Box::new((
                     Asset::from_str(ea["quantity"].as_str().ok_or_else(incompatible_types)?)?,
                     Name::from_str(ea["contract"].as_str().ok_or_else(incompatible_types)?)?,
-                )
+                )))
             },
         })
     }
@@ -230,19 +233,19 @@ impl AntelopeValue {
                 false => 0u8,
             }),
             Self::Int8(n) => stream.write_byte(*n as u8), // FIXME: check that this is correct
-            Self::Int16(n) => stream.write_bytes(cast_ref::<i16, [u8; 2]>(&n)),
-            Self::Int32(n) => stream.write_bytes(cast_ref::<i32, [u8; 4]>(&n)),
-            Self::Int64(n) => stream.write_bytes(cast_ref::<i64, [u8; 8]>(&n)),
-            Self::Int128(n) => stream.write_bytes(cast_ref::<i128, [u8; 16]>(&n)),
+            Self::Int16(n) => stream.write_bytes(cast_ref::<i16, [u8; 2]>(n)),
+            Self::Int32(n) => stream.write_bytes(cast_ref::<i32, [u8; 4]>(n)),
+            Self::Int64(n) => stream.write_bytes(cast_ref::<i64, [u8; 8]>(n)),
+            Self::Int128(n) => stream.write_bytes(cast_ref::<i128, [u8; 16]>(n)),
             Self::Uint8(n) => stream.write_byte(*n),
-            Self::Uint16(n) => stream.write_bytes(cast_ref::<u16, [u8; 2]>(&n)),
-            Self::Uint32(n) => stream.write_bytes(cast_ref::<u32, [u8; 4]>(&n)),
-            Self::Uint64(n) => stream.write_bytes(cast_ref::<u64, [u8; 8]>(&n)),
-            Self::Uint128(n) => stream.write_bytes(cast_ref::<u128, [u8; 16]>(&n)),
+            Self::Uint16(n) => stream.write_bytes(cast_ref::<u16, [u8; 2]>(n)),
+            Self::Uint32(n) => stream.write_bytes(cast_ref::<u32, [u8; 4]>(n)),
+            Self::Uint64(n) => stream.write_bytes(cast_ref::<u64, [u8; 8]>(n)),
+            Self::Uint128(n) => stream.write_bytes(cast_ref::<u128, [u8; 16]>(n)),
             Self::VarInt32(n) => write_var_i32(stream, *n),
             Self::VarUint32(n) => write_var_u32(stream, *n),
-            Self::Float32(x) => stream.write_bytes(cast_ref::<f32, [u8; 4]>(&x)),
-            Self::Float64(x) => stream.write_bytes(cast_ref::<f64, [u8; 8]>(&x)),
+            Self::Float32(x) => stream.write_bytes(cast_ref::<f32, [u8; 4]>(x)),
+            Self::Float64(x) => stream.write_bytes(cast_ref::<f64, [u8; 8]>(x)),
             Self::Bytes(b) => {
                 write_var_u32(stream, b.len() as u32);
                 stream.write_bytes(&b[..]);
@@ -251,9 +254,9 @@ impl AntelopeValue {
                 write_var_u32(stream, s.len() as u32);
                 stream.write_bytes(s.as_bytes());
             },
-            Self::TimePoint(t) => stream.write_bytes(cast_ref::<i64, [u8; 8]>(&t)),
-            Self::TimePointSec(t) => stream.write_bytes(cast_ref::<u32, [u8; 4]>(&t)),
-            Self::BlockTimestampType(t) => stream.write_bytes(cast_ref::<u32, [u8; 4]>(&t)),
+            Self::TimePoint(t) => stream.write_bytes(cast_ref::<i64, [u8; 8]>(t)),
+            Self::TimePointSec(t) => stream.write_bytes(cast_ref::<u32, [u8; 4]>(t)),
+            Self::BlockTimestampType(t) => stream.write_bytes(cast_ref::<u32, [u8; 4]>(t)),
             Self::Checksum160(c) => stream.write_bytes(&c[..]),
             Self::Checksum256(c) => stream.write_bytes(&c[..]),
             Self::Checksum512(c) => stream.write_bytes(&c[..]),
@@ -262,9 +265,10 @@ impl AntelopeValue {
             Self::Signature(sig) => sig.encode(stream),
             Self::Name(name) => name.encode(stream),
             Self::Symbol(sym) => sym.encode(stream),
-            Self::SymbolCode(sym) => stream.write_bytes(cast_ref::<u64, [u8; 8]>(&sym)),
+            Self::SymbolCode(sym) => stream.write_bytes(cast_ref::<u64, [u8; 8]>(sym)),
             Self::Asset(asset) => asset.encode(stream),
-            Self::ExtendedAsset(quantity, contract) => {
+            Self::ExtendedAsset(ea) => {
+                let (ref quantity, ref contract) = **ea;
                 quantity.encode(stream);
                 contract.encode(stream);
             },
@@ -300,17 +304,17 @@ impl AntelopeValue {
             AntelopeType::Checksum160 => Self::Checksum160(Box::new(stream.read_bytes(20)?.try_into().unwrap())),
             AntelopeType::Checksum256 => Self::Checksum256(Box::new(stream.read_bytes(32)?.try_into().unwrap())),
             AntelopeType::Checksum512 => Self::Checksum512(Box::new(stream.read_bytes(64)?.try_into().unwrap())),
-            AntelopeType::PublicKey => Self::PublicKey(PublicKey::decode(stream)?),
-            AntelopeType::PrivateKey => Self::PrivateKey(PrivateKey::decode(stream)?),
-            AntelopeType::Signature => Self::Signature(Signature::decode(stream)?),
+            AntelopeType::PublicKey => Self::PublicKey(Box::new(PublicKey::decode(stream)?)),
+            AntelopeType::PrivateKey => Self::PrivateKey(Box::new(PrivateKey::decode(stream)?)),
+            AntelopeType::Signature => Self::Signature(Box::new(Signature::decode(stream)?)),
             AntelopeType::Name => Self::Name(Name::decode(stream)?),
             AntelopeType::Symbol => Self::Symbol(Symbol::decode(stream)?),
             AntelopeType::SymbolCode => Self::SymbolCode(pod_read_unaligned(stream.read_bytes(8)?)),
             AntelopeType::Asset => Self::Asset(Asset::decode(stream)?),
-            AntelopeType::ExtendedAsset => Self::ExtendedAsset(
+            AntelopeType::ExtendedAsset => Self::ExtendedAsset(Box::new((
                 Asset::decode(stream)?,
                 Name::decode(stream)?,
-            ),
+            ))),
         })
     }
 }

@@ -15,8 +15,6 @@
 
 - use https://docs.rs/bytes/latest/bytes/buf/trait.BufMut.html instead of ByteStream
 
-- rename AntelopeType to AntelopeValue, use variant names as AntelopeType, and rewrite method that take a typename as str to method taking the typename as AntelopeType
-
 - clean abiencoder.rs
 
 - investigate whether color_eyre::Result is the right result type for the library. Maybe we should use std::Result and reserve the usage of color_eyre::Result for the unittests?
@@ -40,9 +38,6 @@
 ### MISC
 
 - for Name type: implement .prefix() and check unittests and validity of non-normalized names
-
-- check if we need to Box a few types in the AntelopeType enum (eg: PublicKey, Signature,...)
-  maybe we also want to box i128 types, they would double the size of the enum while being seldom(?) used
 
 - crypto primitives do not implement WebAuthn key and signatures yet
 
