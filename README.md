@@ -5,19 +5,19 @@
 
 ### API DESIGN
 
-- rename `ABIEncoder::from_abi` to `ABIEncoder::with_abi` ?
-
-- rename ABISerializable to ABISerialize to be consistent with `serde`. Check other nomenclature as well.
-
 - better error handling when constructing types. We should remove `assert`s and `panic` and use proper error types
 
 - use `From` and `Into` traits for constructing base Antelope types
 
-- use https://docs.rs/bytes/latest/bytes/buf/trait.BufMut.html instead of ByteStream
-
 - clean abiencoder.rs
 
 - investigate whether color_eyre::Result is the right result type for the library. Maybe we should use std::Result and reserve the usage of color_eyre::Result for the unittests?
+
+#### Investigate Serde
+
+- check whether ABIEncoder would be better written as a Serde serializer
+
+- rename ABISerializable to ABISerialize to be consistent with `serde`. Check other nomenclature as well.
 
 
 ### CORRECTNESS / TESTING
