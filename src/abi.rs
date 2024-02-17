@@ -29,7 +29,7 @@ pub fn is_sized_array(t: &str) -> bool {
     match (t.rfind('['), t.rfind(']')) {
         (Some(pos1), Some(pos2)) => {
             if pos1 + 1 == pos2 { false }
-            else { t[pos1+1..pos2].chars().all(|c| c.is_digit(10)) }
+            else { t[pos1+1..pos2].chars().all(|c| c.is_ascii_digit()) }
         },
         _ => false,
     }
@@ -40,7 +40,7 @@ pub fn is_optional(t: &str) -> bool {
 }
 
 // FIXME: should this be recursive? ie: what is `fundamental_type("int[]?")` ?
-pub fn fundamental_type<'a>(t: &'a str) -> &'a str {
+pub fn fundamental_type(t: &str) -> &str {
     if is_array(t) { &t[..t.len()-2] }
     else if is_sized_array(t) { &t[..t.rfind('[').unwrap()] }
     else if is_optional(t) { &t[..t.len()-1] }

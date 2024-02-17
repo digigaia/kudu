@@ -11,6 +11,7 @@ use crate::{
 };
 use super::*;
 
+#[derive(Default)]
 pub struct ABIEncoder {
     // ABI-related fields
     typedefs: HashMap<TypeName, TypeName>,
@@ -214,6 +215,7 @@ impl ABIEncoder {
         Ok(())
     }
 
+    #[allow(clippy::collapsible_else_if)]
     pub fn decode_variant(&self, ds: &mut ByteStream, typename: &str) -> Result<JsonValue, InvalidValue> {
         let rtype = self.resolve_type(typename);
         let ftype = fundamental_type(rtype);

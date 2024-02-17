@@ -91,7 +91,7 @@ impl Asset {
             Some(dot_pos) => {
                 let int_part: i64 = amount_str[..dot_pos].parse()?;
                 let mut frac_part: i64 = amount_str[dot_pos+1..].parse()?;
-                if amount_str.chars().next().unwrap() == '-' { frac_part *= -1; }
+                if amount_str.starts_with('-') { frac_part *= -1; }
                 // check we don't overflow
                 int_part
                     .checked_mul(symbol.precision()).ok_or(InvalidAsset::AmountOverflow(amount_str.to_owned()))?

@@ -76,7 +76,7 @@ fn test_serialize_name() {
 
     assert_eq!(&ds.hex_data(), &data);
 
-    assert_eq!(serde_json::from_str::<Name>(&json).unwrap(), obj);
+    assert_eq!(serde_json::from_str::<Name>(json).unwrap(), obj);
     assert_eq!(serde_json::to_string(&obj).unwrap(), json);
 }
 
@@ -95,7 +95,7 @@ fn test_serialize_symbol() {
 
     assert_eq!(&ds.hex_data(), &data);
 
-    assert_eq!(serde_json::from_str::<Symbol>(&json).unwrap(), obj);
+    assert_eq!(serde_json::from_str::<Symbol>(json).unwrap(), obj);
     assert_eq!(serde_json::to_string(&obj).unwrap(), json);
 }
 
@@ -115,7 +115,7 @@ fn test_serialize_asset() {
 
     assert_eq!(&ds.hex_data(), &data);
 
-    assert_eq!(serde_json::from_str::<Asset>(&json).unwrap(), obj);
+    assert_eq!(serde_json::from_str::<Asset>(json).unwrap(), obj);
     assert_eq!(serde_json::to_string(&obj).unwrap(), json);
 }
 
@@ -152,7 +152,7 @@ fn test_serialize_struct() {
 
     let abi = ABIEncoder::from_abi(&abi);
     let mut ds = ByteStream::new();
-    abi.encode_variant(&mut ds, &"bar", &obj).unwrap();
+    abi.encode_variant(&mut ds, "bar", &obj).unwrap();
 
     assert_eq!(&ds.hex_data(), "036F6E65020100000000000028CF01040166016F01750172");
 

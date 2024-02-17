@@ -79,7 +79,7 @@ impl<T: CryptoDataType, const DATA_SIZE: usize> CryptoData<T, DATA_SIZE> {
             let data = string_to_key_data(&s[3..], None)?;
             Ok(Self { key_type, data: Self::vec_to_data(data), phantom: PhantomData })
         }
-        else if T::PREFIX == "PVT" && !s.contains("_") {
+        else if T::PREFIX == "PVT" && !s.contains('_') {
             // legacy private key WIF format
             let key_type = KeyType::K1;
             let data = from_wif(s)?;
@@ -210,7 +210,7 @@ fn key_data_to_string<const N: usize>(k: &[u8; N], prefix: &str) -> String {
     hasher.update(prefix);
     let digest = hasher.finalize();
 
-    let mut data: Vec<u8> = Vec::from(k.clone());
+    let mut data: Vec<u8> = Vec::from(*k);
     data.extend_from_slice(&digest[..4]);
 
     let enc_data = bs58::encode(data).into_string();

@@ -90,7 +90,7 @@ impl Symbol {
     // useless for now, this has been verified during construction with from_str
     // leaving it here though as this should be used if we provide a constructor from_u64
     pub fn is_valid_name(name: &str) -> bool {
-        name.chars().all(|c| c >= 'A' && c <= 'Z')
+        name.chars().all(|c| c.is_ascii_uppercase())
     }
 
     pub fn is_valid(&self) -> bool {
@@ -166,9 +166,9 @@ pub fn string_to_symbol_code(s: &[u8]) -> Result<u64, InvalidSymbol> {
     let name = String::from_utf8(s.to_owned()).unwrap(); // unwrap should be safe here
     if s.len() > 7 { return Err(InvalidSymbol::TooLong(name)); }
 
-    for i in 0..s.len() {
-        if !(s[i] >= b'A' && s[i] <= b'Z') { return Err(InvalidSymbol::InvalidChar(name, s[i] as char)); } //, "invalid character in symbol name");
-        result = result | ((s[i] as u64) << (8 * i));
+    for (i, &c) in s.iter().enumerate() {
+        if !c.is_ascii_uppercase() { return Err(InvalidSymbol::InvalidChar(name, c as char)); }
+        result |= (s[i] as u64) << (8 * i);
     }
     Ok(result)
 }

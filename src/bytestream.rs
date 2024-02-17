@@ -44,6 +44,7 @@ pub trait ByteStream {
 }
 */
 
+#[derive(Default)]
 pub struct ByteStream {
     // this should/could? also be made generic using the std::io::Write trait
     data: Vec<u8>,
@@ -72,10 +73,7 @@ impl ByteStream {
     }
 
     pub fn pop(&mut self) -> Vec<u8> {
-        mem::replace(&mut self.data, vec![])
-        // let mut result: Vec<u8> = vec![];
-        // (self.data, result) = (result, self.data);
-        // result
+        mem::take(&mut self.data)
     }
 
     pub fn clear(&mut self) {
@@ -192,11 +190,11 @@ impl ByteStream {
 
     pub fn write_var_u32(&mut self, n: u32) {
         // TODO: would it be better to use the `bytemuck` create here?
-        let mut n = n.clone();
+        let mut n = n;
         loop {
             if n >> 7 != 0 {
                 self.write_byte((0x80 | (n & 0x7f)) as u8);
-                n = n >> 7
+                n >>= 7
             }
             else {
                 self.write_byte(n as u8);

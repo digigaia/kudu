@@ -1,4 +1,5 @@
 use std::fmt;
+
 use serde::{Serialize, Serializer, Deserialize, Deserializer};
 use serde::de::{self, Visitor};
 use anyhow::Result;
@@ -121,8 +122,9 @@ fn char_to_symbol(c: u8) -> u64 {
 // see ref implementation in AntelopeIO/leap/libraries/chain/name.{hpp,cpp}
 fn string_to_u64(s: &[u8]) -> u64 {
     let mut n: u64 = 0;
-    for i in 0..s.len().min(12) {
-        n = n | (char_to_symbol(s[i]) << (64 - 5 * (i + 1)));
+    // for i in 0..s.len().min(12) {
+    for (i, &c) in s.iter().enumerate().take(12) {
+        n |= char_to_symbol(c) << (64 - 5 * (i + 1));
     }
 
     // The for-loop encoded up to 60 high bits into uint64 'name' variable,
@@ -138,7 +140,7 @@ fn string_to_u64(s: &[u8]) -> u64 {
 const CHARMAP: &[u8] = b".12345abcdefghijklmnopqrstuvwxyz";
 
 fn u64_to_string(n: u64) -> Vec<u8> {
-    let mut n = n.clone();
+    let mut n = n;
     let mut s: Vec<u8> = vec![b'.'; 13];
     for i in 0..=12 {
         let c: u8 = CHARMAP[n as usize & match i { 0 => 0x0F, _ => 0x1F }];
@@ -153,7 +155,7 @@ fn u64_to_string(n: u64) -> Vec<u8> {
         if s[end_pos - 1] != b'.' {
             break;
         }
-        end_pos = end_pos - 1;
+        end_pos -= 1
     }
     s.truncate(end_pos);
     s
