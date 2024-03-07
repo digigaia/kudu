@@ -54,6 +54,12 @@ impl Name {
         let n: usize = AntelopeValue::from_bin(AntelopeType::Uint64, stream)?.try_into()?;
         Ok(Name::from_u64(n as u64))
     }
+
+    pub fn prefix(&self) -> Name {
+        // note: antelope C++ has a more efficient implementation based on direct bit twiddling,
+        //       but we're going for a simpler implementation here
+        Name::from_str(self.to_string().rsplitn(2, '.').last().unwrap()).unwrap()
+    }
 }
 
 
@@ -205,6 +211,16 @@ mod tests {
         for n in names {
             assert!(Name::from_str(n).is_err(), "Name \"{}\" should fail constructing but does not", n);
         }
+    }
+
+    #[test]
+    fn prefix() -> Result<()> {
+        assert_eq!(Name::from_str("eosio.any")?.prefix(),
+                   Name::from_str("eosio")?);
+        assert_eq!(Name::from_str("eosio")?.prefix(),
+                   Name::from_str("eosio")?);
+
+        Ok(())
     }
 
 }

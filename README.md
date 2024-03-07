@@ -21,11 +21,15 @@
 
 - investigate whether color_eyre::Result is the right result type for the library. Maybe we should use std::Result and reserve the usage of color_eyre::Result for the unittests?
 
+- check which types should implement the `Copy` trait (Name, Symbol, etc...)
+
 #### Investigate Serde
 
 - check whether ABIEncoder would be better written as a Serde serializer
 
 - rename ABISerializable to ABISerialize to be consistent with `serde`. Check other nomenclature as well.
+  are we sure about this?
+  Also: make sure we have a trait for this and implement it on all types? for now Name implements decode/encode as normal methods, not as trait methods
 
 
 ### CORRECTNESS / TESTING
@@ -45,16 +49,18 @@
 
 ### MISC
 
-- for Name type: implement .prefix() and check unittests and validity of non-normalized names
+- for Name type: check unittests and validity of non-normalized names
 
 - crypto primitives do not implement WebAuthn key and signatures yet
 
 - implement action_result in abi and abi_parser
 
+- check with https://crates.io/crates/antelope whether we can get the crate name
+
 
 ## NOTES
 
-tests locations
+tests sourced from the following locations:
 
 https://github.com/AntelopeIO/abieos/
 https://github.com/AntelopeIO/abieos/src/test.cpp
