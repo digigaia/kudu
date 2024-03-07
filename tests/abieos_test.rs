@@ -4,10 +4,10 @@ pub mod abi_files;
 use color_eyre::eyre::Result;
 use log::debug;
 
-use antelope::abi::*;
+use antelope::abi::ABIDefinition;
 use antelope::{
     JsonValue, ABIEncoder, ByteStream,
-    types::InvalidValue,
+    types::{AntelopeValue, InvalidValue},
 };
 
 use abi_files::{
@@ -40,24 +40,36 @@ fn init() {
     let _ = env_logger::builder().is_test(true).try_init();
 }
 
+fn try_encode_stream(ds: &mut ByteStream, abi: &ABIEncoder, typename: &str, data: &str) -> Result<()> {
+    let value: JsonValue = serde_json::from_str(data).map_err(InvalidValue::from)?;
+    abi.encode_variant(ds, typename, &value)?;
+    Ok(())
+}
+
 fn try_encode(abi: &ABIEncoder, typename: &str, data: &str) -> Result<()> {
     let mut ds = ByteStream::new();
-    let value: JsonValue = serde_json::from_str(data).map_err(InvalidValue::from)?;
-    abi.encode_variant(&mut ds, typename, &value)?;
-    Ok(())
+    try_encode_stream(&mut ds, abi, typename, data)
+}
+
+fn try_decode_stream(ds: &mut ByteStream, abi: &ABIEncoder, typename: &str) -> Result<JsonValue> {
+    let decoded = abi.decode_variant(ds, typename)?;
+    assert!(ds.leftover().is_empty());
+    Ok(decoded)
+}
+
+fn try_decode<T: AsRef<[u8]>>(abi: &ABIEncoder, typename: &str, data: T) -> Result<JsonValue> {
+    let mut ds = ByteStream::from(hex::decode(data).map_err(InvalidValue::from)?);
+    try_decode_stream(&mut ds, abi, typename)
 }
 
 fn round_trip(abi: &ABIEncoder, typename: &str, data: &str, hex: &str, expected: &str) -> Result<()> {
     debug!(r#"==== round-tripping type "{typename}" with value {data}"#);
     let mut ds = ByteStream::new();
-    let value: JsonValue = serde_json::from_str(data)?;
-    abi.encode_variant(&mut ds, typename, &value)?;
 
+    try_encode_stream(&mut ds, abi, typename, data)?;
     assert_eq!(ds.hex_data(), hex.to_ascii_uppercase());
 
-    let decoded = abi.decode_variant(&mut ds, typename)?;
-
-    assert!(ds.leftover().is_empty());
+    let decoded = try_decode_stream(&mut ds, abi, typename)?;
     assert_eq!(decoded.to_string(), expected);
 
     Ok(())
@@ -68,7 +80,8 @@ fn check_error<F, T>(f: F, expected_error_msg: &str)
 {
     match f() {
         Ok(_) => {
-            panic!("expected error but everything went fine...");
+            panic!(r#"expected error with message "{}" but everything went fine..."#,
+                   expected_error_msg);
         },
         Err(e) => {
             let received_msg = format!("{:?}", e);
@@ -136,6 +149,7 @@ fn roundtrip_bool() -> Result<()> {
     check_round_trip(abi, "bool", "true", "01");
     check_round_trip(abi, "bool", "false", "00");
 
+    check_error(|| try_decode(abi, "bool", ""), "stream ended");
     check_error(|| try_encode(abi, "bool", ""), "cannot parse JSON string");
     check_error(|| try_encode(abi, "bool", "trues"), "cannot parse JSON string");
     check_error(|| try_encode(abi, "bool", "null"), "cannot convert given variant");
@@ -188,6 +202,7 @@ fn roundtrip_i16() -> Result<()> {
     check_round_trip(abi, "uint16", "0", "0000");
     check_round_trip(abi, "uint16", "65535", "FFFF");
 
+    check_error(|| try_decode(abi, "int16", "01"), "stream ended");
     check_error(|| try_encode(abi, "int16", "32768"), "integer out of range");
     check_error(|| try_encode(abi, "int16", "-32769"), "integer out of range");
     check_error(|| try_encode(abi, "uint16", "-1"), "cannot convert given variant");
@@ -266,10 +281,11 @@ fn roundtrip_i128() -> Result<()> {
     check_round_trip(abi, "uint128", r#""340282366920938463463374607431768211454""#, "FEFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF");
     check_round_trip(abi, "uint128", r#""340282366920938463463374607431768211455""#, "FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF");
 
-    check_error(|| try_encode(abi, "int128", r#""170141183460469231731687303715884105728""#), "invalid integer");
-    check_error(|| try_encode(abi, "int128", r#""-170141183460469231731687303715884105729""#), "invalid integer");
+    check_error(|| try_encode(abi, "int128", r#""170141183460469231731687303715884105728""#), "number too large");
+    check_error(|| try_encode(abi, "int128", r#""-170141183460469231731687303715884105729""#), "number too small");
     check_error(|| try_encode(abi, "uint128", r#""-1""#), "invalid integer");
-    check_error(|| try_encode(abi, "uint128", r#""340282366920938463463374607431768211456""#), "invalid integer");
+    check_error(|| try_encode(abi, "uint128", r#""340282366920938463463374607431768211456""#), "number too large");
+    check_error(|| try_encode(abi, "uint128", r#""true""#), "invalid integer");
 
     Ok(())
 }
@@ -308,10 +324,10 @@ fn roundtrip_varints() -> Result<()> {
     check_round_trip(abi, "varint32", "2147483647", "FEFFFFFF0F");
     check_round_trip(abi, "varint32", "-2147483648", "FFFFFFFF0F");
 
-    check_error(|| try_encode(abi, "varuint32", "4294967296"), "out of range");
+    check_error(|| try_encode(abi, "varuint32", "4294967296"), "integer out of range");
     check_error(|| try_encode(abi, "varuint32", "-1"), "cannot convert given variant");
-    check_error(|| try_encode(abi, "varint32", "2147483648"), "out of range");
-    check_error(|| try_encode(abi, "varint32", "-2147483649"), "out of range");
+    check_error(|| try_encode(abi, "varint32", "2147483648"), "integer out of range");
+    check_error(|| try_encode(abi, "varint32", "-2147483649"), "integer out of range");
 
     Ok(())
 }
@@ -390,7 +406,7 @@ fn roundtrip_names() -> Result<()> {
     // check_round_trip2(abi, "name", r#""..ab.cd.ef..""#, "00C0522021700C00", r#""..ab.cd.ef""#);
     check_round_trip(abi, "name", r#""zzzzzzzzzzzz""#, "F0FFFFFFFFFFFFFF");
 
-    // check_error(|| try_encode(abi, "bytes", r#""0""#), "odd number of chars");
+    check_error(|| try_encode(abi, "name", "true"), "cannot convert given variant");
 
     Ok(())
 }
@@ -407,8 +423,10 @@ fn roundtrip_bytes() -> Result<()> {
     check_round_trip(abi, "bytes", r#""00""#, "0100");
     check_round_trip(abi, "bytes", r#""AABBCCDDEEFF00010203040506070809""#, "10AABBCCDDEEFF00010203040506070809");
 
+    check_error(|| try_decode(abi, "bytes", "01"), "stream ended");
     check_error(|| try_encode(abi, "bytes", r#""0""#), "Odd number of digits");
     check_error(|| try_encode(abi, "bytes", r#""yz""#), "Invalid character");
+    check_error(|| try_encode(abi, "bytes", "true"), "cannot convert given variant");
 
     Ok(())
 }
@@ -426,6 +444,10 @@ fn roundtrip_strings() -> Result<()> {
     check_round_trip(abi, "string", r#""This is a string.""#, "1154686973206973206120737472696E672E");
     check_round_trip(abi, "string", r#""' + '*'.repeat(128) + '""#, "1727202B20272A272E7265706561742831323829202B2027");
     check_round_trip(abi, "string", r#""\u0000  这是一个测试  Это тест  هذا اختبار 👍""#, "40002020E8BF99E698AFE4B880E4B8AAE6B58BE8AF952020D0ADD182D0BE20D182D0B5D181D1822020D987D8B0D8A720D8A7D8AED8AAD8A8D8A7D8B120F09F918D");
+
+    check_error(|| try_decode(abi, "string", "01"), "stream ended");
+    check_error(|| try_decode(abi, "string", hex::encode(b"\x11invalid utf8: \xff\xfe\xfd")), "invalid utf-8 sequence");
+    check_error(|| try_encode(abi, "time_point_sec", "true"), "cannot convert given variant");
 
     Ok(())
 }
@@ -488,6 +510,18 @@ fn roundtrip_crypto_types() -> Result<()> {
 
     check_round_trip(abi, "signature", r#""SIG_K1_Kg2UKjXTX48gw2wWH4zmsZmWu3yarcfC21Bd9JPj7QoDURqiAacCHmtExPk3syPb2tFLsp1R4ttXLXgr7FYgDvKPC5RCkx""#, "002056355ED1079822D2728886B449F0F4A2BBF48BF38698C0EBE8C7079768882B1C64AC07D7A4BD85CF96B8A74FDCAFEF1A4805F946177C609FDF31ABE2463038E5");
     check_round_trip(abi, "signature", r#""SIG_R1_Kfh19CfEcQ6pxkMBz6xe9mtqKuPooaoyatPYWtwXbtwHUHU8YLzxPGvZhkqgnp82J41e9R6r5mcpnxy1wAf1w9Vyo9wybZ""#, "012053A48D3BB9A321E4AE8F079EAB72EFA778C8C09BC4C2F734DE6D19AD9BCE6A137495D877D4E51A585376AA6C1A174295DABDB25286E803BF553735CD2D31B1FC");
+
+    check_error(|| try_decode(abi, "checksum256", str_to_hex(r#"xy00000000000000000000000000000000000000000000000000000000000000
+"#)), "Invalid character");
+    check_error(|| try_decode(abi, "checksum256", str_to_hex("true")), "Invalid character");
+    check_error(|| try_decode(abi, "checksum256", str_to_hex(r#""a0""#)), "Invalid character");
+
+    check_error(|| try_decode(abi, "public_key", str_to_hex(r#""foo""#)), "Invalid character");
+    check_error(|| try_decode(abi, "public_key", str_to_hex("true")), "Invalid character");
+    // check_error(|| try_decode(abi, "private_key", r#""foo""#), "Invalid character");
+    // check_error(|| try_decode(abi, "private_key", "true"), "Invalid character");
+    // check_error(|| try_decode(abi, "signature", r#""foo""#), "Invalid character");
+    // check_error(|| try_decode(abi, "signature", "true"), "Invalid character");
 
     Ok(())
 }

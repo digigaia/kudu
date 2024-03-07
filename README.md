@@ -38,6 +38,9 @@
 - IMPORTANT: check symbol name validation, in EOS it can overflow here:
   https://github.com/AntelopeIO/leap/blob/6817911900a088c60f91563995cf482d6b380b2d/libraries/chain/include/eosio/chain/symbol.hpp#L34
 
+- do we allow constructing non-normalized names?
+  see: tests/abieos_test.rs:402 vs.
+
 - check for `unwrap` and `panic!` everywhere
 
 - check abieos/test.cpp to ensure we cover also all the error cases with proper error messages

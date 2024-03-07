@@ -11,7 +11,7 @@ use crate::AntelopeValue;
 
 #[derive(Error, Debug)]
 pub enum StreamError {
-    #[error("stream ended, tried to read {0} but only {1} available")]
+    #[error("stream ended, tried to read {0} byte(s) but only {1} available")]
     Ended(usize, usize),
 
     #[error("invalid hex character")]
