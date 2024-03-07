@@ -29,7 +29,7 @@ pub enum InvalidAsset {
 }
 
 
-#[derive(PartialEq, Debug, Clone)]
+#[derive(PartialEq, Debug, Copy, Clone)]
 pub struct Asset {
     amount: i64,
     symbol: Symbol,

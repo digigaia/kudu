@@ -32,7 +32,7 @@ pub enum InvalidSymbol {
 }
 
 
-#[derive(PartialEq, Debug, Clone)]
+#[derive(PartialEq, Debug, Copy, Clone)]
 pub struct Symbol {
     value: u64,
 }

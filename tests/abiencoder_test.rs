@@ -70,7 +70,7 @@ fn test_serialize_name() {
 
     let abi = ABIEncoder::new();
     let mut ds = ByteStream::new();
-    abi.encode(&mut ds, &AntelopeValue::Name(obj.clone()));
+    abi.encode(&mut ds, &AntelopeValue::Name(obj));
 
     assert_eq!(obj.to_u64(), 6712742083569909760);
 
@@ -88,7 +88,7 @@ fn test_serialize_symbol() {
 
     let abi = ABIEncoder::new();
     let mut ds = ByteStream::new();
-    abi.encode(&mut ds, &AntelopeValue::Symbol(obj.clone()));
+    abi.encode(&mut ds, &AntelopeValue::Symbol(obj));
 
     assert_eq!(obj.decimals(), 4);
     assert_eq!(obj.name(), "FOO");
@@ -107,7 +107,7 @@ fn test_serialize_asset() {
 
     let abi = ABIEncoder::new();
     let mut ds = ByteStream::new();
-    abi.encode(&mut ds, &AntelopeValue::Asset(obj.clone()));
+    abi.encode(&mut ds, &AntelopeValue::Asset(obj));
 
     assert_eq!(obj.amount(), 12345);
     assert_eq!(obj.decimals(), 4);

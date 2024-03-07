@@ -21,8 +21,6 @@
 
 - investigate whether color_eyre::Result is the right result type for the library. Maybe we should use std::Result and reserve the usage of color_eyre::Result for the unittests?
 
-- check which types should implement the `Copy` trait (Name, Symbol, etc...)
-
 #### Investigate Serde
 
 - check whether ABIEncoder would be better written as a Serde serializer

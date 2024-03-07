@@ -17,7 +17,7 @@ pub enum InvalidName {
 }
 
 
-#[derive(Eq, Hash, PartialEq, Debug, Clone)]
+#[derive(Eq, Hash, PartialEq, Debug, Copy, Clone)]
 pub struct Name {
     value: u64,
 }

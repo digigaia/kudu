@@ -74,8 +74,8 @@ impl ABIEncoder {
             self.typedefs.insert(td.new_type_name.clone(), td.type_.clone());
         }
 
-        for a in &abi.actions { self.actions.insert(a.name.clone(), a.type_.clone()); }
-        for t in &abi.tables { self.tables.insert(t.name.clone(), t.type_.clone()); }
+        for a in &abi.actions { self.actions.insert(a.name, a.type_.clone()); }
+        for t in &abi.tables { self.tables.insert(t.name, t.type_.clone()); }
         for v in &abi.variants { self.variants.insert(v.name.clone(), v.clone()); }
 
         // The ABI vector may contain duplicates which would make it an invalid ABI
