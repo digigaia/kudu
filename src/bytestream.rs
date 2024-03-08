@@ -1,4 +1,4 @@
-use std::mem;
+use std::{fmt, mem};
 use std::num::ParseIntError;
 
 use bytemuck::cast_ref;
@@ -209,4 +209,13 @@ impl ByteStream {
     }
 
 
+}
+
+impl fmt::Debug for ByteStream {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // write!(f, "ByteStream: {}{}",
+        //        hex::encode_upper(&self.data[..self.data.len().min(4)]),
+        //        if self.data.len() < 5 { "" } else { "[...]" })
+        write!(f, "...")
+    }
 }

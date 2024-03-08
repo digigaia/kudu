@@ -82,6 +82,7 @@ pub enum AntelopeValue {
 
 
 impl AntelopeValue {
+    #[tracing::instrument]
     pub fn from_str(typename: AntelopeType, repr: &str) -> Result<Self, InvalidValue> {
         Ok(match typename {
             AntelopeType::Bool => Self::Bool(repr.parse()?),
@@ -172,6 +173,7 @@ impl AntelopeValue {
         }
     }
 
+    #[tracing::instrument]
     pub fn from_variant(typename: AntelopeType, v: &JsonValue) -> Result<Self, InvalidValue> {
         let incompatible_types = || {
             InvalidValue::IncompatibleVariantTypes(typename.to_string(), v.clone())
@@ -275,6 +277,7 @@ impl AntelopeValue {
         }
     }
 
+    #[tracing::instrument]
     pub fn from_bin(typename: AntelopeType, stream: &mut ByteStream) -> Result<Self, InvalidValue> {
         Ok(match typename {
             AntelopeType::Bool => match stream.read_byte()? {

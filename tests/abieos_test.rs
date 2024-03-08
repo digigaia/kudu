@@ -1,13 +1,20 @@
 pub mod abi_files;
 
+use std::sync::Once;
+
 // use anyhow::Result;
 use color_eyre::eyre::Result;
-use log::debug;
+
+use tracing::debug;
+use tracing_subscriber::{
+    EnvFilter,
+    fmt::format::FmtSpan,
+};
 
 use antelope::abi::ABIDefinition;
 use antelope::{
     JsonValue, ABIEncoder, ByteStream,
-    types::{AntelopeValue, InvalidValue},
+    types::InvalidValue,
 };
 
 use abi_files::{
@@ -34,12 +41,19 @@ use abi_files::{
 //                                                                            //
 ////////////////////////////////////////////////////////////////////////////////
 
-
+static TRACING_INIT: Once = Once::new();
 
 fn init() {
-    let _ = env_logger::builder().is_test(true).try_init();
+    TRACING_INIT.call_once(|| {
+        tracing_subscriber::fmt()
+            .with_env_filter(EnvFilter::from_default_env())
+            .with_span_events(FmtSpan::ACTIVE)
+            .pretty()
+            .init();
+    });
 }
 
+#[tracing::instrument]
 fn try_encode_stream(ds: &mut ByteStream, abi: &ABIEncoder, typename: &str, data: &str) -> Result<()> {
     let value: JsonValue = serde_json::from_str(data).map_err(InvalidValue::from)?;
     abi.encode_variant(ds, typename, &value)?;
@@ -511,17 +525,17 @@ fn roundtrip_crypto_types() -> Result<()> {
     check_round_trip(abi, "signature", r#""SIG_K1_Kg2UKjXTX48gw2wWH4zmsZmWu3yarcfC21Bd9JPj7QoDURqiAacCHmtExPk3syPb2tFLsp1R4ttXLXgr7FYgDvKPC5RCkx""#, "002056355ED1079822D2728886B449F0F4A2BBF48BF38698C0EBE8C7079768882B1C64AC07D7A4BD85CF96B8A74FDCAFEF1A4805F946177C609FDF31ABE2463038E5");
     check_round_trip(abi, "signature", r#""SIG_R1_Kfh19CfEcQ6pxkMBz6xe9mtqKuPooaoyatPYWtwXbtwHUHU8YLzxPGvZhkqgnp82J41e9R6r5mcpnxy1wAf1w9Vyo9wybZ""#, "012053A48D3BB9A321E4AE8F079EAB72EFA778C8C09BC4C2F734DE6D19AD9BCE6A137495D877D4E51A585376AA6C1A174295DABDB25286E803BF553735CD2D31B1FC");
 
-    check_error(|| try_decode(abi, "checksum256", str_to_hex(r#"xy00000000000000000000000000000000000000000000000000000000000000
-"#)), "Invalid character");
-    check_error(|| try_decode(abi, "checksum256", str_to_hex("true")), "Invalid character");
-    check_error(|| try_decode(abi, "checksum256", str_to_hex(r#""a0""#)), "Invalid character");
+    check_error(|| try_encode(abi, "checksum256", r#""xy""#), "Invalid string length");
+    check_error(|| try_encode(abi, "checksum256", r#""xy00000000000000000000000000000000000000000000000000000000000000""#), "Invalid character");
+    check_error(|| try_encode(abi, "checksum256", "true"), "cannot convert given variant");
+    check_error(|| try_encode(abi, "checksum256", r#""a0""#), "Invalid string length");
 
-    check_error(|| try_decode(abi, "public_key", str_to_hex(r#""foo""#)), "Invalid character");
-    check_error(|| try_decode(abi, "public_key", str_to_hex("true")), "Invalid character");
-    // check_error(|| try_decode(abi, "private_key", r#""foo""#), "Invalid character");
-    // check_error(|| try_decode(abi, "private_key", "true"), "Invalid character");
-    // check_error(|| try_decode(abi, "signature", r#""foo""#), "Invalid character");
-    // check_error(|| try_decode(abi, "signature", "true"), "Invalid character");
+    check_error(|| try_encode(abi, "public_key", r#""foo""#), "not crypto data");
+    check_error(|| try_encode(abi, "public_key", "true"), "cannot convert given variant");
+    check_error(|| try_encode(abi, "private_key", r#""foo""#), "not crypto data");
+    check_error(|| try_encode(abi, "private_key", "true"), "cannot convert given variant");
+    check_error(|| try_encode(abi, "signature", r#""foo""#), "not crypto data");
+    check_error(|| try_encode(abi, "signature", "true"), "cannot convert given variant");
 
     Ok(())
 }

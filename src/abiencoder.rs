@@ -1,9 +1,10 @@
 use std::collections::HashMap;
+use std::fmt;
 
 // use anyhow::Result;
 use color_eyre::eyre::Result;
 use strum::VariantNames;
-use log::debug;
+use tracing::debug;
 
 use crate::{
     JsonMap, JsonValue, json,
@@ -117,10 +118,13 @@ impl ABIEncoder {
         obj.to_bin(stream)
     }
 
+    #[tracing::instrument]
     pub fn encode_variant(&self, ds: &mut ByteStream, typename: &str, object: &JsonValue) -> Result<(), InvalidValue> {
         // see C++ implementation here: https://github.com/AntelopeIO/leap/blob/main/libraries/chain/abi_serializer.cpp#L491
         let rtype = self.resolve_type(typename);
         let ftype = fundamental_type(rtype); //.to_owned();  // FIXME: remove this .to_owned()
+
+        debug!("rtype: {} - ftype: {}", rtype, ftype);
 
         let incompatible_types = || {
             InvalidValue::IncompatibleVariantTypes(rtype.to_owned(), object.clone())
@@ -345,4 +349,12 @@ pub struct Struct {
         Ok(JsonValue::Object(result))
     }
 
+}
+
+
+impl fmt::Debug for ABIEncoder {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // write!(f, "ABIEncoder [...]")
+        write!(f, "...")
+    }
 }

@@ -19,6 +19,8 @@
   - https://gist.github.com/quad/a8a7cc87d1401004c6a8973947f20365
   - https://stackoverflow.com/questions/60943851/how-do-you-see-an-errors-backtrace-when-using-snafu
 
+- rename encode/decode methods everywhere to be more specific, such as bin_to_json/json_to_bin, etc.
+
 - investigate whether color_eyre::Result is the right result type for the library. Maybe we should use std::Result and reserve the usage of color_eyre::Result for the unittests?
 
 #### Investigate Serde
@@ -41,7 +43,7 @@
 - do we allow constructing non-normalized names?
   see: tests/abieos_test.rs:402 vs.
 
-- check for `unwrap` and `panic!` everywhere
+- check for `unwrap` and `panic!` and `assert` everywhere
 
 - check abieos/test.cpp to ensure we cover also all the error cases with proper error messages
 
@@ -49,6 +51,8 @@
 
 
 ### MISC
+
+- remove dep on `log` crate, we use tracing now
 
 - for Name type: check unittests and validity of non-normalized names
 
