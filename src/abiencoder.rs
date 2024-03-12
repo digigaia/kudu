@@ -4,7 +4,7 @@ use std::fmt;
 // use anyhow::Result;
 use color_eyre::eyre::Result;
 use strum::VariantNames;
-use tracing::debug;
+use tracing::{debug, info};
 
 use crate::{
     JsonMap, JsonValue, json,
@@ -124,7 +124,7 @@ impl ABIEncoder {
         let rtype = self.resolve_type(typename);
         let ftype = fundamental_type(rtype); //.to_owned();  // FIXME: remove this .to_owned()
 
-        debug!("rtype: {} - ftype: {}", rtype, ftype);
+        info!("rtype: {} - ftype: {}", rtype, ftype);
 
         let incompatible_types = || {
             InvalidValue::IncompatibleVariantTypes(rtype.to_owned(), object.clone())
@@ -157,7 +157,12 @@ impl ABIEncoder {
             // not a builtin type, we have to recurse down
 
             if is_array(rtype) {
-                let a: &Vec<JsonValue> = object.as_array().unwrap();
+                debug!("array");
+                // let a: &Vec<JsonValue> = object.as_array();
+                // let a = a.unwrap();
+                let Some(a) = object.as_array() else {
+                    return Err(InvalidValue::InvalidData("JSON object cannot be converted to array".to_owned())); };
+                debug!("a: {a:?}");
                 ds.write_var_u32(a.len() as u32);
                 for v in a {
                     self.encode_variant(ds, ftype, v)?;

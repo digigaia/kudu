@@ -5,7 +5,7 @@ use std::sync::Once;
 // use anyhow::Result;
 use color_eyre::eyre::Result;
 
-use tracing::debug;
+use tracing::{debug, info};
 use tracing_subscriber::{
     EnvFilter,
     fmt::format::FmtSpan,
@@ -48,7 +48,7 @@ fn init() {
         tracing_subscriber::fmt()
             .with_env_filter(EnvFilter::from_default_env())
             .with_span_events(FmtSpan::ACTIVE)
-            .pretty()
+            // .pretty()
             .init();
     });
 }
@@ -56,6 +56,7 @@ fn init() {
 #[tracing::instrument]
 fn try_encode_stream(ds: &mut ByteStream, abi: &ABIEncoder, typename: &str, data: &str) -> Result<()> {
     let value: JsonValue = serde_json::from_str(data).map_err(InvalidValue::from)?;
+    info!("{:?}", &value);
     abi.encode_variant(ds, typename, &value)?;
     Ok(())
 }
@@ -148,6 +149,20 @@ fn integration_test() -> Result<()> {
     check_error(|| Ok(ABIEncoder::from_hex_abi(&str_to_hex("eosio::abi/9.0"))?), "unsupported ABI version");
     check_error(|| Ok(ABIEncoder::from_hex_abi(&str_to_hex("eosio::abi/1.0"))?), "stream ended");
     check_error(|| Ok(ABIEncoder::from_hex_abi(&str_to_hex("eosio::abi/1.1"))?), "stream ended");
+
+    Ok(())
+}
+
+#[test]
+fn test_type_properties() -> Result<()> {
+    init();
+
+    let transaction_abi_def = ABIDefinition::from_str(TRANSACTION_ABI)?;
+    let transaction_abi = ABIEncoder::from_abi(&transaction_abi_def);
+    let abi = &transaction_abi;
+
+    check_error(|| try_encode(abi, "int8?[]", "[]"), "failed test type properties");
+    // FIXME: check more tests at: test.cpp:1007
 
     Ok(())
 }
@@ -555,6 +570,11 @@ fn roundtrip_symbol() -> Result<()> {
     check_round_trip(abi, "symbol", r#""1,Z""#, "015A000000000000");
     check_round_trip(abi, "symbol", r#""4,SYS""#, "0453595300000000");
 
+    check_error(|| try_encode(abi, "symbol_code", r#""foo""#), "invalid symbol");
+    check_error(|| try_encode(abi, "symbol_code", "true"), "cannot convert given variant");
+    check_error(|| try_encode(abi, "symbol_code", "null"), "cannot convert given variant");
+    check_error(|| try_encode(abi, "symbol", "null"), "cannot convert given variant");
+
     Ok(())
 }
 
@@ -581,6 +601,8 @@ fn roundtrip_asset() -> Result<()> {
 
     check_round_trip(abi, "extended_asset", r#"{"quantity":"0 FOO","contract":"bar"}"#, "000000000000000000464F4F00000000000000000000AE39");
     check_round_trip(abi, "extended_asset", r#"{"quantity":"0.123456 SIX","contract":"seven"}"#, "40E201000000000006534958000000000000000080A9B6C2");
+
+    check_error(|| try_encode(abi, "symbol", "null"), "cannot convert given variant");
 
     Ok(())
 }

@@ -19,7 +19,7 @@
   - https://gist.github.com/quad/a8a7cc87d1401004c6a8973947f20365
   - https://stackoverflow.com/questions/60943851/how-do-you-see-an-errors-backtrace-when-using-snafu
 
-- rename encode/decode methods everywhere to be more specific, such as bin_to_json/json_to_bin, etc.
+- rename encode/decode methods everywhere to be more specific, such as bin_to_json/json_to_bin, etc. (esp. in tests)
 
 - investigate whether color_eyre::Result is the right result type for the library. Maybe we should use std::Result and reserve the usage of color_eyre::Result for the unittests?
 
