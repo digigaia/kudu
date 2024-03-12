@@ -52,8 +52,6 @@
 
 ### MISC
 
-- remove dep on `log` crate, we use tracing now
-
 - for Name type: check unittests and validity of non-normalized names
 
 - crypto primitives do not implement WebAuthn key and signatures yet

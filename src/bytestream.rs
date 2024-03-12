@@ -3,7 +3,7 @@ use std::num::ParseIntError;
 
 use bytemuck::cast_ref;
 use thiserror::Error;
-use log::trace;
+use tracing::trace;
 use hex;
 
 use crate::AntelopeValue;
