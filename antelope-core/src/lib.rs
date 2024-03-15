@@ -5,11 +5,11 @@
 //! The main type used to represent values handled by Antelope blockchains is [`AntelopeValue`]
 //!
 
-#![doc = include_str!("../TODO.md")]
+#![doc = include_str!("../../TODO.md")]
 
 //! ----
 
-#![doc = include_str!("../NOTES.md")]
+#![doc = include_str!("../../NOTES.md")]
 
 // disable this lint to allow our types to implement a `from_str` constructor
 // without implement the `std::str::FromStr` trait

@@ -3,7 +3,7 @@ use std::fmt::Display;
 use serde_json::json;
 // use anyhow::Result;
 use color_eyre::eyre::Result;
-use chrono::NaiveDate;
+use chrono::{NaiveDate, TimeZone, Utc};
 
 use antelope::abi::*;
 use antelope::{
@@ -424,14 +424,17 @@ fn test_string() {
 #[test]
 fn test_time_point_sec() -> Result<()> {
     fn dt(year: i32, month: u32, day: u32, hour: u32, min: u32, sec: u32) -> u32 {
-        NaiveDate::from_ymd_opt(year, month, day).unwrap().and_hms_opt(hour, min, sec).unwrap().timestamp() as u32
+        Utc.with_ymd_and_hms(year, month, day, hour, min, sec).unwrap().timestamp() as u32
     }
 
     let vals = [
         (dt(1970, 1, 1, 0, 0, 0), b"\x00\x00\x00\x00"),
         (dt(2040, 12, 31, 23, 59, 0), b"\x44\x03\x8D\x85"),
         (dt(2021, 8, 26, 14, 1, 47), b"\xCB\x9E\x27\x61"),
-        (NaiveDate::from_ymd_opt(2021, 8, 26).unwrap().and_hms_micro_opt(14, 1, 47, 184549).unwrap().timestamp() as u32,  b"\xCB\x9E\x27\x61"),
+        // this next constructor is a bit verbose but there's no Utc.with_ymd_and_hms_and_micros...
+        (NaiveDate::from_ymd_opt(2021, 8, 26,).unwrap()
+         .and_hms_micro_opt(14, 1, 47, 184549).unwrap()
+         .and_utc().timestamp() as u32,  b"\xCB\x9E\x27\x61"),
     ];
 
     test_serialize(vals, AntelopeValue::TimePointSec);
@@ -441,7 +444,9 @@ fn test_time_point_sec() -> Result<()> {
 #[test]
 fn test_time_point() -> Result<()> {
     fn dt(year: i32, month: u32, day: u32, hour: u32, min: u32, sec: u32, micro: u32) -> i64 {
-        NaiveDate::from_ymd_opt(year, month, day).unwrap().and_hms_micro_opt(hour, min, sec, micro).unwrap().timestamp_micros()
+        NaiveDate::from_ymd_opt(year, month, day).unwrap()
+            .and_hms_micro_opt(hour, min, sec, micro).unwrap()
+            .and_utc().timestamp_micros()
     }
 
     let vals = [

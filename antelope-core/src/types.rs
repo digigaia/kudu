@@ -17,7 +17,7 @@ use std::str::{FromStr, from_utf8, Utf8Error, ParseBoolError};
 use bytemuck::{cast_ref, pod_read_unaligned};
 use thiserror::Error;
 use strum::{VariantNames, EnumDiscriminants, EnumString, Display};
-use chrono::{NaiveDateTime, ParseError as ChronoParseError};
+use chrono::{NaiveDateTime, DateTime, Utc, TimeZone, ParseError as ChronoParseError};
 use num::{Integer, Signed, Unsigned};
 use hex::FromHexError;
 
@@ -140,15 +140,15 @@ impl AntelopeValue {
             Self::Bytes(b) => json!(hex::encode_upper(b)),
             Self::String(s) => json!(s),
             Self::TimePoint(t) => {
-                let dt = NaiveDateTime::from_timestamp_micros(*t).unwrap();
+                let dt = Utc.timestamp_micros(*t).unwrap();
                 json!(format!("{}", dt.format(DATE_FORMAT)))
             },
             Self::TimePointSec(t) => {
-                let dt = NaiveDateTime::from_timestamp_micros(*t as i64 * 1_000_000).unwrap();
+                let dt = Utc.timestamp_micros(*t as i64 * 1_000_000).unwrap();
                 json!(format!("{}", dt.format(DATE_FORMAT)))
             },
             Self::BlockTimestampType(t) => {
-                let dt = NaiveDateTime::from_timestamp_micros(
+                let dt = Utc.timestamp_micros(
                     ((*t as i64 * config::BLOCK_INTERVAL_MS as i64) + config::BLOCK_TIMESTAMP_EPOCH as i64) * 1000
                 ).unwrap();
                 json!(format!("{}", dt.format(DATE_FORMAT)))
@@ -323,7 +323,7 @@ impl AntelopeValue {
 }
 
 
-fn timestamp_to_block_slot(dt: &NaiveDateTime) -> u32 {
+fn timestamp_to_block_slot(dt: &DateTime<Utc>) -> u32 {
     let ms_since_epoch = (dt.timestamp_micros() / 1000) as u64 - config::BLOCK_TIMESTAMP_EPOCH;
     let result = ms_since_epoch / (config::BLOCK_INTERVAL_MS as u64);
     result as u32
@@ -494,9 +494,10 @@ where
     }
 }
 
-/// return a date in microseconds
-fn parse_date(s: &str) -> Result<NaiveDateTime, InvalidValue> {
-    Ok(NaiveDateTime::parse_from_str(s, DATE_FORMAT)?)
+/// return a date in microseconds, timezone is UTC by default
+/// (we don't use naive datetimes)
+fn parse_date(s: &str) -> Result<DateTime<Utc>, InvalidValue> {
+    Ok(NaiveDateTime::parse_from_str(s, DATE_FORMAT)?.and_utc())
 }
 
 pub fn hex_to_boxed_array<const N: usize>(s: &str) -> Result<Box<[u8; N]>, FromHexError> {
