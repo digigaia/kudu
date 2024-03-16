@@ -42,12 +42,29 @@ dependencies = [
 ]
 
 [[package]]
-name = "antelope"
+name = "antelope-abi"
+version = "0.1.0"
+dependencies = [
+ "antelope-core",
+ "bytemuck",
+ "chrono",
+ "color-eyre",
+ "hex",
+ "serde",
+ "serde_json",
+ "strum",
+ "thiserror",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
+name = "antelope-core"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "base64u",
  "bs58",
- "bytemuck",
  "chrono",
  "color-eyre",
  "flate2",
@@ -60,7 +77,6 @@ dependencies = [
  "strum",
  "thiserror",
  "tracing",
- "tracing-subscriber",
 ]
 
 [[package]]
@@ -89,6 +105,10 @@ dependencies = [
  "object",
  "rustc-demangle",
 ]
+
+[[package]]
+name = "base64u"
+version = "0.1.0"
 
 [[package]]
 name = "block-buffer"

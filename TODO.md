@@ -1,5 +1,13 @@
 # TODO / FIXME
 
+TODO IMPORTANT!!
+
+After splitting workspace into different crates, do the following:
+- review Cargo.toml for each of them and remove unused dependencies
+- check for minimum rust version (I think there is a tool for that)
+- review each file individually
+
+
 ## API DESIGN
 
 - better error handling when constructing types. We should remove `assert`s and `panic` and use proper error types
@@ -49,6 +57,8 @@
 
 ## MISC
 
+- implement `Debug` and `Display` trait for all basic types
+
 - for Name type: check unittests and validity of non-normalized names
 
 - crypto primitives do not implement WebAuthn key and signatures yet
@@ -56,3 +66,5 @@
 - implement action_result in abi and abi_parser
 
 - check with <https://crates.io/crates/antelope> whether we can get the crate name
+
+- do we want to use the `base64` crate with the URL_SAFE engine or do we keep our own (smaller and simpler) implementation?

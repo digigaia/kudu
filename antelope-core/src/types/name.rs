@@ -5,7 +5,6 @@ use serde::de::{self, Visitor};
 use anyhow::Result;
 use thiserror::Error;
 
-use crate::{AntelopeType, AntelopeValue, ByteStream, InvalidValue};
 
 #[derive(Error, Debug)]
 pub enum InvalidName {
@@ -44,16 +43,7 @@ impl Name {
         }
     }
 
-    pub fn to_u64(&self) -> u64 { self.value }
-
-    pub fn encode(&self, stream: &mut ByteStream) {
-        AntelopeValue::Uint64(self.value).to_bin(stream);
-    }
-
-    pub fn decode(stream: &mut ByteStream) -> Result<Self, InvalidValue> {
-        let n: usize = AntelopeValue::from_bin(AntelopeType::Uint64, stream)?.try_into()?;
-        Ok(Name::from_u64(n as u64))
-    }
+    pub fn as_u64(&self) -> u64 { self.value }
 
     pub fn prefix(&self) -> Name {
         // note: antelope C++ has a more efficient implementation based on direct bit twiddling,

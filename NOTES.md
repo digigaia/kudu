@@ -47,3 +47,10 @@ some decisions and their rationale and keep a trace so we don't have to ask the
 same question or wonder why some choices have been made over and over again.
 
 **TODO!**
+
+- why we have `ByteStream` instead of using something like the `bytes` crate
+  operation on bytes are infallible, and we are fine with having write being infallible
+  (ie: we can grow a vec or append to a file we are writing to), but we want reads to be
+  able to fail, ie: when we are at the end of the stream/file
+  TODO: make sure this holds and see whether we can use the `bytes` crate anyway, it has
+        some nice features

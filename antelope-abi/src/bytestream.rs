@@ -6,7 +6,9 @@ use thiserror::Error;
 use tracing::trace;
 use hex;
 
-use crate::AntelopeValue;
+use antelope_core::{AntelopeValue, InvalidValue};
+
+use crate::abiserializable::ABISerializable;
 
 
 #[derive(Error, Debug)]
@@ -21,6 +23,12 @@ pub enum StreamError {
     OddLength,
 }
 
+impl From<StreamError> for InvalidValue {
+    // FIXME: surely we can do better than that...
+    fn from(err: StreamError) -> InvalidValue {
+        InvalidValue::InvalidData(err.to_string())
+    }
+}
 
 // TODO: we could provide default impl for u16, u32, etc. using only write_byte
 /*

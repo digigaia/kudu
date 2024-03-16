@@ -4,8 +4,6 @@ use serde::de::{self, Visitor};
 use thiserror::Error;
 use std::num::ParseIntError;
 
-use crate::{AntelopeType, AntelopeValue, ByteStream, InvalidValue};
-
 
 #[derive(Error, Debug)]
 pub enum InvalidSymbol {
@@ -60,7 +58,7 @@ impl Symbol {
         Self::from_prec_and_str(precision, &s[pos+1..])
     }
 
-    pub fn to_u64(&self) -> u64 { self.value }
+    pub fn as_u64(&self) -> u64 { self.value }
 
     pub fn from_u64(n: u64) -> Self {
         // FIXME: do some validation here
@@ -97,26 +95,8 @@ impl Symbol {
         self.decimals() <= Self::MAX_PRECISION && Self::is_valid_name(&self.name())
     }
 
-    pub fn encode(&self, stream: &mut ByteStream) {
-        AntelopeValue::Uint64(self.value).to_bin(stream);
-    }
-
-    pub fn decode(stream: &mut ByteStream) -> Result<Self, InvalidValue> {
-        let n: usize = AntelopeValue::from_bin(AntelopeType::Uint64, stream)?.try_into()?;
-        Ok(Symbol::from_u64(n as u64))
-    }
 }
 
-/*
-impl ABISerializable for Symbol {
-    fn encode(&self, stream: &mut ByteStream) {
-        stream.write_u64(self.value);
-    }
-    fn decode(_stream: &mut ByteStream) -> Self {
-        todo!();
-    }
-}
-*/
 
 impl fmt::Display for Symbol {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

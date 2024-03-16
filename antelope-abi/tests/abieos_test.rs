@@ -11,9 +11,13 @@ use tracing_subscriber::{
     fmt::format::FmtSpan,
 };
 
-use antelope::abi::ABIDefinition;
-use antelope::{
-    JsonValue, ABIEncoder, ByteStream,
+use antelope_abi::abi::ABIDefinition;
+use antelope_abi::{
+    ABIEncoder, ByteStream
+};
+
+use antelope_core::{
+    JsonValue,
     types::InvalidValue,
 };
 

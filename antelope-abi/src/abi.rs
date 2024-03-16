@@ -2,7 +2,9 @@ use serde::{Serialize, Deserialize};
 use serde_json::json;
 use std::sync::OnceLock;
 
-use crate::{AntelopeValue, AntelopeType, Name, ByteStream, ABIEncoder, InvalidValue};
+use antelope_core::{AntelopeValue, AntelopeType, Name, InvalidValue};
+use crate::{ByteStream, ABIEncoder};
+use crate::abiserializable::ABISerializable;
 
 // see doc at: https://docs.eosnetwork.com/manuals/cdt/latest/best-practices/abi/understanding-abi-files/
 //             https://docs.eosnetwork.com/docs/latest/advanced-topics/understanding-ABI-files/

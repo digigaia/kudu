@@ -4,7 +4,7 @@ use serde::de::{self, Visitor};
 use thiserror::Error;
 use std::num::ParseIntError;
 
-use crate::{AntelopeType, AntelopeValue, ByteStream, Symbol, InvalidSymbol, InvalidValue};
+use crate::{Symbol, InvalidSymbol};
 
 
 #[derive(Error, Debug)]
@@ -38,6 +38,10 @@ pub struct Asset {
 impl Asset {
     const MAX_AMOUNT: i64 = (1 << 62) - 1;
 
+    pub fn new(amount: i64, symbol: Symbol) -> Asset {
+        Asset { amount, symbol }
+    }
+
     fn is_amount_within_range(&self) -> bool {
         -Self::MAX_AMOUNT <= self.amount && self.amount <= Self::MAX_AMOUNT
     }
@@ -55,6 +59,7 @@ impl Asset {
     }
 
     pub fn amount(&self) -> i64 { self.amount }
+    pub fn symbol(&self) -> Symbol { self.symbol }
     pub fn symbol_name(&self) -> String { self.symbol.name() }
     pub fn decimals(&self) -> u8 { self.symbol.decimals() }
     pub fn precision(&self) -> i64 { self.symbol.precision() }
@@ -105,33 +110,8 @@ impl Asset {
         })
     }
 
-    pub fn encode(&self, stream: &mut ByteStream) {
-        AntelopeValue::Int64(self.amount).to_bin(stream);
-        self.symbol.encode(stream);
-    }
-
-    pub fn decode(stream: &mut ByteStream) -> Result<Self, InvalidValue> {
-        let amount: i64 = AntelopeValue::from_bin(AntelopeType::Int64, stream)?.try_into()?;
-        let symbol = Symbol::decode(stream)?;
-        Ok(Self {
-            amount,
-            symbol,
-        })
-   }
-
 }
 
-    /*
-impl ABISerializable for Asset {
-    fn encode(&self, stream: &mut ByteStream) {
-        self.amount.encode(stream);
-        self.symbol.encode(stream);
-    }
-    fn decode(_stream: &mut ByteStream) -> Self {
-        todo!();
-    }
-}
-    */
 
 impl fmt::Display for Asset {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

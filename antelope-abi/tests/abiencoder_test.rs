@@ -5,12 +5,13 @@ use serde_json::json;
 use color_eyre::eyre::Result;
 use chrono::{NaiveDate, TimeZone, Utc};
 
-use antelope::abi::*;
-use antelope::{
+use antelope_abi::abi::*;
+use antelope_abi::{
     ABIEncoder, ByteStream,
-    types::{
-        AntelopeValue, Name, Symbol, Asset
-    }
+    abiserializable::ABISerializable,
+};
+use antelope_core::{
+    AntelopeValue, Name, Symbol, Asset
 };
 
 // TODO: add tests for deserialization
@@ -72,7 +73,7 @@ fn test_serialize_name() {
     let mut ds = ByteStream::new();
     abi.encode(&mut ds, &AntelopeValue::Name(obj));
 
-    assert_eq!(obj.to_u64(), 6712742083569909760);
+    assert_eq!(obj.as_u64(), 6712742083569909760);
 
     assert_eq!(&ds.hex_data(), &data);
 

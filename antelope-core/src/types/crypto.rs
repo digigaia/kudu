@@ -6,8 +6,6 @@ use bs58;
 use ripemd::{Ripemd160, Digest};
 use sha2::Sha256;
 
-use crate::{ByteStream, InvalidValue};
-
 
 #[derive(Eq, PartialEq, Hash, Debug, Copy, Clone)]
 pub enum KeyType {
@@ -71,6 +69,13 @@ pub struct CryptoData<T: CryptoDataType, const DATA_SIZE: usize> {
 }
 
 impl<T: CryptoDataType, const DATA_SIZE: usize> CryptoData<T, DATA_SIZE> {
+    pub fn key_type(&self) -> KeyType { self.key_type }
+    pub fn data(&self) -> &[u8; DATA_SIZE] { &self.data }
+
+    pub fn new(key_type: KeyType, data: [u8; DATA_SIZE]) -> Self {
+        Self { key_type, data, phantom: PhantomData }
+    }
+
     pub fn from_str(s: &str) -> Result<Self, InvalidCryptoData> {
         // check legacy formats first
         if T::PREFIX == "PUB" && s.starts_with("EOS") {
@@ -107,17 +112,6 @@ impl<T: CryptoDataType, const DATA_SIZE: usize> CryptoData<T, DATA_SIZE> {
 
     pub fn vec_to_data(v: Vec<u8>) -> [u8; DATA_SIZE] {
         v.try_into().unwrap_or_else(|v: Vec<u8>| panic!("wrong size for {}, needs to be {} but is: {}", T::DISPLAY_NAME, DATA_SIZE, v.len()))
-    }
-
-    pub fn encode(&self, stream: &mut ByteStream) {
-        stream.write_byte(self.key_type.index());
-        stream.write_bytes(&self.data);
-    }
-
-    pub fn decode(stream: &mut ByteStream) -> Result<Self, InvalidValue> {
-        let key_type = KeyType::from_index(stream.read_byte()?);
-        let data = stream.read_bytes(DATA_SIZE)?.try_into().unwrap();
-        Ok(Self { key_type, data, phantom: PhantomData })
     }
 
 }
