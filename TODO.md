@@ -31,6 +31,8 @@ After splitting workspace into different crates, do the following:
 
 - investigate whether `color_eyre::Result` is the right result type for the library. Maybe we should use `std::Result` and reserve the usage of `color_eyre::Result` for the unittests?
 
+- check <https://rust-lang.github.io/api-guidelines/checklist.html>
+
 ### Investigate Serde
 
 - check whether ABIEncoder would be better written as a Serde serializer
