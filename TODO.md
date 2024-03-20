@@ -17,6 +17,8 @@ After splitting workspace into different crates, do the following:
 
 - use `From` and `Into` traits for constructing base Antelope types
 
+- `BinarySerializable` / `ABISerializable` need to use `StreamError` instead of `InvalidValue`
+
 - clean abiencoder.rs
 
 - investigate `snafu` instead of `thiserror` for errors

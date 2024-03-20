@@ -6,7 +6,10 @@ use strum::VariantNames;
 use tracing::{debug, instrument};
 
 use crate::abi::*;
-use crate::abiserializable::{ABISerializable, write_var_u32};
+use crate::{
+    binaryserializable::write_var_u32,
+    abiserializable::ABISerializable,
+};
 
 use serde_json::{
     Map as JsonMap,

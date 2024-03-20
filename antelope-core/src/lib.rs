@@ -32,5 +32,6 @@ pub use types::{
     AntelopeValue, InvalidValue,
     Name, InvalidName,
     Symbol, InvalidSymbol,
-    Asset, InvalidAsset
+    Asset, InvalidAsset,
+    PrivateKey, PublicKey, Signature,
 };

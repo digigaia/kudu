@@ -8,7 +8,8 @@ use chrono::{NaiveDate, TimeZone, Utc};
 use antelope_abi::abi::*;
 use antelope_abi::{
     ABIEncoder, ByteStream,
-    abiserializable::{ABISerializable, write_var_u32},
+    binaryserializable::write_var_u32,
+    abiserializable::ABISerializable,
 };
 use antelope_core::{
     AntelopeValue, Name, Symbol, Asset
