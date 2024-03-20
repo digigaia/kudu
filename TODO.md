@@ -12,6 +12,9 @@ After splitting workspace into different crates, do the following:
 
 - better error handling when constructing types. We should remove `assert`s and `panic` and use proper error types
 
+- is `from_str` the best name for most of our types constructors? Reconsider disabling the clippy warning
+  about it at the top of `antelope-{core,abi}/src/lib.rs`
+
 - use `From` and `Into` traits for constructing base Antelope types
 
 - clean abiencoder.rs

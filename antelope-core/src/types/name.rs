@@ -88,17 +88,6 @@ impl<'de> Deserialize<'de> for Name {
 }
 
 
-/*
-impl ABISerializable for Name {
-    fn encode(&self, encoder: &mut ByteStream) {
-        encoder.write_u64(self.value);
-    }
-    fn decode(_stream: &mut ByteStream) -> Self {
-        todo!();
-    }
-}
-*/
-
 impl fmt::Display for Name {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", String::from_utf8(u64_to_string(self.value)).unwrap())

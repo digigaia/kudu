@@ -8,7 +8,7 @@ use chrono::{NaiveDate, TimeZone, Utc};
 use antelope_abi::abi::*;
 use antelope_abi::{
     ABIEncoder, ByteStream,
-    abiserializable::ABISerializable,
+    abiserializable::{ABISerializable, write_var_u32},
 };
 use antelope_core::{
     AntelopeValue, Name, Symbol, Asset
@@ -383,7 +383,7 @@ fn test_var_u32() {
 
     for &(val, repr) in vals {
         ds.clear();
-        ds.write_var_u32(val);
+        write_var_u32(&mut ds, val);
         assert_eq!(ds.data(), repr, "wrong ABI serialization for: {val}");
     }
 }

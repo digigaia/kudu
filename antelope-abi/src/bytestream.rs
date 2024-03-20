@@ -1,4 +1,4 @@
-use std::{fmt, mem};
+use std::mem;
 use std::num::ParseIntError;
 
 use bytemuck::cast_ref;
@@ -6,9 +6,7 @@ use thiserror::Error;
 use tracing::trace;
 use hex;
 
-use antelope_core::{AntelopeValue, InvalidValue};
-
-use crate::abiserializable::ABISerializable;
+use antelope_core::InvalidValue;
 
 
 #[derive(Error, Debug)]
@@ -130,10 +128,6 @@ impl ByteStream {
         self.data.extend_from_slice(bytes)
     }
 
-    pub fn encode(&mut self, v: &AntelopeValue) {
-        v.to_bin(self)
-    }
-
     ////////////////
     // FIXME FIXME
     //
@@ -196,34 +190,25 @@ impl ByteStream {
         self.data.extend_from_slice(cast_ref::<f64, [u8; 8]>(&x));
     }
 
-    pub fn write_var_u32(&mut self, n: u32) {
-        // TODO: would it be better to use the `bytemuck` create here?
-        let mut n = n;
-        loop {
-            if n >> 7 != 0 {
-                self.write_byte((0x80 | (n & 0x7f)) as u8);
-                n >>= 7
-            }
-            else {
-                self.write_byte(n as u8);
-                break;
-            }
-        }
-    }
+    // pub fn write_var_u32(&mut self, n: u32) {
+    //     // TODO: would it be better to use the `bytemuck` create here?
+    //     let mut n = n;
+    //     loop {
+    //         if n >> 7 != 0 {
+    //             self.write_byte((0x80 | (n & 0x7f)) as u8);
+    //             n >>= 7
+    //         }
+    //         else {
+    //             self.write_byte(n as u8);
+    //             break;
+    //         }
+    //     }
+    // }
+    //
+    // pub fn write_str(&mut self, s: &str) {
+    //     self.write_var_u32(s.len() as u32);
+    //     self.data.extend_from_slice(s.as_bytes());
+    // }
 
-    pub fn write_str(&mut self, s: &str) {
-        self.write_var_u32(s.len() as u32);
-        self.data.extend_from_slice(s.as_bytes());
-    }
 
-
-}
-
-impl fmt::Debug for ByteStream {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        // write!(f, "ByteStream: {}{}",
-        //        hex::encode_upper(&self.data[..self.data.len().min(4)]),
-        //        if self.data.len() < 5 { "" } else { "[...]" })
-        write!(f, "...")
-    }
 }

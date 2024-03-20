@@ -1,13 +1,12 @@
 use std::collections::HashMap;
-use std::fmt;
 
 // use anyhow::Result;
 use color_eyre::eyre::Result;
 use strum::VariantNames;
-use tracing::debug;
+use tracing::{debug, instrument};
 
 use crate::abi::*;
-use crate::abiserializable::ABISerializable;
+use crate::abiserializable::{ABISerializable, write_var_u32};
 
 use serde_json::{
     Map as JsonMap,
@@ -126,7 +125,7 @@ impl ABIEncoder {
         obj.to_bin(stream)
     }
 
-    #[tracing::instrument]
+    #[instrument(skip(self, ds))]
     pub fn encode_variant(&self, ds: &mut ByteStream, typename: &str, object: &JsonValue) -> Result<(), InvalidValue> {
         // see C++ implementation here: https://github.com/AntelopeIO/leap/blob/main/libraries/chain/abi_serializer.cpp#L491
         let rtype = self.resolve_type(typename);
@@ -167,7 +166,7 @@ impl ABIEncoder {
             if is_array(rtype) {
                 let Some(a) = object.as_array() else {
                     return Err(InvalidValue::InvalidData("JSON object cannot be converted to array".to_owned())); };
-                ds.write_var_u32(a.len() as u32);
+                write_var_u32(ds, a.len() as u32);
                 for v in a {
                     self.encode_variant(ds, ftype, v)?;
                 }
@@ -190,7 +189,7 @@ impl ABIEncoder {
                         object[0]);
                 let variant_type = object[0].as_str().unwrap();
                 if let Some(vpos) = variant_def.types.iter().position(|v| v == variant_type) {
-                    ds.write_var_u32(vpos as u32);
+                    write_var_u32(ds, vpos as u32);
                     self.encode_variant(ds, variant_type, &object[1])?;
                 }
                 else {
@@ -358,12 +357,4 @@ pub struct Struct {
         Ok(JsonValue::Object(result))
     }
 
-}
-
-
-impl fmt::Debug for ABIEncoder {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        // write!(f, "ABIEncoder [...]")
-        write!(f, "...")
-    }
 }

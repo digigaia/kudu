@@ -5,7 +5,7 @@ use std::sync::Once;
 // use anyhow::Result;
 use color_eyre::eyre::Result;
 
-use tracing::{debug, info};
+use tracing::{debug, info, instrument};
 use tracing_subscriber::{
     EnvFilter,
     fmt::format::FmtSpan,
@@ -57,7 +57,7 @@ fn init() {
     });
 }
 
-#[tracing::instrument]
+#[instrument(skip(ds, abi))]
 fn try_encode_stream(ds: &mut ByteStream, abi: &ABIEncoder, typename: &str, data: &str) -> Result<()> {
     let value: JsonValue = serde_json::from_str(data).map_err(InvalidValue::from)?;
     info!("{:?}", &value);

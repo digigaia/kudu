@@ -1,7 +1,7 @@
 use std::str::from_utf8;
 
 use bytemuck::{cast_ref, pod_read_unaligned};
-use tracing;
+use tracing::instrument;
 
 use antelope_core::{
     AntelopeType, AntelopeValue, InvalidValue,
@@ -13,10 +13,12 @@ use crate::bytestream::ByteStream;
 
 // FIXME: maybe this shouldn't be called ABISerializable as it doesn't have anything to do with an ABI yet
 //        we are only encoding some base types in binary into a bytestream
-pub trait ABISerializable  {
+pub trait BinarySerializable  {
     fn encode(&self, stream: &mut ByteStream);
     fn decode(stream: &mut ByteStream) -> Result<Self, InvalidValue> where Self: Sized;  // FIXME: this should be a different Error type
+}
 
+pub trait ABISerializable {
     // FIXME: this doesn't belong here, we only have it temporarily during refactoring
     fn to_bin(&self, _stream: &mut ByteStream) {
         unimplemented!();
@@ -27,7 +29,9 @@ pub trait ABISerializable  {
 }
 
 
-impl ABISerializable for i64 {
+// TODO: implement for other int/uint types
+
+impl BinarySerializable for i64 {
     fn encode(&self, stream: &mut ByteStream) {
         stream.write_i64(*self)
     }
@@ -36,9 +40,9 @@ impl ABISerializable for i64 {
     }
 }
 
-impl ABISerializable for Name {
+impl BinarySerializable for Name {
     fn encode(&self, stream: &mut ByteStream) {
-        AntelopeValue::Uint64(self.as_u64()).to_bin(stream);
+        stream.write_u64(self.as_u64());
     }
 
     fn decode(stream: &mut ByteStream) -> Result<Self, InvalidValue> {
@@ -48,7 +52,7 @@ impl ABISerializable for Name {
 }
 
 
-impl ABISerializable for Symbol {
+impl BinarySerializable for Symbol {
     fn encode(&self, stream: &mut ByteStream) {
         stream.write_u64(self.as_u64());
         // AntelopeValue::Uint64(self.as_u64()).to_bin(stream);
@@ -61,7 +65,7 @@ impl ABISerializable for Symbol {
 }
 
 
-impl ABISerializable for Asset {
+impl BinarySerializable for Asset {
     fn encode(&self, stream: &mut ByteStream) {
         self.amount().encode(stream);
         // AntelopeValue::Int64(self.amount).to_bin(stream);
@@ -76,7 +80,7 @@ impl ABISerializable for Asset {
 }
 
 
-impl<T: CryptoDataType, const DATA_SIZE: usize> ABISerializable for CryptoData<T, DATA_SIZE> {
+impl<T: CryptoDataType, const DATA_SIZE: usize> BinarySerializable for CryptoData<T, DATA_SIZE> {
     fn encode(&self, stream: &mut ByteStream) {
         stream.write_byte(self.key_type().index());
         stream.write_bytes(self.data());
@@ -92,14 +96,6 @@ impl<T: CryptoDataType, const DATA_SIZE: usize> ABISerializable for CryptoData<T
 }
 
 impl ABISerializable for AntelopeValue {
-    fn encode(&self, _stream: &mut ByteStream) {
-        unimplemented!();
-    }
-
-    fn decode(_stream: &mut ByteStream) -> Result<Self, InvalidValue> {
-        unimplemented!();
-    }
-
     fn to_bin(&self, stream: &mut ByteStream) {
         match self {
             Self::Bool(b) => stream.write_byte(match b {
@@ -149,7 +145,7 @@ impl ABISerializable for AntelopeValue {
         }
     }
 
-    #[tracing::instrument]
+    #[instrument(skip(stream))]
     fn from_bin(typename: AntelopeType, stream: &mut ByteStream) -> Result<Self, InvalidValue> {
         Ok(match typename {
             AntelopeType::Bool => match stream.read_byte()? {
@@ -194,7 +190,7 @@ impl ABISerializable for AntelopeValue {
     }
 }
 
-fn write_var_u32(stream: &mut ByteStream, n: u32) {
+pub fn write_var_u32(stream: &mut ByteStream, n: u32) {
     let mut n = n;
     loop {
         if n >> 7 != 0 {
@@ -208,12 +204,12 @@ fn write_var_u32(stream: &mut ByteStream, n: u32) {
     }
 }
 
-fn write_var_i32(stream: &mut ByteStream, n: i32) {
+pub fn write_var_i32(stream: &mut ByteStream, n: i32) {
     let unsigned = ((n as u32) << 1) ^ ((n >> 31) as u32);
     write_var_u32(stream, unsigned)
 }
 
-fn read_var_u32(stream: &mut ByteStream) -> Result<u32, InvalidValue> {
+pub fn read_var_u32(stream: &mut ByteStream) -> Result<u32, InvalidValue> {
     let mut offset = 0;
     let mut result = 0;
     loop {
@@ -230,7 +226,7 @@ fn read_var_u32(stream: &mut ByteStream) -> Result<u32, InvalidValue> {
     Ok(result)
 }
 
-fn read_var_i32(stream: &mut ByteStream) -> Result<i32, InvalidValue> {
+pub fn read_var_i32(stream: &mut ByteStream) -> Result<i32, InvalidValue> {
     let n = read_var_u32(stream)?;
     Ok(match n & 1 {
         0 => n >> 1,
@@ -238,12 +234,12 @@ fn read_var_i32(stream: &mut ByteStream) -> Result<i32, InvalidValue> {
     } as i32)
 }
 
-fn read_bytes(stream: &mut ByteStream) -> Result<Vec<u8>, InvalidValue> {
+pub fn read_bytes(stream: &mut ByteStream) -> Result<Vec<u8>, InvalidValue> {
     let len = read_var_u32(stream)? as usize;
     Ok(Vec::from(stream.read_bytes(len)?))
 }
 
-fn read_str(stream: &mut ByteStream) -> Result<&str, InvalidValue> {
+pub fn read_str(stream: &mut ByteStream) -> Result<&str, InvalidValue> {
     let len = read_var_u32(stream)? as usize;
     Ok(from_utf8(stream.read_bytes(len)?)?)
 }

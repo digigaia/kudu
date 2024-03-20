@@ -19,7 +19,7 @@ use strum::{VariantNames, EnumDiscriminants, EnumString, Display};
 use chrono::{NaiveDateTime, DateTime, Utc, TimeZone, ParseError as ChronoParseError};
 use num::{Integer, Signed, Unsigned};
 use hex::FromHexError;
-use tracing;
+use tracing::instrument;
 
 use super::{json, JsonValue, JsonError, config};
 
@@ -82,7 +82,7 @@ pub enum AntelopeValue {
 
 
 impl AntelopeValue {
-    #[tracing::instrument]
+    #[instrument]
     pub fn from_str(typename: AntelopeType, repr: &str) -> Result<Self, InvalidValue> {
         Ok(match typename {
             AntelopeType::Bool => Self::Bool(repr.parse()?),
@@ -173,7 +173,7 @@ impl AntelopeValue {
         }
     }
 
-    #[tracing::instrument]
+    #[instrument]
     pub fn from_variant(typename: AntelopeType, v: &JsonValue) -> Result<Self, InvalidValue> {
         let incompatible_types = || {
             InvalidValue::IncompatibleVariantTypes(typename.to_string(), v.clone())
