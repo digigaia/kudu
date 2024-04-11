@@ -1,10 +1,11 @@
 use std::fmt;
-use serde::{Serialize, Serializer, Deserialize, Deserializer};
-use serde::de::{self, Visitor};
-use thiserror::Error;
 use std::num::ParseIntError;
 
-use crate::{Symbol, InvalidSymbol};
+use serde::de::{self, Visitor};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use thiserror::Error;
+
+use crate::{InvalidSymbol, Symbol};
 
 
 #[derive(Error, Debug)]
@@ -75,16 +76,19 @@ impl Asset {
         let space_pos = s.find(' ').ok_or(InvalidAsset::MissingSpace(s.to_owned()))?;
 
         let amount_str = &s[..space_pos];
-        let symbol_str = &s[space_pos+1..].trim();
+        let symbol_str = &s[space_pos + 1..].trim();
 
         // parse symbol
         let dot_pos = amount_str.find('.');
         let precision;
         if let Some(dot_pos) = dot_pos {
             // Ensure that if decimal point is used (.), decimal fraction is specified
-            if dot_pos == amount_str.len()-1 { return Err(InvalidAsset::MissingDecimal); }
+            if dot_pos == amount_str.len() - 1 {
+                return Err(InvalidAsset::MissingDecimal);
+            }
             precision = amount_str.len() - dot_pos - 1;
-        } else {
+        }
+        else {
             precision = 0;
         }
 
@@ -99,17 +103,15 @@ impl Asset {
                 if amount_str.starts_with('-') { frac_part *= -1; }
                 // check we don't overflow
                 int_part
-                    .checked_mul(symbol.precision()).ok_or(InvalidAsset::AmountOverflow(amount_str.to_owned()))?
-                    .checked_add(frac_part).ok_or(InvalidAsset::AmountOverflow(amount_str.to_owned()))?
+                    .checked_mul(symbol.precision())
+                    .ok_or(InvalidAsset::AmountOverflow(amount_str.to_owned()))?
+                    .checked_add(frac_part)
+                    .ok_or(InvalidAsset::AmountOverflow(amount_str.to_owned()))?
             },
         };
 
-        Ok(Self {
-            amount,
-            symbol,
-        })
+        Ok(Self { amount, symbol })
     }
-
 }
 
 
@@ -190,5 +192,4 @@ mod tests {
             assert!(Asset::from_str(n).is_err());
         }
     }
-
 }

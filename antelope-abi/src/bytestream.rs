@@ -1,12 +1,11 @@
 use std::mem;
 use std::num::ParseIntError;
 
+use antelope_core::InvalidValue;
 use bytemuck::cast_ref;
+use hex;
 use thiserror::Error;
 use tracing::trace;
-use hex;
-
-use antelope_core::InvalidValue;
 
 
 #[derive(Error, Debug)]
@@ -63,15 +62,11 @@ impl ByteStream {
         Self {
             data: vec![],
             read_pos: 0,
-
         }
     }
 
     pub fn from(data: Vec<u8>) -> Self {
-        Self {
-            data,
-            read_pos: 0,
-        }
+        Self { data, read_pos: 0 }
     }
 
     pub fn data(&self) -> &[u8] {
@@ -91,7 +86,6 @@ impl ByteStream {
     }
 
 
-
     pub fn write_byte(&mut self, byte: u8) {
         self.data.push(byte)
     }
@@ -103,7 +97,7 @@ impl ByteStream {
     pub fn read_byte(&mut self) -> Result<u8, StreamError> {
         let pos = self.read_pos;
         if pos != self.data.len() {
-            trace!("read 1 byte - hex: {}", hex::encode_upper(&self.data[pos..pos+1]));
+            trace!("read 1 byte - hex: {}", hex::encode_upper(&self.data[pos..pos + 1]));
             self.read_pos += 1;
             Ok(self.data[pos])
         }
@@ -117,7 +111,7 @@ impl ByteStream {
             Err(StreamError::Ended(n, self.data.len() - self.read_pos))
         }
         else {
-            let result = &self.data[self.read_pos..self.read_pos+n];
+            let result = &self.data[self.read_pos..self.read_pos + n];
             trace!("read {n} bytes - hex: {}", hex::encode_upper(result));
             self.read_pos += n;
             Ok(result)
@@ -209,6 +203,4 @@ impl ByteStream {
     //     self.write_var_u32(s.len() as u32);
     //     self.data.extend_from_slice(s.as_bytes());
     // }
-
-
 }

@@ -1,26 +1,20 @@
+use antelope_core::{AntelopeType, AntelopeValue, Asset, InvalidValue, Name, PrivateKey, PublicKey, Signature, Symbol};
 use bytemuck::{cast_ref, pod_read_unaligned};
 use tracing::instrument;
 
-use antelope_core::{
-    AntelopeType, AntelopeValue, InvalidValue,
-    Name, Symbol, Asset,
-    PrivateKey, PublicKey, Signature,
-};
-
 use crate::{
-    bytestream::ByteStream,
     binaryserializable::{
-        BinarySerializable,
-        read_var_i32, write_var_i32,
-        read_var_u32, write_var_u32,
-        read_bytes, read_str,
+        read_bytes, read_str, read_var_i32, read_var_u32, write_var_i32, write_var_u32, BinarySerializable,
     },
+    bytestream::ByteStream,
 };
 
 
 pub trait ABISerializable {
     fn to_bin(&self, _stream: &mut ByteStream);
-    fn from_bin(_typename: AntelopeType, _stream: &mut ByteStream) -> Result<Self, InvalidValue> where Self: Sized;
+    fn from_bin(_typename: AntelopeType, _stream: &mut ByteStream) -> Result<Self, InvalidValue>
+    where
+        Self: Sized;
 }
 
 
@@ -80,7 +74,9 @@ impl ABISerializable for AntelopeValue {
             AntelopeType::Bool => match stream.read_byte()? {
                 1 => Self::Bool(true),
                 0 => Self::Bool(false),
-                _ => { return Err(InvalidValue::InvalidData("cannot parse bool from stream".to_owned())); },
+                _ => {
+                    return Err(InvalidValue::InvalidData("cannot parse bool from stream".to_owned()));
+                },
             },
             AntelopeType::Int8 => Self::Int8(stream.read_byte()? as i8),
             AntelopeType::Int16 => Self::Int16(pod_read_unaligned(stream.read_bytes(2)?)),
@@ -111,10 +107,9 @@ impl ABISerializable for AntelopeValue {
             AntelopeType::Symbol => Self::Symbol(Symbol::decode(stream)?),
             AntelopeType::SymbolCode => Self::SymbolCode(pod_read_unaligned(stream.read_bytes(8)?)),
             AntelopeType::Asset => Self::Asset(Asset::decode(stream)?),
-            AntelopeType::ExtendedAsset => Self::ExtendedAsset(Box::new((
-                Asset::decode(stream)?,
-                Name::decode(stream)?,
-            ))),
+            AntelopeType::ExtendedAsset => {
+                Self::ExtendedAsset(Box::new((Asset::decode(stream)?, Name::decode(stream)?)))
+            },
         })
     }
 }

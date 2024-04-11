@@ -1,8 +1,9 @@
 use std::fmt;
-use serde::{Serialize, Serializer, Deserialize, Deserializer};
-use serde::de::{self, Visitor};
-use thiserror::Error;
 use std::num::ParseIntError;
+
+use serde::de::{self, Visitor};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use thiserror::Error;
 
 
 #[derive(Error, Debug)]
@@ -23,10 +24,7 @@ pub enum InvalidSymbol {
     ParsePrecisionError(#[from] ParseIntError),
 
     #[error("given precision {given} should be <= max precision {max}")]
-    InvalidPrecision {
-        given: u8,
-        max: u8
-    },
+    InvalidPrecision { given: u8, max: u8 },
 }
 
 
@@ -52,10 +50,10 @@ impl Symbol {
         if precision > Self::MAX_PRECISION {
             return Err(InvalidSymbol::InvalidPrecision {
                 given: precision,
-                max: Self::MAX_PRECISION
+                max: Self::MAX_PRECISION,
             });
         }
-        Self::from_prec_and_str(precision, &s[pos+1..])
+        Self::from_prec_and_str(precision, &s[pos + 1..])
     }
 
     pub fn as_u64(&self) -> u64 { self.value }
@@ -76,7 +74,8 @@ impl Symbol {
         let mut p10: i64 = 1;
         let mut p = decimals as i64;
         while p > 0 {
-            p10 *= 10; p -= 1;
+            p10 *= 10;
+            p -= 1;
         }
         p10
     }
@@ -158,15 +157,15 @@ fn string_to_symbol(precision: u8, s: &[u8]) -> Result<u64, InvalidSymbol> {
 }
 
 pub fn symbol_code_to_string(value: u64) -> String {
-        let mut v: u64 = value;
-        let mut result = String::new();
-        while v != 0 {
-            let c = (v & 0xFF) as u8;
-            result.push(c as char);
-            v >>= 8;
-        }
-        result
+    let mut v: u64 = value;
+    let mut result = String::new();
+    while v != 0 {
+        let c = (v & 0xFF) as u8;
+        result.push(c as char);
+        v >>= 8;
     }
+    result
+}
 
 
 #[cfg(test)]
@@ -188,5 +187,4 @@ mod tests {
             assert!(Symbol::from_str(s).is_err());
         }
     }
-
 }

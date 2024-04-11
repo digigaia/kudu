@@ -1,26 +1,20 @@
 use std::collections::HashMap;
 
+use antelope_core::{AntelopeType, AntelopeValue, InvalidValue, Name};
 // use anyhow::Result;
 use color_eyre::eyre::Result;
+use serde_json::{
+    // Error as JsonError,
+    json,
+    Map as JsonMap,
+    Value as JsonValue,
+};
 use strum::VariantNames;
 use tracing::{debug, instrument};
 
-use crate::abi::*;
-use crate::{
-    binaryserializable::write_var_u32,
-    abiserializable::ABISerializable,
-};
-
-use serde_json::{
-    Map as JsonMap,
-    Value as JsonValue,
-    // Error as JsonError,
-    json
-};
-
 use super::*;
-
-use antelope_core::{Name, AntelopeType, AntelopeValue, InvalidValue};
+use crate::abi::*;
+use crate::{abiserializable::ABISerializable, binaryserializable::write_var_u32};
 
 #[derive(Default)]
 pub struct ABIEncoder {
@@ -85,9 +79,15 @@ impl ABIEncoder {
             self.typedefs.insert(td.new_type_name.clone(), td.type_.clone());
         }
 
-        for a in &abi.actions { self.actions.insert(a.name, a.type_.clone()); }
-        for t in &abi.tables { self.tables.insert(t.name, t.type_.clone()); }
-        for v in &abi.variants { self.variants.insert(v.name.clone(), v.clone()); }
+        for a in &abi.actions {
+            self.actions.insert(a.name, a.type_.clone());
+        }
+        for t in &abi.tables {
+            self.tables.insert(t.name, t.type_.clone());
+        }
+        for v in &abi.variants {
+            self.variants.insert(v.name.clone(), v.clone());
+        }
 
         // The ABI vector may contain duplicates which would make it an invalid ABI
         assert_eq!(self.typedefs.len(), abi.types.len(), "duplicate type definition detected");
@@ -101,10 +101,10 @@ impl ABIEncoder {
 
     pub fn is_type(&self, t: &str) -> bool {
         let t = fundamental_type(t);
-        AntelopeValue::VARIANTS.contains(&t) ||
-            (self.typedefs.contains_key(t) && self.is_type(self.typedefs.get(t).unwrap())) ||
-            self.structs.contains_key(t) ||
-            self.variants.contains_key(t)
+        AntelopeValue::VARIANTS.contains(&t)
+            || (self.typedefs.contains_key(t) && self.is_type(self.typedefs.get(t).unwrap()))
+            || self.structs.contains_key(t)
+            || self.variants.contains_key(t)
     }
 
     pub fn resolve_type<'a>(&'a self, t: &'a str) -> &'a str {
@@ -115,7 +115,6 @@ impl ABIEncoder {
                 None => return rtype,
             }
         }
-
     }
 
     pub fn json_to_bin(&self, typename: &str, obj: &JsonValue) -> Result<Vec<u8>, InvalidValue> {
@@ -136,9 +135,7 @@ impl ABIEncoder {
 
         debug!("rtype: {} - ftype: {}", rtype, ftype);
 
-        let incompatible_types = || {
-            InvalidValue::IncompatibleVariantTypes(rtype.to_owned(), object.clone())
-        };
+        let incompatible_types = || InvalidValue::IncompatibleVariantTypes(rtype.to_owned(), object.clone());
 
         if AntelopeValue::VARIANTS.contains(&ftype) {
             // if our fundamental type is a builtin type, we can serialize it directly
@@ -167,8 +164,12 @@ impl ABIEncoder {
             // not a builtin type, we have to recurse down
 
             if is_array(rtype) {
-                let Some(a) = object.as_array() else {
-                    return Err(InvalidValue::InvalidData("JSON object cannot be converted to array".to_owned())); };
+                let Some(a) = object.as_array()
+                else {
+                    return Err(InvalidValue::InvalidData(
+                        "JSON object cannot be converted to array".to_owned(),
+                    ));
+                };
                 write_var_u32(ds, a.len() as u32);
                 for v in a {
                     self.encode_variant(ds, ftype, v)?;
@@ -359,5 +360,4 @@ pub struct Struct {
         debug!("fully decoded struct: {:#?}", result);
         Ok(JsonValue::Object(result))
     }
-
 }

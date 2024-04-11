@@ -1,10 +1,11 @@
-use serde::{Serialize, Deserialize};
-use serde_json::json;
 use std::sync::OnceLock;
 
-use antelope_core::{AntelopeValue, AntelopeType, Name, InvalidValue};
-use crate::{ByteStream, ABIEncoder};
+use antelope_core::{AntelopeType, AntelopeValue, InvalidValue, Name};
+use serde::{Deserialize, Serialize};
+use serde_json::json;
+
 use crate::abiserializable::ABISerializable;
+use crate::{ABIEncoder, ByteStream};
 
 // see doc at: https://docs.eosnetwork.com/manuals/cdt/latest/best-practices/abi/understanding-abi-files/
 //             https://docs.eosnetwork.com/docs/latest/advanced-topics/understanding-ABI-files/
@@ -30,8 +31,12 @@ pub fn is_array(t: &str) -> bool {
 pub fn is_sized_array(t: &str) -> bool {
     match (t.rfind('['), t.rfind(']')) {
         (Some(pos1), Some(pos2)) => {
-            if pos1 + 1 == pos2 { false }
-            else { t[pos1+1..pos2].chars().all(|c| c.is_ascii_digit()) }
+            if pos1 + 1 == pos2 {
+                false
+            }
+            else {
+                t[pos1 + 1..pos2].chars().all(|c| c.is_ascii_digit())
+            }
         },
         _ => false,
     }
@@ -43,12 +48,19 @@ pub fn is_optional(t: &str) -> bool {
 
 // FIXME: should this be recursive? ie: what is `fundamental_type("int[]?")` ?
 pub fn fundamental_type(t: &str) -> &str {
-    if is_array(t) { &t[..t.len()-2] }
-    else if is_sized_array(t) { &t[..t.rfind('[').unwrap()] }
-    else if is_optional(t) { &t[..t.len()-1] }
-    else { t }
+    if is_array(t) {
+        &t[..t.len() - 2]
+    }
+    else if is_sized_array(t) {
+        &t[..t.rfind('[').unwrap()]
+    }
+    else if is_optional(t) {
+        &t[..t.len() - 1]
+    }
+    else {
+        t
+    }
 }
-
 
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

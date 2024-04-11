@@ -11,9 +11,9 @@
 
 pub mod abi;
 pub mod abiencoder;
-pub mod bytestream;
 pub mod abiserializable;
 pub mod binaryserializable;
+pub mod bytestream;
 
-pub use bytestream::{ByteStream, StreamError};
 pub use abiencoder::ABIEncoder;
+pub use bytestream::{ByteStream, StreamError};

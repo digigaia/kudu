@@ -1,27 +1,26 @@
-pub mod name;
-pub mod symbol;
 pub mod asset;
 pub mod crypto;
+pub mod name;
+pub mod symbol;
 
-pub use name::{Name, InvalidName};
-pub use symbol::{Symbol, InvalidSymbol, string_to_symbol_code, symbol_code_to_string};
-pub use asset::{Asset, InvalidAsset};
-pub use crypto::{PublicKey, PrivateKey, Signature, InvalidCryptoData};
-
-use std::array::TryFromSliceError;
-use std::num::{ParseFloatError, ParseIntError, TryFromIntError};
-use std::convert::From;
 use std::any::type_name;
-use std::str::{FromStr, Utf8Error, ParseBoolError};
+use std::array::TryFromSliceError;
+use std::convert::From;
+use std::num::{ParseFloatError, ParseIntError, TryFromIntError};
+use std::str::{FromStr, ParseBoolError, Utf8Error};
 
-use thiserror::Error;
-use strum::{VariantNames, EnumDiscriminants, EnumString, Display};
-use chrono::{NaiveDateTime, DateTime, Utc, TimeZone, ParseError as ChronoParseError};
-use num::{Integer, Signed, Unsigned};
+pub use asset::{Asset, InvalidAsset};
+use chrono::{DateTime, NaiveDateTime, ParseError as ChronoParseError, TimeZone, Utc};
+pub use crypto::{InvalidCryptoData, PrivateKey, PublicKey, Signature};
 use hex::FromHexError;
+pub use name::{InvalidName, Name};
+use num::{Integer, Signed, Unsigned};
+use strum::{Display, EnumDiscriminants, EnumString, VariantNames};
+pub use symbol::{string_to_symbol_code, symbol_code_to_string, InvalidSymbol, Symbol};
+use thiserror::Error;
 use tracing::instrument;
 
-use super::{json, JsonValue, JsonError, config};
+use super::{config, json, JsonError, JsonValue};
 
 const DATE_FORMAT: &str = "%Y-%m-%dT%H:%M:%S%.3f";
 
@@ -77,7 +76,6 @@ pub enum AntelopeValue {
     Symbol(Symbol),
     Asset(Asset),
     ExtendedAsset(Box<(Asset, Name)>),
-
 }
 
 
@@ -208,16 +206,22 @@ impl AntelopeValue {
                 let dt = parse_date(v.as_str().ok_or_else(incompatible_types)?)?;
                 Self::BlockTimestampType(timestamp_to_block_slot(&dt))
             },
-            AntelopeType::Checksum160 => Self::Checksum160(hex_to_boxed_array(v.as_str().ok_or_else(incompatible_types)?)?),
-            AntelopeType::Checksum256 => Self::Checksum256(hex_to_boxed_array(v.as_str().ok_or_else(incompatible_types)?)?),
-            AntelopeType::Checksum512 => Self::Checksum512(hex_to_boxed_array(v.as_str().ok_or_else(incompatible_types)?)?),
-            AntelopeType::PublicKey |
-            AntelopeType::PrivateKey |
-            AntelopeType::Signature |
-            AntelopeType::Name |
-            AntelopeType::Symbol |
-            AntelopeType::SymbolCode |
-            AntelopeType::Asset => Self::from_str(typename, v.as_str().ok_or_else(incompatible_types)?)?,
+            AntelopeType::Checksum160 => {
+                Self::Checksum160(hex_to_boxed_array(v.as_str().ok_or_else(incompatible_types)?)?)
+            },
+            AntelopeType::Checksum256 => {
+                Self::Checksum256(hex_to_boxed_array(v.as_str().ok_or_else(incompatible_types)?)?)
+            },
+            AntelopeType::Checksum512 => {
+                Self::Checksum512(hex_to_boxed_array(v.as_str().ok_or_else(incompatible_types)?)?)
+            },
+            AntelopeType::PublicKey
+            | AntelopeType::PrivateKey
+            | AntelopeType::Signature
+            | AntelopeType::Name
+            | AntelopeType::Symbol
+            | AntelopeType::SymbolCode
+            | AntelopeType::Asset => Self::from_str(typename, v.as_str().ok_or_else(incompatible_types)?)?,
             AntelopeType::ExtendedAsset => {
                 let ea = v.as_object().ok_or_else(incompatible_types)?;
                 Self::ExtendedAsset(Box::new((
@@ -239,9 +243,13 @@ fn timestamp_to_block_slot(dt: &DateTime<Utc>) -> u32 {
 
 fn f64_to_f32(x: f64) -> Result<f32, InvalidValue> {
     let result = x as f32;
-    if result.is_finite() { Ok(result) } else { Err(InvalidValue::FloatPrecision) }
+    if result.is_finite() {
+        Ok(result)
+    }
+    else {
+        Err(InvalidValue::FloatPrecision)
+    }
 }
-
 
 
 impl From<AntelopeValue> for bool {
@@ -283,7 +291,7 @@ impl TryFrom<AntelopeValue> for usize {
             AntelopeValue::Uint64(n) => n as usize,
             AntelopeValue::VarInt32(n) => n as usize,
             AntelopeValue::VarUint32(n) => n as usize,
-            _ => return Err(InvalidValue::InvalidData( format!("cannot convert {:?} to usize", n))),
+            _ => return Err(InvalidValue::InvalidData(format!("cannot convert {:?} to usize", n))),
         })
     }
 }
@@ -303,7 +311,7 @@ impl TryFrom<AntelopeValue> for i64 {
             AntelopeValue::Uint64(n) => n as i64,
             AntelopeValue::VarInt32(n) => n as i64,
             AntelopeValue::VarUint32(n) => n as i64,
-            _ => return Err(InvalidValue::InvalidData( format!("cannot convert {:?} to i64", n))),
+            _ => return Err(InvalidValue::InvalidData(format!("cannot convert {:?} to i64", n))),
         })
     }
 }
@@ -318,7 +326,7 @@ impl TryFrom<AntelopeValue> for String {
             AntelopeValue::Name(s) => s.to_string(),
             AntelopeValue::Symbol(s) => s.to_string(),
             AntelopeValue::Asset(s) => s.to_string(),
-            _ => return Err(InvalidValue::InvalidData( format!("cannot convert {:?} to string", s))),
+            _ => return Err(InvalidValue::InvalidData(format!("cannot convert {:?} to string", s))),
         })
     }
 }
@@ -364,6 +372,7 @@ pub fn hex_to_boxed_array<const N: usize>(s: &str) -> Result<Box<[u8; N]>, FromH
 #[cfg(test)]
 mod tests {
     use color_eyre::eyre::Report;
+
     use super::*;
 
     #[test]

@@ -1,8 +1,8 @@
 use std::fmt;
 
-use serde::{Serialize, Serializer, Deserialize, Deserializer};
-use serde::de::{self, Visitor};
 use anyhow::Result;
+use serde::de::{self, Visitor};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use thiserror::Error;
 
 
@@ -31,16 +31,15 @@ impl Name {
 
         if s == result.to_string() {
             Ok(result)
-        } else {
+        }
+        else {
             Err(InvalidName::InvalidNormalization(s.to_owned(), result.to_string()))
         }
     }
 
     pub fn from_u64(n: u64) -> Self {
         // FIXME: do some validation?
-        Self {
-            value: n,
-        }
+        Self { value: n }
     }
 
     pub fn as_u64(&self) -> u64 { self.value }
@@ -99,7 +98,7 @@ fn char_to_symbol(c: u8) -> u64 {
     match c {
         b'a'..=b'z' => (c - b'a') as u64 + 6,
         b'1'..=b'5' => (c - b'1') as u64 + 1,
-        _ => 0
+        _ => 0,
     }
 }
 
@@ -184,7 +183,6 @@ mod tests {
             "zzzzzzzzzzzzz",
             "aaaaaaaaaaaaz",
             "............z",
-
         ];
 
         for n in names {
@@ -201,5 +199,4 @@ mod tests {
 
         Ok(())
     }
-
 }

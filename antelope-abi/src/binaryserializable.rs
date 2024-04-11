@@ -1,18 +1,19 @@
 use std::str::from_utf8;
 
-use bytemuck::pod_read_unaligned;
-
 use antelope_core::{
-    InvalidValue, Name, Symbol, Asset,
     types::crypto::{CryptoData, CryptoDataType, KeyType},
+    Asset, InvalidValue, Name, Symbol,
 };
+use bytemuck::pod_read_unaligned;
 
 use crate::bytestream::ByteStream;
 
 
-pub trait BinarySerializable  {
+pub trait BinarySerializable {
     fn encode(&self, stream: &mut ByteStream);
-    fn decode(stream: &mut ByteStream) -> Result<Self, InvalidValue> where Self: Sized;  // FIXME: this should be a different Error type
+    fn decode(stream: &mut ByteStream) -> Result<Self, InvalidValue>
+    where
+        Self: Sized; // FIXME: this should be a different Error type
 }
 
 

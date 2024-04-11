@@ -1,10 +1,11 @@
 use std::fmt;
 use std::marker::PhantomData;
+
 use anyhow::Result;
-use thiserror::Error;
 use bs58;
-use ripemd::{Ripemd160, Digest};
+use ripemd::{Digest, Ripemd160};
 use sha2::Sha256;
+use thiserror::Error;
 
 
 #[derive(Eq, PartialEq, Hash, Debug, Copy, Clone)]
@@ -40,7 +41,6 @@ impl KeyType {
         }
     }
 }
-
 
 
 #[derive(Error, Debug)]
@@ -158,32 +158,30 @@ impl CryptoDataType for SignatureType {
 pub type Signature = CryptoData<SignatureType, 65>;
 
 
-
-
-
 fn string_to_key_data(enc_data: &str, prefix: Option<&str>) -> Result<Vec<u8>, InvalidCryptoData> {
     let data = bs58::decode(enc_data).into_vec()?;
     if data.len() < 5 {
         return Err(InvalidCryptoData::NotCryptoData(format!(
             "Invalid length for decoded base58 crypto data, needs to be at least 5, is {}",
-            data.len())));
+            data.len()
+        )));
     }
 
     let mut hasher = Ripemd160::new();
-    hasher.update(&data[..data.len()-4]);
+    hasher.update(&data[..data.len() - 4]);
     if let Some(prefix) = prefix {
         hasher.update(prefix);
     }
     let digest = hasher.finalize();
 
     let actual = &digest[..4];
-    let expected = &data[data.len()-4..];
+    let expected = &data[data.len() - 4..];
 
     assert_eq!(actual, expected,
                "hash don't match, actual: {:?} - expected {:?}",
                hex::encode_upper(actual), hex::encode_upper(expected));
 
-    Ok(data[..data.len()-4].to_owned())
+    Ok(data[..data.len() - 4].to_owned())
 }
 
 fn from_wif(enc_data: &str) -> Result<Vec<u8>, InvalidCryptoData> {
@@ -191,21 +189,22 @@ fn from_wif(enc_data: &str) -> Result<Vec<u8>, InvalidCryptoData> {
     if data.len() < 5 {
         return Err(InvalidCryptoData::NotCryptoData(format!(
             "Invalid length for decoded base58 crypto data, needs to be at least 5, is {}",
-            data.len())));
+            data.len()
+        )));
     }
 
-    let digest = Sha256::digest(&data[..data.len()-4]);
+    let digest = Sha256::digest(&data[..data.len() - 4]);
     let digest2 = Sha256::digest(digest);
 
     let actual = &digest[..4];
     let actual2 = &digest2[..4];
-    let expected = &data[data.len()-4..];
+    let expected = &data[data.len() - 4..];
 
     assert!(actual == expected || actual2 == expected,
             "hash don't match, actual: {:?} - expected {:?}",
             hex::encode_upper(actual2), hex::encode_upper(expected));
 
-    Ok(data[1..data.len()-4].to_owned())
+    Ok(data[1..data.len() - 4].to_owned())
 }
 
 
