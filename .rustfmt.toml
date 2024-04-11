@@ -1,11 +1,25 @@
-version = "Two"
-error_on_line_overflow = true
-error_on_unformatted = true
+max_width = 120
+match_block_trailing_comma = true
+
+########################################################################
+## the following features might interest us but they have not         ##
+## been stabilized yet                                                ##
+########################################################################
+
+unstable_features = true
+# version = "Two"
+# error_on_line_overflow = true
+# error_on_unformatted = true
+
+ignore = [
+    "antelope-abi/tests",
+]
 
 group_imports = "StdExternalCrate"
-match_block_trailing_comma = true
-fn_single_line = true
 control_brace_style = "ClosingNextLine"
+indent_style = "Block"
+blank_lines_upper_bound = 2
+# fn_single_line = true
 
 # wrap_comments = true
 # comment_width = 100
