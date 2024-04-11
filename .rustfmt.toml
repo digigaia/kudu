@@ -1,0 +1,11 @@
+version = "Two"
+error_on_line_overflow = true
+error_on_unformatted = true
+
+group_imports = "StdExternalCrate"
+match_block_trailing_comma = true
+fn_single_line = true
+control_brace_style = "ClosingNextLine"
+
+# wrap_comments = true
+# comment_width = 100
