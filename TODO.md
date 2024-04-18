@@ -66,6 +66,9 @@ After splitting workspace into different crates, do the following:
 
 - implement `Debug` and `Display` trait for all basic types
 
+- check whether we should declare common dependencies (like `serde_json`) in the workspace `Cargo.toml`
+  or in each sub-crate
+
 - for Name type: check unittests and validity of non-normalized names
 
 - crypto primitives do not implement WebAuthn key and signatures yet

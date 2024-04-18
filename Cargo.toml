@@ -1,5 +1,8 @@
 [workspace]
 resolver = "2"
-members = [ "antelope-abi",
-    "antelope-core", "base64u",
+members = [
+    "antelope-abi",
+    "antelope-core",
+    "antelope-esr",
+    "base64u",
 ]

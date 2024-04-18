@@ -30,7 +30,6 @@ pub fn encode(data: &[u8]) -> String {
         let c = extract_sextet(chunk, 6);
         let d = extract_sextet(chunk, 0);
 
-        // result.push(CHARSET[a as usize] as char);
         add_char(a);
         add_char(b);
         add_char(c);

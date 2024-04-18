@@ -210,6 +210,7 @@ fn abi_schema() -> &'static ABIDefinition {
                 fields: vec![
                     Field { name: "name".to_owned(), type_: "name".to_owned() },
                     Field { name: "type".to_owned(), type_: "string".to_owned() },
+                    // FIXME: should this be made optional? `signing_request_abi.json` defines an action without it
                     Field { name: "ricardian_contract".to_owned(), type_: "string".to_owned() },
                 ],
             },
