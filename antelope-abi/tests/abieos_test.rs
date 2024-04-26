@@ -1,5 +1,3 @@
-pub mod abi_files;
-
 use std::sync::Once;
 
 // use anyhow::Result;
@@ -21,11 +19,11 @@ use antelope_core::{
     types::InvalidValue,
 };
 
-use abi_files::{
-    test_abi::TEST_ABI,
-    token_abi::TOKEN_HEX_ABI,
-    trx_abi::{TRANSACTION_ABI, PACKED_TRANSACTION_ABI},
-    ship_abi::STATE_HISTORY_PLUGIN_ABI,
+use antelope_abi::data::{
+    TEST_ABI,
+    TOKEN_HEX_ABI,
+    TRANSACTION_ABI, PACKED_TRANSACTION_ABI,
+    STATE_HISTORY_PLUGIN_ABI,
 };
 
 ////////////////////////////////////////////////////////////////////////////////

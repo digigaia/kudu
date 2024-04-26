@@ -1,17 +1,21 @@
-pub static STATE_HISTORY_PLUGIN_ABI: &str = r#"{
+{
     "version": "eosio::abi/1.1",
     "structs": [
         {
             "name": "get_status_request_v0", "fields": []
         },
         {
-            "name": "block_position", "fields": [
+            "name": "block_position",
+            "fields":
+            [
                 { "name": "block_num", "type": "uint32" },
                 { "name": "block_id", "type": "checksum256" }
             ]
         },
         {
-            "name": "get_status_result_v0", "fields": [
+            "name": "get_status_result_v0",
+            "fields":
+            [
                 { "name": "head", "type": "block_position" },
                 { "name": "last_irreversible", "type": "block_position" },
                 { "name": "trace_begin_block", "type": "uint32" },
@@ -22,7 +26,9 @@ pub static STATE_HISTORY_PLUGIN_ABI: &str = r#"{
             ]
         },
         {
-            "name": "get_blocks_request_v0", "fields": [
+            "name": "get_blocks_request_v0",
+            "fields":
+            [
                 { "name": "start_block_num", "type": "uint32" },
                 { "name": "end_block_num", "type": "uint32" },
                 { "name": "max_messages_in_flight", "type": "uint32" },
@@ -34,12 +40,16 @@ pub static STATE_HISTORY_PLUGIN_ABI: &str = r#"{
             ]
         },
         {
-            "name": "get_blocks_ack_request_v0", "fields": [
+            "name": "get_blocks_ack_request_v0",
+            "fields":
+            [
                 { "name": "num_messages", "type": "uint32" }
             ]
         },
         {
-            "name": "get_blocks_result_v0", "fields": [
+            "name": "get_blocks_result_v0",
+            "fields":
+            [
                 { "name": "head", "type": "block_position" },
                 { "name": "last_irreversible", "type": "block_position" },
                 { "name": "this_block", "type": "block_position?" },
@@ -50,7 +60,9 @@ pub static STATE_HISTORY_PLUGIN_ABI: &str = r#"{
             ]
         },
         {
-            "name": "get_blocks_result_v1", "fields": [
+            "name": "get_blocks_result_v1",
+            "fields":
+            [
                 { "name": "head", "type": "block_position" },
                 { "name": "last_irreversible", "type": "block_position" },
                 { "name": "this_block", "type": "block_position?" },
@@ -61,31 +73,41 @@ pub static STATE_HISTORY_PLUGIN_ABI: &str = r#"{
             ]
         },
         {
-            "name": "row_v0", "fields": [
+            "name": "row_v0",
+            "fields":
+            [
                 { "name": "present", "type": "bool" },
                 { "name": "data", "type": "bytes" }
             ]
         },
         {
-            "name": "table_delta_v0", "fields": [
+            "name": "table_delta_v0",
+            "fields":
+            [
                 { "name": "name", "type": "string" },
                 { "name": "rows", "type": "row_v0[]" }
             ]
         },
         {
-            "name": "row_v1", "fields": [
+            "name": "row_v1",
+            "fields":
+            [
                 { "name": "present", "type": "uint8" },
                 { "name": "data", "type": "bytes" }
             ]
         },
         {
-            "name": "table_delta_v1", "fields": [
+            "name": "table_delta_v1",
+            "fields":
+            [
                 { "name": "name", "type": "string" },
                 { "name": "rows", "type": "row_v1[]" }
             ]
         },
         {
-            "name": "action", "fields": [
+            "name": "action",
+            "fields":
+            [
                 { "name": "account", "type": "name" },
                 { "name": "name", "type": "name" },
                 { "name": "authorization", "type": "permission_level[]" },
@@ -93,13 +115,17 @@ pub static STATE_HISTORY_PLUGIN_ABI: &str = r#"{
             ]
         },
         {
-            "name": "account_auth_sequence", "fields": [
+            "name": "account_auth_sequence",
+            "fields":
+            [
                 { "name": "account", "type": "name" },
                 { "name": "sequence", "type": "uint64" }
             ]
         },
         {
-            "name": "action_receipt_v0", "fields": [
+            "name": "action_receipt_v0",
+            "fields":
+            [
                 { "name": "receiver", "type": "name" },
                 { "name": "act_digest", "type": "checksum256" },
                 { "name": "global_sequence", "type": "uint64" },
@@ -110,13 +136,17 @@ pub static STATE_HISTORY_PLUGIN_ABI: &str = r#"{
             ]
         },
         {
-            "name": "account_delta", "fields": [
+            "name": "account_delta",
+            "fields":
+            [
                 { "name": "account", "type": "name" },
                 { "name": "delta", "type": "int64" }
             ]
         },
         {
-            "name": "action_trace_v0", "fields": [
+            "name": "action_trace_v0",
+            "fields":
+            [
                 { "name": "action_ordinal", "type": "varuint32" },
                 { "name": "creator_action_ordinal", "type": "varuint32" },
                 { "name": "receipt", "type": "action_receipt?" },
@@ -131,7 +161,9 @@ pub static STATE_HISTORY_PLUGIN_ABI: &str = r#"{
             ]
         },
         {
-            "name": "action_trace_v1", "fields": [
+            "name": "action_trace_v1",
+            "fields":
+            [
                 { "name": "action_ordinal", "type": "varuint32" },
                 { "name": "creator_action_ordinal", "type": "varuint32" },
                 { "name": "receipt", "type": "action_receipt?" },
@@ -148,7 +180,9 @@ pub static STATE_HISTORY_PLUGIN_ABI: &str = r#"{
             ]
         },
         {
-            "name": "partial_transaction_v0", "fields": [
+            "name": "partial_transaction_v0",
+            "fields":
+            [
                 { "name": "expiration", "type": "time_point_sec" },
                 { "name": "ref_block_num", "type": "uint16" },
                 { "name": "ref_block_prefix", "type": "uint32" },
@@ -161,7 +195,9 @@ pub static STATE_HISTORY_PLUGIN_ABI: &str = r#"{
             ]
         },
         {
-            "name": "partial_transaction_v1", "fields": [
+            "name": "partial_transaction_v1",
+            "fields":
+            [
                 { "name": "expiration", "type": "time_point_sec" },
                 { "name": "ref_block_num", "type": "uint16" },
                 { "name": "ref_block_prefix", "type": "uint32" },
@@ -173,7 +209,9 @@ pub static STATE_HISTORY_PLUGIN_ABI: &str = r#"{
             ]
         },
         {
-            "name": "transaction_trace_v0", "fields": [
+            "name": "transaction_trace_v0",
+            "fields":
+            [
                 { "name": "id", "type": "checksum256" },
                 { "name": "status", "type": "uint8" },
                 { "name": "cpu_usage_us", "type": "uint32" },
@@ -190,7 +228,9 @@ pub static STATE_HISTORY_PLUGIN_ABI: &str = r#"{
             ]
         },
         {
-            "name": "packed_transaction_v0", "fields": [
+            "name": "packed_transaction_v0",
+            "fields":
+            [
                 { "name": "signatures", "type": "signature[]" },
                 { "name": "compression", "type": "uint8" },
                 { "name": "packed_context_free_data", "type": "bytes" },
@@ -198,37 +238,51 @@ pub static STATE_HISTORY_PLUGIN_ABI: &str = r#"{
             ]
         },
         {
-            "name": "packed_transaction_v1", "fields": [
+            "name": "packed_transaction_v1",
+            "fields":
+            [
                 { "name": "compression", "type": "uint8" },
                 { "name": "prunable_data", "type": "prunable_data_type" },
                 { "name": "packed_trx", "type": "bytes" }
             ]
         },
         {
-            "name": "transaction_receipt_header", "fields": [
+            "name": "transaction_receipt_header",
+            "fields":
+            [
                 { "name": "status", "type": "uint8" },
                 { "name": "cpu_usage_us", "type": "uint32" },
                 { "name": "net_usage_words", "type": "varuint32" }
             ]
         },
         {
-            "name": "transaction_receipt_v0", "base": "transaction_receipt_header", "fields": [
+            "name": "transaction_receipt_v0",
+            "base": "transaction_receipt_header",
+            "fields":
+            [
                 { "name": "trx", "type": "transaction_variant_v0" }
             ]
         },
         {
-            "name": "transaction_receipt_v1", "base": "transaction_receipt_header", "fields": [
+            "name": "transaction_receipt_v1",
+            "base": "transaction_receipt_header",
+            "fields":
+            [
                 { "name": "trx", "type": "transaction_variant_v1" }
             ]
         },
         {
-            "name": "extension", "fields": [
+            "name": "extension",
+            "fields":
+            [
                 { "name": "type", "type": "uint16" },
                 { "name": "data", "type": "bytes" }
             ]
         },
         {
-            "name": "block_header", "fields": [
+            "name": "block_header",
+            "fields":
+            [
                 { "name": "timestamp", "type": "block_timestamp_type" },
                 { "name": "producer", "type": "name" },
                 { "name": "confirmed", "type": "uint16" },
@@ -241,24 +295,36 @@ pub static STATE_HISTORY_PLUGIN_ABI: &str = r#"{
             ]
         },
         {
-            "name": "signed_block_header", "base": "block_header", "fields": [
+            "name": "signed_block_header",
+            "base": "block_header",
+            "fields":
+            [
                 { "name": "producer_signature", "type": "signature" }
             ]
         },
         {
-            "name": "signed_block_v0", "base": "signed_block_header", "fields": [
+            "name": "signed_block_v0",
+            "base": "signed_block_header",
+            "fields":
+            [
                 { "name": "transactions", "type": "transaction_receipt_v0[]" },
                 { "name": "block_extensions", "type": "extension[]" }
             ]
         },
         {
-            "name": "signed_block_v1", "base": "signed_block_header", "fields": [
+            "name": "signed_block_v1",
+            "base": "signed_block_header",
+            "fields":
+            [
                 { "name": "prune_state", "type": "uint8" },
                 { "name": "transactions", "type": "transaction_receipt_v1[]" },
                 { "name": "block_extensions", "type": "extension[]" }
             ]
         },
-        {   "name": "transaction_header", "fields": [
+        {
+            "name": "transaction_header",
+            "fields":
+            [
                 { "name": "expiration", "type": "time_point_sec" },
                 { "name": "ref_block_num", "type": "uint16" },
                 { "name": "ref_block_prefix", "type": "uint32" },
@@ -267,28 +333,37 @@ pub static STATE_HISTORY_PLUGIN_ABI: &str = r#"{
                 { "name": "delay_sec", "type": "varuint32" }
             ]
         },
-        {   "name": "transaction", "base": "transaction_header", "fields": [
+        {   "name": "transaction",
+            "base": "transaction_header",
+            "fields":
+            [
                 { "name": "context_free_actions", "type": "action[]" },
                 { "name": "actions", "type": "action[]" },
                 { "name": "transaction_extensions", "type": "extension[]" }
             ]
         },
         {
-            "name": "code_id", "fields": [
+            "name": "code_id",
+            "fields":
+            [
                 { "type": "uint8", "name": "vm_type" },
                 { "type": "uint8", "name": "vm_version" },
                 { "type": "checksum256", "name": "code_hash" }
             ]
         },
         {
-            "name": "account_v0", "fields": [
+            "name": "account_v0",
+            "fields":
+            [
                 { "type": "name", "name": "name" },
                 { "type": "block_timestamp_type", "name": "creation_date" },
                 { "type": "bytes", "name": "abi" }
             ]
         },
         {
-            "name": "account_metadata_v0", "fields": [
+            "name": "account_metadata_v0",
+            "fields":
+            [
                 { "type": "name", "name": "name" },
                 { "type": "bool", "name": "privileged" },
                 { "type": "time_point", "name": "last_code_update" },
@@ -296,7 +371,9 @@ pub static STATE_HISTORY_PLUGIN_ABI: &str = r#"{
             ]
         },
         {
-            "name": "code_v0", "fields": [
+            "name": "code_v0",
+            "fields":
+            [
                 { "type": "uint8", "name": "vm_type" },
                 { "type": "uint8", "name": "vm_version" },
                 { "type": "checksum256", "name": "code_hash" },
@@ -304,7 +381,9 @@ pub static STATE_HISTORY_PLUGIN_ABI: &str = r#"{
             ]
         },
         {
-            "name": "contract_table_v0", "fields": [
+            "name": "contract_table_v0",
+            "fields":
+            [
                 { "type": "name", "name": "code" },
                 { "type": "name", "name": "scope" },
                 { "type": "name", "name": "table" },
@@ -312,7 +391,9 @@ pub static STATE_HISTORY_PLUGIN_ABI: &str = r#"{
             ]
         },
         {
-            "name": "contract_row_v0", "fields": [
+            "name": "contract_row_v0",
+            "fields":
+            [
                 { "type": "name", "name": "code" },
                 { "type": "name", "name": "scope" },
                 { "type": "name", "name": "table" },
@@ -322,7 +403,9 @@ pub static STATE_HISTORY_PLUGIN_ABI: &str = r#"{
             ]
         },
         {
-            "name": "contract_index64_v0", "fields": [
+            "name": "contract_index64_v0",
+            "fields":
+            [
                 { "type": "name", "name": "code" },
                 { "type": "name", "name": "scope" },
                 { "type": "name", "name": "table" },
@@ -332,7 +415,9 @@ pub static STATE_HISTORY_PLUGIN_ABI: &str = r#"{
             ]
         },
         {
-            "name": "contract_index128_v0", "fields": [
+            "name": "contract_index128_v0",
+            "fields":
+            [
                 { "type": "name", "name": "code" },
                 { "type": "name", "name": "scope" },
                 { "type": "name", "name": "table" },
@@ -342,7 +427,9 @@ pub static STATE_HISTORY_PLUGIN_ABI: &str = r#"{
             ]
         },
         {
-            "name": "contract_index256_v0", "fields": [
+            "name": "contract_index256_v0",
+            "fields":
+            [
                 { "type": "name", "name": "code" },
                 { "type": "name", "name": "scope" },
                 { "type": "name", "name": "table" },
@@ -352,7 +439,9 @@ pub static STATE_HISTORY_PLUGIN_ABI: &str = r#"{
             ]
         },
         {
-            "name": "contract_index_double_v0", "fields": [
+            "name": "contract_index_double_v0",
+            "fields":
+            [
                 { "type": "name", "name": "code" },
                 { "type": "name", "name": "scope" },
                 { "type": "name", "name": "table" },
@@ -362,7 +451,9 @@ pub static STATE_HISTORY_PLUGIN_ABI: &str = r#"{
             ]
         },
         {
-            "name": "contract_index_long_double_v0", "fields": [
+            "name": "contract_index_long_double_v0",
+            "fields":
+            [
                 { "type": "name", "name": "code" },
                 { "type": "name", "name": "scope" },
                 { "type": "name", "name": "table" },
@@ -372,7 +463,9 @@ pub static STATE_HISTORY_PLUGIN_ABI: &str = r#"{
             ]
         },
         {
-            "name": "key_value_v0", "fields": [
+            "name": "key_value_v0",
+            "fields":
+            [
                 { "type": "name", "name": "contract" },
                 { "type": "bytes", "name": "key" },
                 { "type": "bytes", "name": "value" },
@@ -380,37 +473,49 @@ pub static STATE_HISTORY_PLUGIN_ABI: &str = r#"{
             ]
         },
         {
-            "name": "producer_key", "fields": [
+            "name": "producer_key",
+            "fields":
+            [
                 { "type": "name", "name": "producer_name" },
                 { "type": "public_key", "name": "block_signing_key" }
             ]
         },
         {
-            "name": "producer_schedule", "fields": [
+            "name": "producer_schedule",
+            "fields":
+            [
                 { "type": "uint32", "name": "version" },
                 { "type": "producer_key[]", "name": "producers" }
             ]
         },
         {
-            "name": "block_signing_authority_v0", "fields": [
+            "name": "block_signing_authority_v0",
+            "fields":
+            [
                 { "type": "uint32", "name": "threshold" },
                 { "type": "key_weight[]", "name": "keys" }
             ]
         },
         {
-            "name": "producer_authority", "fields": [
+            "name": "producer_authority",
+            "fields":
+            [
                 { "type": "name", "name": "producer_name" },
                 { "type": "block_signing_authority", "name": "authority" }
             ]
         },
         {
-            "name": "producer_authority_schedule", "fields": [
+            "name": "producer_authority_schedule",
+            "fields":
+            [
                 { "type": "uint32", "name": "version" },
                 { "type": "producer_authority[]", "name": "producers" }
             ]
         },
         {
-            "name": "chain_config_v0", "fields": [
+            "name": "chain_config_v0",
+            "fields":
+            [
                 { "type": "uint64", "name": "max_block_net_usage" },
                 { "type": "uint32", "name": "target_block_net_usage_pct" },
                 { "type": "uint32", "name": "max_transaction_net_usage" },
@@ -431,7 +536,9 @@ pub static STATE_HISTORY_PLUGIN_ABI: &str = r#"{
             ]
         },
         {
-            "name": "chain_config_v1", "fields": [
+            "name": "chain_config_v1",
+            "fields":
+            [
                 { "type": "uint64", "name": "max_block_net_usage" },
                 { "type": "uint32", "name": "target_block_net_usage_pct" },
                 { "type": "uint32", "name": "max_transaction_net_usage" },
@@ -453,14 +560,18 @@ pub static STATE_HISTORY_PLUGIN_ABI: &str = r#"{
             ]
         },
         {
-            "name": "global_property_v0", "fields": [
+            "name": "global_property_v0",
+            "fields":
+            [
                 { "type": "uint32?", "name": "proposed_schedule_block_num" },
                 { "type": "producer_schedule", "name": "proposed_schedule" },
                 { "type": "chain_config", "name": "configuration" }
             ]
         },
         {
-            "name": "global_property_v1", "fields": [
+            "name": "global_property_v1",
+            "fields":
+            [
                 { "type": "uint32?", "name": "proposed_schedule_block_num" },
                 { "type": "producer_authority_schedule", "name": "proposed_schedule" },
                 { "type": "chain_config", "name": "configuration" },
@@ -468,7 +579,9 @@ pub static STATE_HISTORY_PLUGIN_ABI: &str = r#"{
             ]
         },
         {
-            "name": "generated_transaction_v0", "fields": [
+            "name": "generated_transaction_v0",
+            "fields":
+            [
                 { "type": "name", "name": "sender" },
                 { "type": "uint128", "name": "sender_id" },
                 { "type": "name", "name": "payer" },
@@ -477,42 +590,56 @@ pub static STATE_HISTORY_PLUGIN_ABI: &str = r#"{
             ]
         },
         {
-            "name": "activated_protocol_feature_v0", "fields": [
+            "name": "activated_protocol_feature_v0",
+            "fields":
+            [
                 { "type": "checksum256", "name": "feature_digest" },
                 { "type": "uint32", "name": "activation_block_num" }
             ]
         },
         {
-            "name": "protocol_state_v0", "fields": [
+            "name": "protocol_state_v0",
+            "fields":
+            [
                 { "type": "activated_protocol_feature[]", "name": "activated_protocol_features" }
             ]
         },
         {
-            "name": "key_weight", "fields": [
+            "name": "key_weight",
+            "fields":
+            [
                 { "type": "public_key", "name": "key" },
                 { "type": "uint16", "name": "weight" }
             ]
         },
         {
-            "name": "permission_level", "fields": [
+            "name": "permission_level",
+            "fields":
+            [
                 { "type": "name", "name": "actor" },
                 { "type": "name", "name": "permission" }
             ]
         },
         {
-            "name": "permission_level_weight", "fields": [
+            "name": "permission_level_weight",
+            "fields":
+            [
                 { "type": "permission_level", "name": "permission" },
                 { "type": "uint16", "name": "weight" }
             ]
         },
         {
-            "name": "wait_weight", "fields": [
+            "name": "wait_weight",
+            "fields":
+            [
                 { "type": "uint32", "name": "wait_sec" },
                 { "type": "uint16", "name": "weight" }
             ]
         },
         {
-            "name": "authority", "fields": [
+            "name": "authority",
+            "fields":
+            [
                 { "type": "uint32", "name": "threshold" },
                 { "type": "key_weight[]", "name": "keys" },
                 { "type": "permission_level_weight[]", "name": "accounts" },
@@ -520,7 +647,9 @@ pub static STATE_HISTORY_PLUGIN_ABI: &str = r#"{
             ]
         },
         {
-            "name": "permission_v0", "fields": [
+            "name": "permission_v0",
+            "fields":
+            [
                 { "type": "name", "name": "owner" },
                 { "type": "name", "name": "name" },
                 { "type": "name", "name": "parent" },
@@ -529,7 +658,9 @@ pub static STATE_HISTORY_PLUGIN_ABI: &str = r#"{
             ]
         },
         {
-            "name": "permission_link_v0", "fields": [
+            "name": "permission_link_v0",
+            "fields":
+            [
                 { "type": "name", "name": "account" },
                 { "type": "name", "name": "code" },
                 { "type": "name", "name": "message_type" },
@@ -537,7 +668,9 @@ pub static STATE_HISTORY_PLUGIN_ABI: &str = r#"{
             ]
         },
         {
-            "name": "resource_limits_v0", "fields": [
+            "name": "resource_limits_v0",
+            "fields":
+            [
                 { "type": "name", "name": "owner" },
                 { "type": "int64", "name": "net_weight" },
                 { "type": "int64", "name": "cpu_weight" },
@@ -545,14 +678,18 @@ pub static STATE_HISTORY_PLUGIN_ABI: &str = r#"{
             ]
         },
         {
-            "name": "usage_accumulator_v0", "fields": [
+            "name": "usage_accumulator_v0",
+            "fields":
+            [
                 { "type": "uint32", "name": "last_ordinal" },
                 { "type": "uint64", "name": "value_ex" },
                 { "type": "uint64", "name": "consumed" }
             ]
         },
         {
-            "name": "resource_usage_v0", "fields": [
+            "name": "resource_usage_v0",
+            "fields":
+            [
                 { "type": "name", "name": "owner" },
                 { "type": "usage_accumulator", "name": "net_usage" },
                 { "type": "usage_accumulator", "name": "cpu_usage" },
@@ -560,7 +697,9 @@ pub static STATE_HISTORY_PLUGIN_ABI: &str = r#"{
             ]
         },
         {
-            "name": "resource_limits_state_v0", "fields": [
+            "name": "resource_limits_state_v0",
+            "fields":
+            [
                 { "type": "usage_accumulator", "name": "average_block_net_usage" },
                 { "type": "usage_accumulator", "name": "average_block_cpu_usage" },
                 { "type": "uint64", "name": "total_net_weight" },
@@ -571,13 +710,17 @@ pub static STATE_HISTORY_PLUGIN_ABI: &str = r#"{
             ]
         },
         {
-            "name": "resource_limits_ratio_v0", "fields": [
+            "name": "resource_limits_ratio_v0",
+            "fields":
+            [
                 { "type": "uint64", "name": "numerator" },
                 { "type": "uint64", "name": "denominator" }
             ]
         },
         {
-            "name": "elastic_limit_parameters_v0", "fields": [
+            "name": "elastic_limit_parameters_v0",
+            "fields":
+            [
                 { "type": "uint64", "name": "target" },
                 { "type": "uint64", "name": "max" },
                 { "type": "uint32", "name": "periods" },
@@ -587,7 +730,9 @@ pub static STATE_HISTORY_PLUGIN_ABI: &str = r#"{
             ]
         },
         {
-            "name": "resource_limits_config_v0", "fields": [
+            "name": "resource_limits_config_v0",
+            "fields":
+            [
                 { "type": "elastic_limit_parameters", "name": "cpu_limit_parameters" },
                 { "type": "elastic_limit_parameters", "name": "net_limit_parameters" },
                 { "type": "uint32", "name": "account_cpu_usage_average_window" },
@@ -595,30 +740,40 @@ pub static STATE_HISTORY_PLUGIN_ABI: &str = r#"{
             ]
         },
         {
-            "name": "prunable_data_full_legacy", "fields": [
+            "name": "prunable_data_full_legacy",
+            "fields":
+            [
                 { "name": "signatures", "type": "signature[]" },
                 { "name": "packed_context_segments", "type": "bytes" }
             ]
         },
         {
-            "name": "prunable_data_full", "fields": [
+            "name": "prunable_data_full",
+            "fields":
+            [
                 { "name": "signatures", "type": "signature[]" },
                 { "name": "context_free_segments", "type": "bytes[]" }
             ]
         },
         {
-            "name": "prunable_data_partial", "fields": [
+            "name": "prunable_data_partial",
+            "fields":
+            [
                 { "name": "signatures", "type": "signature[]" },
                 { "name": "context_free_segments", "type": "context_free_segment_type[]" }
             ]
         },
         {
-            "name": "prunable_data_none", "fields": [
+            "name": "prunable_data_none",
+            "fields":
+            [
                 { "name": "prunable_digest", "type": "signature" }
             ]
         },
         {
-            "name": "transaction_trace_exception", "fields": [
+            "name": "transaction_trace_exception",
+            "fields":
+            [
                 { "name": "error_code", "type": "int64" },
                 { "name": "error_message", "type": "string" }
             ]
@@ -692,4 +847,4 @@ pub static STATE_HISTORY_PLUGIN_ABI: &str = r#"{
         { "name": "rsclimitsst", "type": "resource_limits_state", "key_names": [] },
         { "name": "rsclimitscfg", "type": "resource_limits_config", "key_names": [] }
     ]
-}"#;
+}

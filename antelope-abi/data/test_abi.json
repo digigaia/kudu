@@ -1,4 +1,4 @@
-pub static TEST_ABI: &str = r#"{
+{
     "version": "eosio::abi/1.1",
     "structs": [
         {
@@ -94,4 +94,4 @@ pub static TEST_ABI: &str = r#"{
             "types": ["int8","s1","s2"]
         }
     ]
-}"#;
+}

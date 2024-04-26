@@ -153,10 +153,10 @@ impl ABIDefinition {
             "structs": parser.decode_variant(data, "struct[]")?,
             "actions": parser.decode_variant(data, "action[]")?,
             "tables": parser.decode_variant(data, "table[]")?,
-            // FIXME: we also need to decode "variants" here
+            "variants": parser.decode_variant(data, "variants[]")?,
         });
 
-        assert_eq!(data.leftover(), [0u8; 3]);
+        assert_eq!(data.leftover(), [0u8; 2]);  // FIXME: we should deserialize everything here, we have some fields missing...
 
         Self::from_str(&abi.to_string())
     }
@@ -225,7 +225,14 @@ fn abi_schema() -> &'static ABIDefinition {
                     Field { name: "type".to_owned(), type_: "string".to_owned() },
                 ],
             },
-            // FIXME: need also Variant here
+            Struct {
+                name: "variant".to_owned(),
+                base: "".to_owned(),
+                fields: vec![
+                    Field { name: "name".to_owned(), type_: "name".to_owned() },
+                    Field { name: "types".to_owned(), type_: "string[]".to_owned() }, // FIXME: is it String[] or Name[] here?
+                ],
+            },
 
         ],
         ..ABIDefinition::default()
@@ -241,13 +248,12 @@ fn bin_abi_parser() -> &'static ABIEncoder {
 
 #[cfg(test)]
 mod tests {
+    use crate::data::ABI_EXAMPLE;
     use super::*;
-    use std::fs::read_to_string;
 
     #[test]
     fn parse_abi_def() {
-        let abi_str = read_to_string("tests/abi_example.json").unwrap();
-        let abi: ABIDefinition = serde_json::from_str(&abi_str).unwrap();
+        let abi: ABIDefinition = serde_json::from_str(ABI_EXAMPLE).unwrap();
 
         assert_eq!(abi.version, "eosio::abi/1.1");
 

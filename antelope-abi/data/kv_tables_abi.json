@@ -1,4 +1,4 @@
-pub static TEST_KV_TABLES_ABI: &str = r#"{
+{
     "version": "eosio::abi/1.2",
     "types": [],
     "structs": [
@@ -116,4 +116,4 @@ pub static TEST_KV_TABLES_ABI: &str = r#"{
         }
     ],
     "tables": []
-}"#;
+}

@@ -1,3 +1,19 @@
+
+// FIXME: find why using #[cfg(test)] makes the tests not compile
+
+#[cfg(test)]
+pub static ABI_EXAMPLE: &str = include_str!("../data/abi_example.json");
+
+pub static TEST_ABI: &str = include_str!("../data/test_abi.json");
+
+pub static TRANSACTION_ABI: &str = include_str!("../data/transaction_abi.json");
+
+pub static PACKED_TRANSACTION_ABI: &str = include_str!("../data/packed_transaction_abi.json");
+
+pub static KV_TABLES_ABI: &str = include_str!("../data/kv_tables_abi.json");
+
+pub static STATE_HISTORY_PLUGIN_ABI: &str = include_str!("../data/ship_abi.json");
+
 pub static TOKEN_HEX_ABI: &str = concat!(
     "0e656f73696f3a3a6162692f312e30010c6163636f756e745f6e616d65046e61",
     "6d6505087472616e7366657200040466726f6d0c6163636f756e745f6e616d65",

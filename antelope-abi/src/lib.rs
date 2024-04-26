@@ -14,6 +14,7 @@ pub mod abiencoder;
 pub mod abiserializable;
 pub mod binaryserializable;
 pub mod bytestream;
+pub mod data;
 
 pub use abi::ABIDefinition;
 pub use abiencoder::ABIEncoder;
