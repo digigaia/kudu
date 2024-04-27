@@ -59,6 +59,8 @@ After splitting workspace into different crates, do the following:
 
 - check abieos/test.cpp to ensure we cover also all the error cases with proper error messages
 
+- check tests in https://github.com/AntelopeIO/leap/blob/main/unittests/abi_tests.cpp
+
 - do the other tests from here: <https://github.com/FACINGS/pyntelope/blob/main/tests/unit/types_test.py>
 
 

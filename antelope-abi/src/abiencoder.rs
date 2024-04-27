@@ -361,3 +361,42 @@ pub struct Struct {
         Ok(JsonValue::Object(result))
     }
 }
+
+
+pub fn is_array(t: &str) -> bool {
+    t.ends_with("[]")
+}
+
+pub fn is_sized_array(t: &str) -> bool {
+    match (t.rfind('['), t.rfind(']')) {
+        (Some(pos1), Some(pos2)) => {
+            if pos1 + 1 < pos2 {
+                t[pos1 + 1..pos2].chars().all(|c| c.is_ascii_digit())
+            }
+            else {
+                false
+            }
+        },
+        _ => false,
+    }
+}
+
+pub fn is_optional(t: &str) -> bool {
+    t.ends_with('?')
+}
+
+// FIXME: should this be recursive? ie: what is `fundamental_type("int[]?")` ?
+pub fn fundamental_type(t: &str) -> &str {
+    if is_array(t) {
+        &t[..t.len() - 2]
+    }
+    else if is_sized_array(t) {
+        &t[..t.rfind('[').unwrap()]
+    }
+    else if is_optional(t) {
+        &t[..t.len() - 1]
+    }
+    else {
+        t
+    }
+}

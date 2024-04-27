@@ -10,57 +10,23 @@ use crate::{ABIEncoder, ByteStream};
 // see doc at: https://docs.eosnetwork.com/manuals/cdt/latest/best-practices/abi/understanding-abi-files/
 //             https://docs.eosnetwork.com/docs/latest/advanced-topics/understanding-ABI-files/
 
-// see also builtin types: https://github.com/AntelopeIO/leap/blob/6817911900a088c60f91563995cf482d6b380b2d/libraries/chain/abi_serializer.cpp#L88-L129
+// C++ reference implementation is at:
+// https://github.com/AntelopeIO/leap/blob/main/libraries/chain/include/eosio/chain/abi_def.hpp
+
+// see also builtin types:
+// https://github.com/AntelopeIO/leap/blob/main/libraries/chain/abi_serializer.cpp#L89-L130
 
 
-// from https://github.com/AntelopeIO/leap/blob/6817911900a088c60f91563995cf482d6b380b2d/libraries/chain/include/eosio/chain/types.hpp#L128C1-L133C1
+// from https://github.com/AntelopeIO/leap/blob/main/libraries/chain/include/eosio/chain/types.hpp#L119-L123
 pub type ActionName = Name;
 pub type ScopeName = Name;
 pub type AccountName = Name;
 pub type PermissionName = Name;
 pub type TableName = Name;
 
-// from https://github.com/AntelopeIO/leap/blob/6817911900a088c60f91563995cf482d6b380b2d/libraries/chain/include/eosio/chain/abi_def.hpp#L7
+// from https://github.com/AntelopeIO/leap/blob/main/libraries/chain/include/eosio/chain/abi_def.hpp#L7
 pub type TypeName = String;
 pub type FieldName = String;
-
-pub fn is_array(t: &str) -> bool {
-    t.ends_with("[]")
-}
-
-pub fn is_sized_array(t: &str) -> bool {
-    match (t.rfind('['), t.rfind(']')) {
-        (Some(pos1), Some(pos2)) => {
-            if pos1 + 1 == pos2 {
-                false
-            }
-            else {
-                t[pos1 + 1..pos2].chars().all(|c| c.is_ascii_digit())
-            }
-        },
-        _ => false,
-    }
-}
-
-pub fn is_optional(t: &str) -> bool {
-    t.ends_with('?')
-}
-
-// FIXME: should this be recursive? ie: what is `fundamental_type("int[]?")` ?
-pub fn fundamental_type(t: &str) -> &str {
-    if is_array(t) {
-        &t[..t.len() - 2]
-    }
-    else if is_sized_array(t) {
-        &t[..t.rfind('[').unwrap()]
-    }
-    else if is_optional(t) {
-        &t[..t.len() - 1]
-    }
-    else {
-        t
-    }
-}
 
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -68,21 +34,21 @@ pub struct Type {
     pub new_type_name: TypeName,
 
     #[serde(rename = "type")]
-    pub type_: TypeName, // TODO: should map into a struct defined within the ABI? or base types?
+    pub type_: TypeName,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Field {
     pub name: FieldName,
     #[serde(rename = "type")]
-    pub type_: TypeName, // TODO: should map into a struct defined within the ABI?
+    pub type_: TypeName,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Struct {
     pub name: TypeName,
     #[serde(default)]
-    pub base: TypeName, // TODO: should map into a struct defined within the ABI
+    pub base: TypeName,
     pub fields: Vec<Field>,
 }
 
@@ -90,7 +56,8 @@ pub struct Struct {
 pub struct Action {
     pub name: ActionName,
     #[serde(rename = "type")]
-    pub type_: TypeName,  // TODO: should map into a struct defined within the ABI
+    pub type_: TypeName,
+    #[serde(default)]
     pub ricardian_contract: String,
 }
 
@@ -107,10 +74,28 @@ pub struct Table {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct ClausePair {
+    pub id: String,
+    pub body: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct ErrorMessage {
+    pub error_code: u64,
+    pub error_msg: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Variant {
     pub name: TypeName,
     #[serde(default)]
     pub types: Vec<TypeName>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct ActionResult {
+    pub name: ActionName,
+    pub result_type: TypeName,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -124,6 +109,10 @@ pub struct ABIDefinition {
     pub actions: Vec<Action>,
     #[serde(default)]
     pub tables: Vec<Table>,
+    #[serde(default)]
+    pub ricardian_clauses: Vec<ClausePair>,
+    #[serde(default)]
+    pub error_messages: Vec<ErrorMessage>,
     #[serde(default)]
     pub variants: Vec<Variant>,
 
@@ -156,7 +145,9 @@ impl ABIDefinition {
             "variants": parser.decode_variant(data, "variants[]")?,
         });
 
-        assert_eq!(data.leftover(), [0u8; 2]);  // FIXME: we should deserialize everything here, we have some fields missing...
+        // FIXME: we should deserialize everything here, we have some fields missing...
+        //        also, probably "variants" doesn't come first... we need to check this...
+        assert_eq!(data.leftover(), [0u8; 2]);
 
         Self::from_str(&abi.to_string())
     }
@@ -170,6 +161,8 @@ impl Default for ABIDefinition {
             structs: vec![],
             actions: vec![],
             tables: vec![],
+            ricardian_clauses: vec![],
+            error_messages: vec![],
             variants: vec![],
         }
     }
