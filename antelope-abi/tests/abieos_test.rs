@@ -9,10 +9,12 @@ use tracing_subscriber::{
     fmt::format::FmtSpan,
 };
 
-use antelope_abi::abi::ABIDefinition;
+use antelope_abi::abi::{ABIDefinition, TypeNameRef};
 use antelope_abi::{
     ABIEncoder, ByteStream
 };
+
+use TypeNameRef as T;
 
 use antelope_core::{
     JsonValue,
@@ -56,7 +58,7 @@ fn init() {
 }
 
 #[instrument(skip(ds, abi))]
-fn try_encode_stream(ds: &mut ByteStream, abi: &ABIEncoder, typename: &str, data: &str) -> Result<()> {
+fn try_encode_stream(ds: &mut ByteStream, abi: &ABIEncoder, typename: TypeNameRef, data: &str) -> Result<()> {
     let value: JsonValue = serde_json::from_str(data).map_err(InvalidValue::from)?;
     info!("{:?}", &value);
     abi.encode_variant(ds, typename, &value)?;
@@ -65,10 +67,10 @@ fn try_encode_stream(ds: &mut ByteStream, abi: &ABIEncoder, typename: &str, data
 
 fn try_encode(abi: &ABIEncoder, typename: &str, data: &str) -> Result<()> {
     let mut ds = ByteStream::new();
-    try_encode_stream(&mut ds, abi, typename, data)
+    try_encode_stream(&mut ds, abi, T(typename), data)
 }
 
-fn try_decode_stream(ds: &mut ByteStream, abi: &ABIEncoder, typename: &str) -> Result<JsonValue> {
+fn try_decode_stream(ds: &mut ByteStream, abi: &ABIEncoder, typename: TypeNameRef) -> Result<JsonValue> {
     let decoded = abi.decode_variant(ds, typename)?;
     assert!(ds.leftover().is_empty());
     Ok(decoded)
@@ -76,17 +78,17 @@ fn try_decode_stream(ds: &mut ByteStream, abi: &ABIEncoder, typename: &str) -> R
 
 fn try_decode<T: AsRef<[u8]>>(abi: &ABIEncoder, typename: &str, data: T) -> Result<JsonValue> {
     let mut ds = ByteStream::from(hex::decode(data).map_err(InvalidValue::from)?);
-    try_decode_stream(&mut ds, abi, typename)
+    try_decode_stream(&mut ds, abi, T(typename))
 }
 
 fn round_trip(abi: &ABIEncoder, typename: &str, data: &str, hex: &str, expected: &str) -> Result<()> {
     debug!(r#"==== round-tripping type "{typename}" with value {data}"#);
     let mut ds = ByteStream::new();
 
-    try_encode_stream(&mut ds, abi, typename, data)?;
+    try_encode_stream(&mut ds, abi, T(typename), data)?;
     assert_eq!(ds.hex_data(), hex.to_ascii_uppercase());
 
-    let decoded = try_decode_stream(&mut ds, abi, typename)?;
+    let decoded = try_decode_stream(&mut ds, abi, T(typename))?;
     assert_eq!(decoded.to_string(), expected);
 
     Ok(())

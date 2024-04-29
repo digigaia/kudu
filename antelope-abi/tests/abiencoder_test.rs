@@ -15,6 +15,8 @@ use antelope_core::{
     AntelopeValue, Name, Symbol, Asset
 };
 
+use TypeNameRef as T;  // useful alias for writing literals
+
 // TODO: add tests for deserialization
 // TODO: check more tests at: https://github.com/wharfkit/antelope/blob/master/test/serializer.ts
 
@@ -54,12 +56,12 @@ fn test_serialize_array() {
     let abi = ABIEncoder::new();
     let mut ds = ByteStream::new();
 
-    abi.encode_variant(&mut ds, "string[]", &json!(a)).unwrap();
+    abi.encode_variant(&mut ds, T("string[]"), &json!(a)).unwrap();
     assert_eq!(ds.hex_data(), "0303666F6F036261720362617A");
 
     ds.clear();
     let v = vec!["foo", "bar", "baz"];
-    abi.encode_variant(&mut ds, "string[]", &json!(v)).unwrap();
+    abi.encode_variant(&mut ds, T("string[]"), &json!(v)).unwrap();
     assert_eq!(ds.hex_data(), "0303666F6F036261720362617A");
 }
 
@@ -154,7 +156,7 @@ fn test_serialize_struct() {
 
     let abi = ABIEncoder::from_abi(&abi);
     let mut ds = ByteStream::new();
-    abi.encode_variant(&mut ds, "bar", &obj).unwrap();
+    abi.encode_variant(&mut ds, T("bar"), &obj).unwrap();
 
     assert_eq!(&ds.hex_data(), "036F6E65020100000000000028CF01040166016F01750172");
 
