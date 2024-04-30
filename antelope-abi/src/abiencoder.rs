@@ -10,7 +10,7 @@ use serde_json::{
     Value as JsonValue,
 };
 use strum::VariantNames;
-use tracing::{debug, instrument};
+use tracing::{debug, warn, instrument};
 
 // use super::*;
 // use crate::abi::*;
@@ -137,9 +137,9 @@ impl ABIEncoder {
     pub fn encode_variant(&self, ds: &mut ByteStream, typename: TypeNameRef, object: &JsonValue) -> Result<(), InvalidValue> {
         // see C++ implementation here: https://github.com/AntelopeIO/leap/blob/main/libraries/chain/abi_serializer.cpp#L491
         let rtype = self.resolve_type(typename);
-        let ftype = rtype.fundamental_type(); //.to_owned();  // FIXME: remove this .to_owned()
+        let ftype = rtype.fundamental_type();
 
-        debug!("rtype: {} - ftype: {}", rtype.0, ftype.0);  // FIXME: implement `Display` for `Type`
+        debug!(rtype=rtype.0, ftype=ftype.0);
 
         let incompatible_types = || InvalidValue::IncompatibleVariantTypes(rtype.0.to_owned(), object.clone());
 
@@ -222,6 +222,7 @@ impl ABIEncoder {
                     }
                 }
                 else if object.is_array() {
+                    warn!(t=rtype.0, obj=object.to_string());
                     unimplemented!();
                 }
                 else {

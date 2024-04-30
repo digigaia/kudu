@@ -3,7 +3,7 @@ use antelope_core::AntelopeType;
 
 // TODO: derive more? e.g. PartialEq, Eq, Hash, etc.
 
-#[derive(Clone, Copy, fmt::Debug)]
+#[derive(Clone, Copy)]
 pub struct TypeNameRef<'a>(pub &'a str);
 
 impl<'a> TypeNameRef<'a> {
@@ -46,11 +46,11 @@ impl<'a> TypeNameRef<'a> {
     }
 }
 
-// impl<'a> fmt::Debug for TypeNameRef<'a> {
-//     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-//         self.0.fmt(f)
-//     }
-// }
+impl<'a> fmt::Debug for TypeNameRef<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.0.fmt(f)
+    }
+}
 
 impl<'a> fmt::Display for TypeNameRef<'a> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

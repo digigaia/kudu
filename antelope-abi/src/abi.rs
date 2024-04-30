@@ -1,6 +1,10 @@
 use std::sync::OnceLock;
 
-use antelope_core::{AntelopeType, AntelopeValue, InvalidValue, Name};
+use antelope_core::{
+    JsonValue,
+    AntelopeType, AntelopeValue, InvalidValue,
+    ActionName, TableName,
+};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
@@ -21,12 +25,6 @@ use TypeNameRef as T;
 // https://github.com/AntelopeIO/leap/blob/main/libraries/chain/abi_serializer.cpp#L89-L130
 
 
-// from https://github.com/AntelopeIO/leap/blob/main/libraries/chain/include/eosio/chain/types.hpp#L119-L123
-pub type ActionName = Name;
-pub type ScopeName = Name;
-pub type AccountName = Name;
-pub type PermissionName = Name;
-pub type TableName = Name;
 
 // from https://github.com/AntelopeIO/leap/blob/main/libraries/chain/include/eosio/chain/abi_def.hpp#L7
 pub type TypeName = String;
@@ -129,6 +127,10 @@ impl ABIDefinition {
         Ok(serde_json::from_str(s)?)
     }
 
+    pub fn from_variant(v: &JsonValue) -> Result<Self, InvalidValue> {
+        Ok(serde_json::from_str(&v.to_string())?)
+    }
+
     pub fn from_bin(data: &mut ByteStream) -> Result<Self, InvalidValue> {
         let version = AntelopeValue::from_bin(AntelopeType::String, data)?.to_variant();
         let version_str = version.as_str().ok_or(InvalidValue::InvalidData(format!(
@@ -160,7 +162,7 @@ impl ABIDefinition {
 impl Default for ABIDefinition {
     fn default() -> ABIDefinition {
         ABIDefinition {
-            version: "eosio::abi/1.1".to_owned(),
+            version: "eosio::abi/1.2".to_owned(),
             types: vec![],
             structs: vec![],
             actions: vec![],

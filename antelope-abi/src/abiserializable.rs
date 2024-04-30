@@ -9,7 +9,7 @@ use crate::{
     bytestream::ByteStream,
 };
 
-
+// FIXME: from_bin should take &str instead of AntelopeType, and we might need to register an ABI provider
 pub trait ABISerializable {
     fn to_bin(&self, _stream: &mut ByteStream);
     fn from_bin(_typename: AntelopeType, _stream: &mut ByteStream) -> Result<Self, InvalidValue>

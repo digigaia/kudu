@@ -28,6 +28,7 @@ pub use serde_json::{
 };
 
 pub use types::{
+    ActionName, ScopeName, AccountName, PermissionName, TableName,
     AntelopeType,
     AntelopeValue, InvalidValue,
     Name, InvalidName,

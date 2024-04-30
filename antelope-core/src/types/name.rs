@@ -37,7 +37,7 @@ impl Name {
         }
     }
 
-    pub fn from_u64(n: u64) -> Self {
+    pub const fn from_u64(n: u64) -> Self {
         // FIXME: do some validation?
         Self { value: n }
     }

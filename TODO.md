@@ -21,6 +21,8 @@ After splitting workspace into different crates, do the following:
 
 - clean abiencoder.rs
 
+- look into using the `bytes` crate
+
 - investigate `snafu` instead of `thiserror` for errors
   - <https://www.reddit.com/r/rust/comments/dfs1zk/2019_q4_error_patterns_snafu_vs_errderive_anyhow/>
   - <https://dev.to/e_net4/migrating-from-quick-error-to-snafu-a-story-on-revamped-error-handling-in-rust-58h9>
@@ -62,6 +64,8 @@ After splitting workspace into different crates, do the following:
 - check tests in https://github.com/AntelopeIO/leap/blob/main/unittests/abi_tests.cpp
 
 - do the other tests from here: <https://github.com/FACINGS/pyntelope/blob/main/tests/unit/types_test.py>
+
+- check other tests and ideas from: https://github.com/wharfkit/antelope
 
 
 ## MISC
