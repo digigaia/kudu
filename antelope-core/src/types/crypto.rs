@@ -125,7 +125,7 @@ impl<T: CryptoDataType, const DATA_SIZE: usize> fmt::Display for CryptoData<T, D
 }
 
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct PublicKeyType;
 
 impl CryptoDataType for PublicKeyType {
@@ -136,7 +136,7 @@ impl CryptoDataType for PublicKeyType {
 pub type PublicKey = CryptoData<PublicKeyType, 33>;
 
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct PrivateKeyType;
 
 impl CryptoDataType for PrivateKeyType {
@@ -147,7 +147,7 @@ impl CryptoDataType for PrivateKeyType {
 pub type PrivateKey = CryptoData<PrivateKeyType, 32>;
 
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct SignatureType;
 
 impl CryptoDataType for SignatureType {

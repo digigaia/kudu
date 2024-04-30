@@ -83,4 +83,4 @@ After splitting workspace into different crates, do the following:
 
 - check with <https://crates.io/crates/antelope> whether we can get the crate name
 
-- do we want to use the `base64` crate with the URL_SAFE engine or do we keep our own (smaller and simpler) implementation?
+- do we want to use the `base64` crate with the URL_SAFE engine or do we keep our own (smaller and simpler) implementation? => yes! because we only have encode and not decode in our impl

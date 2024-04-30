@@ -22,7 +22,7 @@ use crate::abi::{
 
 // FIXME: remove all `.0` lying in this file
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct ABIEncoder {
     // ABI-related fields
     typedefs: HashMap<TypeName, TypeName>,
@@ -355,8 +355,9 @@ pub struct Struct {
             // assert!(present, "Missing field {} in input object while processing struct {}", &field.name, &struct_def.name);
 
             let name = &field.name;
-            let value = self.decode_variant(ds, TypeNameRef(&field.type_))?;
-            debug!(r#"decoded field "{name}": {value} "#);
+            let type_ = TypeNameRef(&field.type_);
+            let value = self.decode_variant(ds, type_)?;
+            debug!(r#"decoded field "{name}" with type "{type_}": {value}"#);
             result.insert(name.to_string(), value);
             // array(&mut result, "fields").push(json!({
             //     "name": name,
@@ -364,7 +365,7 @@ pub struct Struct {
             // }));
         }
 
-        debug!("fully decoded struct: {:#?}", result);
+        debug!("fully decoded `{}` struct: {:#?}", struct_def.name, result);
         Ok(JsonValue::Object(result))
     }
 }

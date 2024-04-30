@@ -87,6 +87,7 @@ dependencies = [
  "antelope-core",
  "base64",
  "flate2",
+ "hex",
  "serde_json",
  "tracing",
  "tracing-subscriber",

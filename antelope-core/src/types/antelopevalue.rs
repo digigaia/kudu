@@ -24,7 +24,7 @@ use crate::types::{
 const DATE_FORMAT: &str = "%Y-%m-%dT%H:%M:%S%.3f";
 
 // see full list in: https://github.com/AntelopeIO/leap/blob/main/libraries/chain/abi_serializer.cpp#L89
-#[derive(Debug, EnumDiscriminants, VariantNames)]
+#[derive(Debug, EnumDiscriminants, VariantNames, Clone, PartialEq)]
 #[strum(serialize_all = "snake_case")]
 #[strum_discriminants(name(AntelopeType))]
 #[strum_discriminants(derive(Display, EnumString))]
