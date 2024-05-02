@@ -35,6 +35,8 @@ After splitting workspace into different crates, do the following:
 
 - investigate whether `color_eyre::Result` is the right result type for the library. Maybe we should use `std::Result` and reserve the usage of `color_eyre::Result` for the unittests?
 
+- check all hex::encode and decide whether we want hex::encode or hex::encode_upper
+
 - check <https://rust-lang.github.io/api-guidelines/checklist.html>
 
 ### Investigate Serde
@@ -66,6 +68,8 @@ After splitting workspace into different crates, do the following:
 - do the other tests from here: <https://github.com/FACINGS/pyntelope/blob/main/tests/unit/types_test.py>
 
 - check other tests and ideas from: https://github.com/wharfkit/antelope
+
+- check how to specify shared deps for all projects in the workspace in an unified way (e.g.: serde, thiserror, etc.)
 
 
 ## MISC

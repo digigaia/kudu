@@ -57,6 +57,12 @@ pub struct ByteStream {
     read_pos: usize,
 }
 
+impl From<ByteStream> for Vec<u8> {
+    fn from(ds: ByteStream) -> Vec<u8> {
+        ds.data
+    }
+}
+
 impl ByteStream {
     pub fn new() -> Self {
         Self {

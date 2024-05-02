@@ -6,18 +6,14 @@ use thiserror::Error;
 use base64::prelude::*;
 use hex;
 
-use flate2::{
-    // Compression,
-    // write::DeflateEncoder,
-    read::DeflateDecoder,
-};
+use flate2::read::DeflateDecoder;
+use serde::{Serialize, Serializer, ser::SerializeTuple, ser::SerializeStruct};
 
 use antelope_core::{types::antelopevalue::hex_to_boxed_array, JsonValue, Name, json};
 use antelope_abi::{ABIDefinition, ABIEncoder, ByteStream, abi::TypeNameRef as T};
 
-use tracing::debug;
+use tracing::{trace, debug, warn};
 
-// static SIGNER_NAME: Name = Name::from_str("............1").unwrap();  // == Name::from_u64(1)  TODO: make this a unittest
 pub static SIGNER_NAME: Name = Name::from_u64(1);
 pub static SIGNER_PERMISSION: Name = Name::from_u64(2);
 
@@ -73,15 +69,25 @@ pub enum ChainId {
     Id(Checksum256), // AntelopeValue::Checksum256 variant assumed
 }
 
-impl From<ChainId> for JsonValue {
-    fn from(cid: ChainId) -> JsonValue {
-        match cid {
-            ChainId::Alias(alias) => json!(["chain_alias", alias]),
-            // ChainId::Id(id) => json!(["chain_id", id.to_string()]),  // FIXME: check we get hex encoded repr here
-            _ => unimplemented!(),
+impl Serialize for ChainId {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where S: Serializer
+    {
+        let mut tup = serializer.serialize_tuple(2)?;
+        match self {
+            ChainId::Alias(alias) => {
+                tup.serialize_element("chain_alias")?;
+                tup.serialize_element(&alias)?;
+            },
+            ChainId::Id(id) => {
+                tup.serialize_element("chain_id")?;
+                tup.serialize_element(&hex::encode_upper(**id))?;
+            },
         }
+        tup.end()
     }
 }
+
 
 #[derive(Debug, Clone)]
 pub struct SigningRequest {
@@ -138,6 +144,10 @@ impl SigningRequest {
         let compression = (dec[0] >> 7) == 1u8;
         let version = dec[0] & ((1 << 7) - 1);
 
+        if version != 2 && version != 3 {
+            return Err(SigningRequestError::InvalidVersion(version));
+        }
+
         debug!(version, compression, "decoding payload");
 
         let mut dec2;
@@ -151,6 +161,8 @@ impl SigningRequest {
         else {
             dec2 = dec;
         }
+
+        trace!("uncompressed payload = {}", hex::encode_upper(&dec2));
 
 
         let abi = signing_request_abi_parser();
@@ -210,22 +222,45 @@ impl SigningRequest {
         Ok(())
     }
 
-    pub fn encode(&self) -> String {
+    pub fn encode(&self) -> Vec<u8> {
         let mut ds = ByteStream::new();
         let abi = signing_request_abi_parser();
 
         // self.encode_actions();
-        let sr = json!({
-            "chain_id": JsonValue::from(self.chain_id.clone()),
-        });
+        let cid = json!(self.chain_id);
+        warn!("chain id = {:?}", cid);
+
+        // let sr = json!({
+        //     "chain_id": self.chain_id,
+        //     "req": ["action[]", self.actions],
+        //     "flags": self.flags,
+        //     "callback": self.callback.clone().unwrap_or("".to_owned()),
+        //     "info": self.info,
+        // });
+        let sr = json!(self);
 
         abi.encode_variant(&mut ds, T("signing_request"), &sr).unwrap(); // FIXME: remove this `unwrap`
-        ds.hex_data()
+        ds.into()
     }
 }
 
 
+impl Serialize for SigningRequest {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where S: Serializer
+    {
+        let mut req = serializer.serialize_struct("SigningRequest", 5)?;
+        req.serialize_field("chain_id", &self.chain_id)?;
+        req.serialize_field("req", &json!(["action[]", self.actions]))?;
+        req.serialize_field("flags", &self.flags)?;
+        req.serialize_field("callback", self.callback.as_ref().map_or("", |cb| cb))?;
+        req.serialize_field("info", &self.info)?;
+        req.end()
+    }
+}
 
+
+// FIXME: this would be better as `serde::Deserialize`, right?
 impl TryFrom<JsonValue> for SigningRequest {
     type Error = SigningRequestError;
 
@@ -248,7 +283,7 @@ impl TryFrom<JsonValue> for SigningRequest {
             _ => unimplemented!(),
         };
 
-        let req_type = payload["req"][0].as_str().unwrap();
+        let req_type = conv_str(&payload["req"][0])?;
         let req_data = &payload["req"][1];
 
         result.actions = match req_type {
@@ -261,7 +296,10 @@ impl TryFrom<JsonValue> for SigningRequest {
         };
 
         result.flags = payload["flags"].as_u64().unwrap().try_into().unwrap();
-        result.callback = Some(payload["callback"].as_str().unwrap().to_owned());
+        result.callback = match conv_str(&payload["callback"])? {
+            "" => None,
+            callback => Some(callback.to_owned()),
+        };
         result.info = payload["info"].as_array().unwrap().to_owned();
 
         result.decode_actions();
@@ -274,6 +312,9 @@ impl TryFrom<JsonValue> for SigningRequest {
 pub enum SigningRequestError {
     #[error("{0}")]
     Invalid(String),
+
+    #[error("unsupported ESR protocol version: {0}")]
+    InvalidVersion(u8),
 
     #[error("error decoding base64 content")]
     Base64Decode(#[from] base64::DecodeError),
@@ -288,7 +329,7 @@ pub enum SigningRequestError {
     // Bool(#[from] ParseBoolError),
 }
 
-pub fn conv_str<'a>(obj: &'a JsonValue) -> Result<&'a str, SigningRequestError> {
+pub fn conv_str(obj: &JsonValue) -> Result<&str, SigningRequestError> {
     obj.as_str().ok_or(SigningRequestError::Invalid(
         format!("Cannot convert object {:?} to str", obj)))
 }
