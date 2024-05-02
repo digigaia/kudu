@@ -2,6 +2,7 @@ use std::io::prelude::*;
 use std::fs::read_to_string;
 use std::sync::OnceLock;
 
+use thiserror::Error;
 use base64::prelude::*;
 use hex;
 
@@ -11,10 +12,10 @@ use flate2::{
     read::DeflateDecoder,
 };
 
-use antelope_core::{types::antelopevalue::hex_to_boxed_array, AntelopeValue, JsonValue, Name};
+use antelope_core::{types::antelopevalue::hex_to_boxed_array, JsonValue, Name, json};
 use antelope_abi::{ABIDefinition, ABIEncoder, ByteStream, abi::TypeNameRef as T};
 
-use tracing::{info, warn};
+use tracing::debug;
 
 // static SIGNER_NAME: Name = Name::from_str("............1").unwrap();  // == Name::from_u64(1)  TODO: make this a unittest
 pub static SIGNER_NAME: Name = Name::from_u64(1);
@@ -64,18 +65,29 @@ pub fn get_abi(abi_name: &str) -> ABIEncoder {
 }
 
 
+type Checksum256 = Box<[u8; 32]>;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum ChainId {
     Alias(u8),
-    Id(AntelopeValue), // AntelopeValue::Checksum256 variant assumed
+    Id(Checksum256), // AntelopeValue::Checksum256 variant assumed
+}
+
+impl From<ChainId> for JsonValue {
+    fn from(cid: ChainId) -> JsonValue {
+        match cid {
+            ChainId::Alias(alias) => json!(["chain_alias", alias]),
+            // ChainId::Id(id) => json!(["chain_id", id.to_string()]),  // FIXME: check we get hex encoded repr here
+            _ => unimplemented!(),
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
 pub struct SigningRequest {
     pub chain_id: ChainId,
     pub actions: Vec<JsonValue>,
-    pub flags: u64,
+    pub flags: u8,
     pub callback: Option<String>,
     pub info: Vec<JsonValue>, // TODO: consider getting something more precise
 }
@@ -119,61 +131,114 @@ impl SigningRequest {
     }
 
     // FIXME: return Result<JsonValue, InvalidPayload>
-    pub fn decode_payload<T: AsRef<[u8]>>(esr: T) -> JsonValue {
-        let dec = BASE64_URL_SAFE.decode(esr).unwrap();
+    pub fn decode_payload<T: AsRef<[u8]>>(esr: T) -> Result<JsonValue, SigningRequestError> {
+        let dec = BASE64_URL_SAFE.decode(esr)?;
         assert!(!dec.is_empty());
-
-        warn!("{:?}", &dec);
 
         let compression = (dec[0] >> 7) == 1u8;
         let version = dec[0] & ((1 << 7) - 1);
 
-        warn!(version, compression, "decoding payload");
+        debug!(version, compression, "decoding payload");
 
         let mut dec2;
         if compression {
             let mut deflater = DeflateDecoder::new(&dec[1..]);
             dec2 = vec![];
-            deflater.read_to_end(&mut dec2).unwrap();
+            deflater.read_to_end(&mut dec2).map_err(
+                |_| SigningRequestError::Invalid("can not decompress payload data".to_owned()))?;
+
         }
         else {
             dec2 = dec;
         }
 
 
-        warn!("{:?}", &dec2);
-
-        // let abi_str = read_to_string("src/signing_request_abi.json").unwrap();
-        // let abi: ABIDefinition = serde_json::from_str(&abi_str).unwrap();
-        // let encoder = ABIEncoder::from_abi(&abi);
-        let encoder = signing_request_abi_parser();
+        let abi = signing_request_abi_parser();
 
         let mut ds = ByteStream::from(dec2);
 
-        let mut payload = encoder.decode_variant(&mut ds, T("signing_request")).unwrap();
-
-        // TODO: decode actions for all variants of `req`
-        info!(%payload, "before decoding actions");
-        for action in payload["req"][1].as_array_mut().unwrap() {  // note: unwrap() is not necessary here as we can iterate over an Option but we still want it to make sure we fail instead of silently skipping
-            Self::decode_action(action);
-        }
-        info!(%payload, "after decoding actions");
-
-        payload
+        abi.decode_variant(&mut ds, T("signing_request"))
+            .map_err(|_| SigningRequestError::Invalid(
+                "cannot decode SigningRequest from JSON representation".to_owned()))
     }
 
-    pub fn decode<T: AsRef<[u8]>>(esr: T) -> Self {
-        let payload = Self::decode_payload(esr);
+    pub fn decode<T>(esr: T) -> Result<Self, SigningRequestError>
+    where
+        T: AsRef<[u8]>
+    {
+        let payload = Self::decode_payload(esr)?;
+        payload.try_into()
 
+    }
+
+    pub fn encode_actions(&mut self) {
+        for action in &mut self.actions[..] {
+            Self::encode_action(action).unwrap();
+        }
+    }
+
+    pub fn decode_actions(&mut self) {
+        for action in &mut self.actions[..] {
+            Self::decode_action(action).unwrap();
+        }
+    }
+
+    pub fn encode_action(action: &mut JsonValue) -> Result<(), SigningRequestError> {
+        let is_action_data_encoded = action["data"].is_string();
+        if is_action_data_encoded { return Ok(()); }
+
+        let account = conv_action_field_str(action, "account")?;
+        let action_name = conv_action_field_str(action, "name")?;
+        let data = &action["data"];
+        let mut ds = ByteStream::new();
+        let abi = get_abi(account);
+        abi.encode_variant(&mut ds, T(action_name), data).unwrap();
+        action["data"] = JsonValue::String(ds.hex_data());
+        Ok(())
+    }
+
+    pub fn decode_action(action: &mut JsonValue) -> Result<(), SigningRequestError> {
+        let is_action_data_encoded = action["data"].is_string();
+        if !is_action_data_encoded { return Ok(()); }
+
+        let account     = conv_action_field_str(action, "account")?;
+        let action_name = conv_action_field_str(action, "name")?;
+        let data        = conv_action_field_str(action, "data")?;
+        let mut ds = ByteStream::from(hex::decode(data).unwrap());
+        let abi = get_abi(account);
+        action["data"] = abi.decode_variant(&mut ds, T(action_name)).unwrap();
+        Ok(())
+    }
+
+    pub fn encode(&self) -> String {
+        let mut ds = ByteStream::new();
+        let abi = signing_request_abi_parser();
+
+        // self.encode_actions();
+        let sr = json!({
+            "chain_id": JsonValue::from(self.chain_id.clone()),
+        });
+
+        abi.encode_variant(&mut ds, T("signing_request"), &sr).unwrap(); // FIXME: remove this `unwrap`
+        ds.hex_data()
+    }
+}
+
+
+
+impl TryFrom<JsonValue> for SigningRequest {
+    type Error = SigningRequestError;
+
+    fn try_from(payload: JsonValue) -> Result<Self, Self::Error> {
         let mut result = SigningRequest::default();
 
         let chain_id = &payload["chain_id"];
-        let chain_id_type = chain_id[0].as_str().unwrap();
+        let chain_id_type = conv_str(&chain_id[0])?;
 
         result.chain_id = match chain_id_type {
             "chain_id" => {
-                let data = hex_to_boxed_array(chain_id[1].as_str().unwrap()).unwrap();
-                ChainId::Id(AntelopeValue::Checksum256(data))
+                let data = conv_str(&chain_id[1])?;
+                ChainId::Id(hex_to_boxed_array(data)?)
             },
             "chain_alias" => {
                 let alias = chain_id[1].as_u64().unwrap();
@@ -195,46 +260,41 @@ impl SigningRequest {
             _ => unimplemented!(),
         };
 
-        result.flags = payload["flags"].as_u64().unwrap();
+        result.flags = payload["flags"].as_u64().unwrap().try_into().unwrap();
         result.callback = Some(payload["callback"].as_str().unwrap().to_owned());
         result.info = payload["info"].as_array().unwrap().to_owned();
 
-        result
+        result.decode_actions();
+
+        Ok(result)
     }
+}
 
-    pub fn encode_actions(&mut self) {
-        for action in &mut self.actions[..] {
-            Self::encode_action(action);
-        }
-    }
+#[derive(Error, Debug)]
+pub enum SigningRequestError {
+    #[error("{0}")]
+    Invalid(String),
 
-    pub fn encode_action(action: &mut JsonValue) {
-        let account = action["account"].as_str().unwrap();
-        let action_name = action["name"].as_str().unwrap();
-        let data = &action["data"];
-        let mut ds = ByteStream::new();
-        let abi = get_abi(account);
-        abi.encode_variant(&mut ds, T(action_name), data).unwrap();
-        action["data"] = JsonValue::String(ds.hex_data());
-    }
+    #[error("error decoding base64 content")]
+    Base64Decode(#[from] base64::DecodeError),
 
-    pub fn decode_action(action: &mut JsonValue) {
-        let account = action["account"].as_str().unwrap();
-        let action_name = action["name"].as_str().unwrap();
-        let data = action["data"].as_str().unwrap();
-        let mut ds = ByteStream::from(hex::decode(data).unwrap());
-        let abi = get_abi(account);
-        action["data"] = abi.decode_variant(&mut ds, T(action_name)).unwrap();
-    }
+    #[error("hex decoding error")]
+    HexDecode(#[from] hex::FromHexError),
 
-    pub fn encode(&self) -> String {
-        let mut ds = ByteStream::new();
+    // #[error(r#"cannot convert given variant {1} to Antelope type "{0}""#)]
+    // IncompatibleVariantTypes(String, JsonValue),
 
-        // first encode all actions
-        let encoder = signing_request_abi_parser();
-        encoder.encode_variant(&mut ds, T("action"), &self.actions[0]).unwrap();
+    // #[error("invalid bool")]
+    // Bool(#[from] ParseBoolError),
+}
 
-        // encoder.encode_variant(&mut ds, T("signing_request"), &self.actions).unwrap(); // FIXME: remove this `unwrap`
-        "".to_owned()
-    }
+pub fn conv_str<'a>(obj: &'a JsonValue) -> Result<&'a str, SigningRequestError> {
+    obj.as_str().ok_or(SigningRequestError::Invalid(
+        format!("Cannot convert object {:?} to str", obj)))
+}
+
+pub fn conv_action_field_str<'a>(action: &'a JsonValue, field: &str) -> Result<&'a str, SigningRequestError> {
+    action[field].as_str().ok_or(
+        SigningRequestError::Invalid(format!("Cannot convert action['{}'] to str, actual type: {:?}",
+                                             field, action[field])))
 }

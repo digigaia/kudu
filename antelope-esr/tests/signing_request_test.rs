@@ -35,7 +35,7 @@ fn placeholder_value() {
 }
 
 #[test]
-fn signing() {
+fn encode() {
     init();
 
     // TODO: check whether we need a specific type for this or if we want to just use JSON
@@ -60,20 +60,17 @@ fn signing() {
 }
 
 #[test]
-fn deflate_compression() {
+fn decode() {
     init();
-
-    let mut enc = DeflateEncoder::new(Vec::new(), Compression::default());
-    enc.write_all(b"Hello World").unwrap();
-    println!("{:?}", enc.finish().unwrap());
 
     let esr = "gmNgZGRkAIFXBqEFopc6760yugsVYWCA0YIwxgKjuxLSL6-mgmQA";
 
-    let r = SigningRequest::decode(esr);
+    let r = SigningRequest::decode(esr).unwrap();
 
     assert_eq!(r.chain_id, ChainId::Alias(1));
     assert_eq!(r.flags, 1);
 
+    // FIXME: add more tests here
 
     // assert!(false);
 }
