@@ -21,6 +21,8 @@ After splitting workspace into different crates, do the following:
 
 - clean abiencoder.rs
 
+- class `ABIEncoder` should probably just be named `ABI` as it can decode/encode
+
 - look into using the `bytes` crate
 
 - investigate `snafu` instead of `thiserror` for errors

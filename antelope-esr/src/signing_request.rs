@@ -1,6 +1,4 @@
 use std::io::prelude::*;
-use std::fs::read_to_string;
-use std::sync::OnceLock;
 
 use thiserror::Error;
 use base64::prelude::*;
@@ -10,55 +8,17 @@ use flate2::read::DeflateDecoder;
 use serde::{Serialize, Serializer, ser::SerializeTuple, ser::SerializeStruct};
 
 use antelope_core::{types::antelopevalue::hex_to_boxed_array, JsonValue, Name, json};
-use antelope_abi::{ABIDefinition, ABIEncoder, ByteStream, abi::TypeNameRef as T};
+use antelope_abi::{
+    ByteStream,
+    abi::TypeNameRef as T,
+    cache::get_abi,
+};
 
 use tracing::{trace, debug, warn};
 
 pub static SIGNER_NAME: Name = Name::from_u64(1);
 pub static SIGNER_PERMISSION: Name = Name::from_u64(2);
 
-
-
-pub fn signing_request_abi_schema() -> &'static ABIDefinition {
-    static SIGNING_REQUEST_ABI_SCHEMA: OnceLock<ABIDefinition> = OnceLock::new();
-    SIGNING_REQUEST_ABI_SCHEMA.get_or_init(|| {
-        let abi_str = read_to_string("src/signing_request_abi.json").unwrap();
-        let abi: ABIDefinition = serde_json::from_str(&abi_str).unwrap();
-        abi
-    })
-}
-
-pub fn signing_request_abi_parser() -> &'static ABIEncoder {
-    static SIGNING_REQUEST_ABI_PARSER: OnceLock<ABIEncoder> = OnceLock::new();
-    SIGNING_REQUEST_ABI_PARSER.get_or_init(|| {
-        ABIEncoder::with_abi(signing_request_abi_schema())
-    })
-}
-
-static EOSIO_ABI: &str  = r#"{
-    "version": "eosio::abi/1.2",
-    "structs": [
-        {
-            "name": "voteproducer",
-            "base": "",
-            "fields": [
-                { "name": "voter", "type": "name" },
-                { "name": "proxy", "type": "name" },
-                { "name": "producers", "type": "name[]" }
-            ]
-        }
-    ]
-}
-"#;
-
-pub fn get_abi(abi_name: &str) -> ABIEncoder {
-    match abi_name {
-        "eosio" => ABIEncoder::from_abi(&ABIDefinition::from_str(EOSIO_ABI).unwrap()),
-        "signing_request" => signing_request_abi_parser().clone(),
-        _ => panic!("no abi with name {}", abi_name),
-    }
-
-}
 
 
 type Checksum256 = Box<[u8; 32]>;
@@ -165,7 +125,7 @@ impl SigningRequest {
         trace!("uncompressed payload = {}", hex::encode_upper(&dec2));
 
 
-        let abi = signing_request_abi_parser();
+        let abi = get_abi("signing_request");
 
         let mut ds = ByteStream::from(dec2);
 
@@ -224,7 +184,7 @@ impl SigningRequest {
 
     pub fn encode(&self) -> Vec<u8> {
         let mut ds = ByteStream::new();
-        let abi = signing_request_abi_parser();
+        let abi = get_abi("signing_request");
 
         // self.encode_actions();
         let cid = json!(self.chain_id);
@@ -321,12 +281,6 @@ pub enum SigningRequestError {
 
     #[error("hex decoding error")]
     HexDecode(#[from] hex::FromHexError),
-
-    // #[error(r#"cannot convert given variant {1} to Antelope type "{0}""#)]
-    // IncompatibleVariantTypes(String, JsonValue),
-
-    // #[error("invalid bool")]
-    // Bool(#[from] ParseBoolError),
 }
 
 pub fn conv_str(obj: &JsonValue) -> Result<&str, SigningRequestError> {

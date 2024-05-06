@@ -17,6 +17,7 @@
 // our types, which wouldn't be very convenient and isn't very discoverable
 #![allow(clippy::should_implement_trait)]
 
+pub mod api;
 pub mod config;
 pub mod types;
 
