@@ -96,7 +96,7 @@ pub fn get_abi_definition(abi_name: &str) -> ABIDefinition {
 
 
 pub fn get_abi(abi_name: &str) -> ABIEncoder {
-    // TODO: cache this and return &ABIEncoder
+    // TODO: cache this and return &'static ABIEncoder (if we can)
     ABIEncoder::from_abi(&get_abi_definition(abi_name))
 }
 

@@ -10,15 +10,6 @@ After splitting workspace into different crates, do the following:
 
 ## API DESIGN
 
-- better error handling when constructing types. We should remove `assert`s and `panic` and use proper error types
-
-- is `from_str` the best name for most of our types constructors? Reconsider disabling the clippy warning
-  about it at the top of `antelope-{core,abi}/src/lib.rs`
-
-- use `From` and `Into` traits for constructing base Antelope types
-
-- `BinarySerializable` / `ABISerializable` need to use `StreamError` instead of `InvalidValue`
-
 - clean abiencoder.rs
 
 - class `ABIEncoder` should probably just be named `ABI` as it can decode/encode
@@ -26,6 +17,18 @@ After splitting workspace into different crates, do the following:
 - try defining the `ABISerializable` trait and implement it for all types, then replace the `AntelopeValue` struct with just the implementation of the base types
 
 - look into using the `bytes` crate
+
+- rename encode/decode methods everywhere to be more specific, such as `bin_to_json`/`json_to_bin`, etc. (esp. in tests)
+
+- check <https://rust-lang.github.io/api-guidelines/checklist.html>
+
+### Error Handling
+
+- better error handling when constructing types. We should remove `assert`s and `panic` and use proper error types
+
+- `BinarySerializable` / `ABISerializable` need to use `StreamError` instead of `InvalidValue`
+
+- investigate whether `color_eyre::Result` is the right result type for the library. Maybe we should use `std::Result` and reserve the usage of `color_eyre::Result` for the unittests?
 
 - investigate `snafu` instead of `thiserror` for errors
   - <https://www.reddit.com/r/rust/comments/dfs1zk/2019_q4_error_patterns_snafu_vs_errderive_anyhow/>
@@ -35,13 +38,12 @@ After splitting workspace into different crates, do the following:
   - <https://gist.github.com/quad/a8a7cc87d1401004c6a8973947f20365>
   - <https://stackoverflow.com/questions/60943851/how-do-you-see-an-errors-backtrace-when-using-snafu>
 
-- rename encode/decode methods everywhere to be more specific, such as `bin_to_json`/`json_to_bin`, etc. (esp. in tests)
+### AntelopeValue
 
-- investigate whether `color_eyre::Result` is the right result type for the library. Maybe we should use `std::Result` and reserve the usage of `color_eyre::Result` for the unittests?
+- is `from_str` the best name for most of our types constructors? Reconsider disabling the clippy warning
+  about it at the top of `antelope-{core,abi}/src/lib.rs`
 
-- check all hex::encode and decide whether we want hex::encode or hex::encode_upper
-
-- check <https://rust-lang.github.io/api-guidelines/checklist.html>
+- use `From` and `Into` traits for constructing base Antelope types
 
 ### Investigate Serde
 
@@ -62,6 +64,7 @@ After splitting workspace into different crates, do the following:
 
 - do we allow constructing non-normalized names?
   see: tests/abieos_test.rs:402 vs.
+  for Name type: check unittests and validity of non-normalized names
 
 - check for `unwrap` and `panic!` and `assert` everywhere
 
@@ -83,12 +86,8 @@ After splitting workspace into different crates, do the following:
 - check whether we should declare common dependencies (like `serde_json`) in the workspace `Cargo.toml`
   or in each sub-crate
 
-- for Name type: check unittests and validity of non-normalized names
-
 - crypto primitives do not implement WebAuthn key and signatures yet
 
 - implement action_result in abi and abi_parser
 
 - check with <https://crates.io/crates/antelope> whether we can get the crate name
-
-- do we want to use the `base64` crate with the URL_SAFE engine or do we keep our own (smaller and simpler) implementation? => yes! because we only have encode and not decode in our impl
