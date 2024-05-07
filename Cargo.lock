@@ -69,6 +69,7 @@ dependencies = [
  "color-eyre",
  "flate2",
  "hex",
+ "lazy_static",
  "num",
  "reqwest",
  "ripemd",

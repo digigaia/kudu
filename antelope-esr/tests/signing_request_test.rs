@@ -6,13 +6,19 @@ use tracing_subscriber::{
     // fmt::format::FmtSpan,
 };
 
-use antelope_core::{Name, json};
+use antelope_core::{Name, json, api};
 use antelope_esr::signing_request::*;
 
+
+//
+// FIXME: look up more tests here: https://github.com/wharfkit/signing-request/blob/master/test/request.ts
+//
 
 static TRACING_INIT: Once = Once::new();
 
 fn init() {
+    api::set_api_endpoint(None);
+
     TRACING_INIT.call_once(|| {
         tracing_subscriber::fmt()
             .with_env_filter(EnvFilter::from_default_env())
@@ -86,6 +92,8 @@ fn decode() {
     assert_eq!(r.flags, 1);
     assert_eq!(r.callback, None);
     assert!(r.info.is_empty());
+
+    // assert!(false);
 }
 
 #[test]

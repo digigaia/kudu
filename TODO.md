@@ -23,6 +23,8 @@ After splitting workspace into different crates, do the following:
 
 - class `ABIEncoder` should probably just be named `ABI` as it can decode/encode
 
+- try defining the `ABISerializable` trait and implement it for all types, then replace the `AntelopeValue` struct with just the implementation of the base types
+
 - look into using the `bytes` crate
 
 - investigate `snafu` instead of `thiserror` for errors

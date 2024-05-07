@@ -153,6 +153,7 @@ impl ABIDefinition {
 
         // FIXME: we should deserialize everything here, we have some fields missing...
         //        also, probably "variants" doesn't come first... we need to check this...
+        // check here: https://github.com/wharfkit/antelope/blob/master/src/chain/abi.ts#L109
         assert_eq!(data.leftover(), [0u8; 2]);
 
         Self::from_str(&abi.to_string())

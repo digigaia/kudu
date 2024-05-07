@@ -20,6 +20,8 @@ use crate::abi::{
     TypeName, TypeNameRef, Struct, Variant,
 };
 
+// TODO: make sure that we can (de)serialize an ABI (ABIDefinition?) itself (eg, see: https://github.com/wharfkit/antelope/blob/master/src/chain/abi.ts, which implements ABISerializableObject)
+
 // FIXME: remove all `.0` lying in this file
 
 #[derive(Default, Clone)]
@@ -129,7 +131,7 @@ impl ABIEncoder {
         Ok(ds.pop())
     }
 
-    pub fn encode(&self, stream: &mut ByteStream, obj: &AntelopeValue) {
+    pub fn encode<T: ABISerializable>(&self, stream: &mut ByteStream, obj: &T) {
         obj.to_bin(stream)
     }
 
@@ -303,6 +305,7 @@ impl ABIEncoder {
     pub fn validate(&self) {
         // FIXME: implement me!
         // see: https://github.com/AntelopeIO/leap/blob/6817911900a088c60f91563995cf482d6b380b2d/libraries/chain/abi_serializer.cpp#L273
+        // https://github.com/AntelopeIO/leap/blob/main/libraries/chain/abi_serializer.cpp#L282
     }
 
 

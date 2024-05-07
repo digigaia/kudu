@@ -11,6 +11,10 @@ use crate::{
 
 // FIXME: from_bin should take &str instead of AntelopeType, and we might need to register an ABI provider
 pub trait ABISerializable {
+    fn abi_name() -> &'static str {
+        "undefined"
+    }
+    // abi_base, abi_fields, see https://github.com/wharfkit/antelope/blob/master/src/chain/struct.ts
     fn to_bin(&self, _stream: &mut ByteStream);
     fn from_bin(_typename: AntelopeType, _stream: &mut ByteStream) -> Result<Self, InvalidValue>
     where
