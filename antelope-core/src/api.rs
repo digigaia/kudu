@@ -6,6 +6,8 @@ use reqwest::Result;
 use serde::ser::Serialize;
 use serde_json::{Value as JsonValue};
 
+
+// FIXME: remove me!!!
 const DEFAULT_PROVIDER: &str = "https://jungle4.greymass.com";
 lazy_static! {
     static ref API_ENDPOINT: Mutex<Option<String>> = Mutex::new(Some(DEFAULT_PROVIDER.to_owned()));
@@ -38,5 +40,32 @@ where
             // Ok(JsonValue::Null) // ???
             unimplemented!();
         },
+    }
+}
+
+
+#[derive(Clone)]
+pub struct APIClient {
+    endpoint: String,
+}
+
+impl APIClient {
+    pub fn new(endpoint: &str) -> Self {
+        APIClient {
+            endpoint: endpoint.to_owned(),
+        }
+    }
+
+    pub fn call<T>(&self, path: &str, params: &T) -> Result<JsonValue>
+    where
+        T: Serialize + ?Sized
+    {
+        let fullpath = format!("{}{}", &self.endpoint, path);
+        let client = reqwest::blocking::Client::new();
+        client
+            .post(fullpath)
+            .json(params)
+            .send()?
+            .json()
     }
 }

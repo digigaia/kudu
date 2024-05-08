@@ -5,8 +5,9 @@ use tracing_subscriber::{
     EnvFilter,
     // fmt::format::FmtSpan,
 };
+use color_eyre::Result;
 
-use antelope_core::{Name, json, api};
+use antelope_core::{api, json, Name};
 use antelope_esr::signing_request::*;
 
 
@@ -53,7 +54,11 @@ fn encode() {
         }
     }]);
 
-    let req = SigningRequest::new(actions);
+    let opts = EncodeOptions::with_abi_provider("test");
+    // let req = SigningRequest::new(json!({ "actions": actions }), opts);
+    let req = SigningRequest::from_actions(actions, opts);
+    warn!("{:?}", req);
+    // assert!(false);
     let enc = req.encode();
 
     assert_eq!(hex::encode_upper(enc),
@@ -77,8 +82,12 @@ fn decode() {
 
     assert_eq!(r.chain_id, ChainId::Alias(1));
 
-    assert_eq!(r.actions.len(), 1);
-    let a = &r.actions[0];
+    let Request::Actions(actions) = r.request else {
+        panic!("invalid request type, should be `actions[]`");
+    };
+
+    assert_eq!(actions.len(), 1);
+    let a = &actions[0];
     assert_eq!(a["account"], "eosio");
     assert_eq!(a["name"], "voteproducer");
     let auth = &a["authorization"][0];
@@ -109,4 +118,42 @@ fn dec2() {
     warn!(%esr, %r);
 
     // assert!(false);
+}
+
+
+//
+// following tests mirror those in
+// https://github.com/wharfkit/signing-request/blob/master/test/request.ts
+//
+
+#[test]
+fn create_from_action() -> Result<()> {
+    init();
+
+    let options = EncodeOptions::with_abi_provider("jungle");
+
+    let req = SigningRequest::from_action(json!({
+        "account": "eosio.token",
+        "name": "transfer",
+        "authorization": [{"actor": "foo", "permission": "active"}],
+        "data": {"from": "foo", "to": "bar", "quantity": "1.000 EOS", "memo": "hello there"},
+    }), options);
+
+    assert_eq!(json!(req), json!({
+        "chain_id": ["chain_alias", 1],
+        "req": [
+            "action",
+            {
+                "account": "eosio.token",
+                "name": "transfer",
+                "authorization": [{"actor": "foo", "permission": "active"}],
+                "data": "000000000000285D000000000000AE39E80300000000000003454F53000000000B68656C6C6F207468657265",
+            },
+        ],
+        "callback": "",
+        "flags": 1,
+        "info": [],
+    }));
+
+    Ok(())
 }

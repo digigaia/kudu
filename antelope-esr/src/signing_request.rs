@@ -1,5 +1,7 @@
 use std::io::prelude::*;
+use std::fmt;
 
+use dyn_clone;
 use thiserror::Error;
 use base64::prelude::*;
 use hex;
@@ -11,7 +13,7 @@ use antelope_core::{types::antelopevalue::hex_to_boxed_array, JsonValue, Name, j
 use antelope_abi::{
     ByteStream,
     abi::TypeNameRef as T,
-    cache::get_abi,
+    cache::{get_abi, test_provider, ABIProvider, APICallABIProvider, InvalidABI, NullABIProvider, TestABIProvider},
 };
 
 use tracing::{trace, debug, warn};
@@ -48,25 +50,84 @@ impl Serialize for ChainId {
     }
 }
 
+#[derive(Clone, Debug)]
+pub enum Request {
+    Action(JsonValue),
+    Actions(Vec<JsonValue>),
+    Transaction,
+    Identity,
+}
 
-#[derive(Debug, Clone)]
+impl Serialize for Request {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where S: Serializer
+    {
+        let mut tup = serializer.serialize_tuple(2)?;
+        match self {
+            Request::Action(action) => {
+                tup.serialize_element("action")?;
+                tup.serialize_element(&action)?;
+            },
+            Request::Actions(actions) => {
+                tup.serialize_element("action[]")?;
+                tup.serialize_element(&actions)?;
+            },
+            Request::Transaction => todo!(),
+            Request::Identity => todo!(),
+        }
+        tup.end()
+    }
+}
+
+
 pub struct SigningRequest {
     pub chain_id: ChainId,
-    pub actions: Vec<JsonValue>,
+    // pub actions: Vec<JsonValue>,
+    pub request: Request,
     pub flags: u8,
     pub callback: Option<String>,
     pub info: Vec<JsonValue>, // TODO: consider getting something more precise
+
+    abi_provider: Box<dyn ABIProvider>,
+}
+
+impl Clone for SigningRequest {
+    fn clone(&self) -> Self {
+        SigningRequest {
+            chain_id: self.chain_id.clone(),
+            request: self.request.clone(),
+            flags: self.flags,
+            callback: self.callback.clone(),
+            info: self.info.clone(),
+
+            // abi_provider: Box::new(self.abi_provider.clone())
+            abi_provider: dyn_clone::clone_box(&*self.abi_provider),
+        }
+    }
+}
+
+impl fmt::Debug for SigningRequest {
+    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt.debug_struct("SigningRequest")
+           .field("chain_id", &self.chain_id)
+           .field("request", &self.request)
+           .field("flags", &self.flags)
+           .field("callback", &self.callback)
+           .field("info", &self.info)
+           .finish()
+    }
 }
 
 impl Default for SigningRequest {
     fn default() -> Self {
         SigningRequest {
             chain_id: ChainId::Alias(1),
-            actions: vec![],
+            request: Request::Actions(vec![]),
             flags: 1,
             callback: None,
             info: vec![],
 
+            abi_provider: Box::new(NullABIProvider::new()),
         }
     }
 }
@@ -74,6 +135,7 @@ impl Default for SigningRequest {
 pub struct EncodeOptions {
     pub version: u8,
     pub use_compression: bool,
+    pub abi_provider: Box<dyn ABIProvider>,
 }
 
 impl Default for EncodeOptions {
@@ -81,15 +143,82 @@ impl Default for EncodeOptions {
         EncodeOptions {
             version: 2,
             use_compression: true,
+            abi_provider: Box::new(test_provider()),
+        }
+    }
+}
+
+impl EncodeOptions {
+    // helper functions for commonly used options to have a more ergonomic usage
+    pub fn with_abi_provider(name: &str) -> EncodeOptions {
+        match name {
+            "test" => EncodeOptions {
+                abi_provider: Box::new(TestABIProvider::new()),
+                ..Default::default()
+            },
+            "jungle" => EncodeOptions {
+                abi_provider: Box::new(APICallABIProvider::new("https://jungle4.greymass.com")),
+                ..Default::default()
+            },
+            "eos" => EncodeOptions {
+                abi_provider: Box::new(APICallABIProvider::new("https://eos.greymass.com")),
+                ..Default::default()
+            },
+            _ => unimplemented!()
         }
     }
 }
 
 impl SigningRequest {
-    pub fn new(actions: JsonValue) -> Self {
-        let actions = actions.as_array().unwrap();
+    // TODO: is there any case where we would want a & instead of an owned value?
+    //       however we can't move stuff out of if because of shared references, so we
+    //       don't really gain anything here as we're gonna have to make a copy anyway
+    //       the only argument (it seems) in favor of owned value is that the API is nicer
+    //       as we can construct the args with the `json!` macro without prepending it with `&`
+    // FIXME: need to pass SigningRequestOptions struct as 2nd argument
+    // pub fn new(request: JsonValue, opts: EncodeOptions) -> Self {
+    //     // unimplemented!();
+    //     assert!(request.is_object(),
+    //             "request data passed when creating a SigningRequest needs to be JSON object");
+
+    //     let request_data = &request.as_object().unwrap();
+    //     let request_actions: Vec<JsonValue>;
+
+    //     if let Some(actions) = request_data.get("actions") {
+    //         // let actions = &request_data["actions"];
+    //         request_actions = actions.as_array().unwrap().to_vec();
+    //     }
+    //     else if let Some(action) = request_data.get("action") {
+    //         request_actions = vec![action.clone()];
+    //     }
+    //     else {
+    //         panic!("could not create SigningRequest with provided data: need to specify one of:\
+    //                 `action`, `actions`, `transaction`, `identity`");
+    //     }
+
+    //     // let mut result = SigningRequest {
+    //     //     actions: request_actions,
+    //     //     ..Default::default()
+    //     // };
+    //     // result.encode_actions(&opts.abi_provider);
+    //     // result
+    //     todo!()
+    // }
+
+    pub fn from_action(action: JsonValue, opts: EncodeOptions) -> Self {
         let mut result = SigningRequest {
-            actions: actions.to_vec(),
+            request: Request::Action(action),
+            abi_provider: opts.abi_provider,
+            ..Default::default()
+        };
+        result.encode_actions();
+        result
+    }
+
+    pub fn from_actions(actions: JsonValue, opts: EncodeOptions) -> Self {
+        let mut result = SigningRequest {
+            request: Request::Actions(actions.as_array().unwrap().to_vec()),
+            abi_provider: opts.abi_provider,
             ..Default::default()
         };
         result.encode_actions();
@@ -144,18 +273,33 @@ impl SigningRequest {
     }
 
     pub fn encode_actions(&mut self) {
-        for action in &mut self.actions[..] {
-            Self::encode_action(action).unwrap();
+        let abi_provider = &*self.abi_provider;
+        match self.request {
+            Request::Action(ref mut action) => {
+                warn!("{}", action);
+                Self::encode_action(action, abi_provider).unwrap();
+            },
+            Request::Actions(ref mut actions) => {
+                for action in &mut actions[..] {
+                    Self::encode_action(action, abi_provider).unwrap();
+                }
+            },
+            _ => todo!(),
         }
     }
 
     pub fn decode_actions(&mut self) {
-        for action in &mut self.actions[..] {
-            Self::decode_action(action).unwrap();
+        match self.request {
+            Request::Actions(ref mut actions) => {
+                for action in &mut actions[..] {
+                    Self::decode_action(action).unwrap();
+                }
+            },
+            _ => todo!(),
         }
     }
 
-    pub fn encode_action(action: &mut JsonValue) -> Result<(), SigningRequestError> {
+    fn encode_action(action: &mut JsonValue, abi_provider: &dyn ABIProvider) -> Result<(), SigningRequestError> {
         let is_action_data_encoded = action["data"].is_string();
         if is_action_data_encoded { return Ok(()); }
 
@@ -163,13 +307,13 @@ impl SigningRequest {
         let action_name = conv_action_field_str(action, "name")?;
         let data = &action["data"];
         let mut ds = ByteStream::new();
-        let abi = get_abi(account);
+        let abi = abi_provider.get_abi(account)?;
         abi.encode_variant(&mut ds, T(action_name), data).unwrap();
         action["data"] = JsonValue::String(ds.hex_data());
         Ok(())
     }
 
-    pub fn decode_action(action: &mut JsonValue) -> Result<(), SigningRequestError> {
+    fn decode_action(action: &mut JsonValue) -> Result<(), SigningRequestError> {
         let is_action_data_encoded = action["data"].is_string();
         if !is_action_data_encoded { return Ok(()); }
 
@@ -211,7 +355,14 @@ impl Serialize for SigningRequest {
     {
         let mut req = serializer.serialize_struct("SigningRequest", 5)?;
         req.serialize_field("chain_id", &self.chain_id)?;
-        req.serialize_field("req", &json!(["action[]", self.actions]))?;
+        // let req_data = if self.actions.len() == 1 {
+        //     json!(["action", self.actions[0]])
+        // }
+        // else {
+        //     json!(["action[]", self.actions])
+        // };
+        // req.serialize_field("req", &req_data)?;
+        req.serialize_field("req", &self.request)?;
         req.serialize_field("flags", &self.flags)?;
         req.serialize_field("callback", self.callback.as_ref().map_or("", |cb| cb))?;
         req.serialize_field("info", &self.info)?;
@@ -246,11 +397,11 @@ impl TryFrom<JsonValue> for SigningRequest {
         let req_type = conv_str(&payload["req"][0])?;
         let req_data = &payload["req"][1];
 
-        result.actions = match req_type {
-            "action" => vec![req_data.clone()],
+        result.request = match req_type {
+            "action" => Request::Action(req_data.clone()),
             "action[]" => {
                 let actions = req_data.as_array().unwrap();
-                actions.to_vec()
+                Request::Actions(actions.to_vec())
             },
             _ => unimplemented!(),
         };
@@ -281,6 +432,9 @@ pub enum SigningRequestError {
 
     #[error("hex decoding error")]
     HexDecode(#[from] hex::FromHexError),
+
+    #[error("ABI error")]
+    ABI(#[from] InvalidABI),
 }
 
 pub fn conv_str(obj: &JsonValue) -> Result<&str, SigningRequestError> {
