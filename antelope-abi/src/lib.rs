@@ -14,7 +14,7 @@ pub mod abiencoder;
 pub mod abiserializable;
 pub mod binaryserializable;
 pub mod bytestream;
-pub mod cache;
+pub mod provider;
 pub mod data;
 pub mod typenameref;
 

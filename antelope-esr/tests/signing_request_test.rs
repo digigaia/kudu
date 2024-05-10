@@ -7,7 +7,7 @@ use tracing_subscriber::{
 };
 use color_eyre::Result;
 
-use antelope_core::{api, json, Name};
+use antelope_core::{json, Name};
 use antelope_esr::signing_request::*;
 
 
@@ -18,8 +18,6 @@ use antelope_esr::signing_request::*;
 static TRACING_INIT: Once = Once::new();
 
 fn init() {
-    api::set_api_endpoint(None);
-
     TRACING_INIT.call_once(|| {
         tracing_subscriber::fmt()
             .with_env_filter(EnvFilter::from_default_env())
@@ -77,8 +75,9 @@ fn decode() {
     // let esr = "gmNgZGRkAIFXBqEFopc6760yugsVYWCA0YIwxgKjuxLSL6-mgmQA";
 
     let esr = "gmNgZGRkAIFXBqEFopc6760yugsVYWBggtKCMIEFRnclpF9eTWUACgAA";
+    let opts = EncodeOptions::with_abi_provider("test");
 
-    let r = SigningRequest::decode(esr).unwrap();
+    let r = SigningRequest::decode(esr, &opts).unwrap();
 
     assert_eq!(r.chain_id, ChainId::Alias(1));
 
@@ -109,12 +108,14 @@ fn decode() {
 fn dec2() {
     init();
 
+    let opts = EncodeOptions::with_abi_provider("test");
+
     let esr = "gmNgZGRkAIFXBqEFopc6760yugsVYWBggtKCMIEFRnclpF9eTWUACgAA";
-    let r = json!(SigningRequest::decode(esr).unwrap());
+    let r = json!(SigningRequest::decode(esr, &opts).unwrap());
     warn!(%esr, %r);
 
     let esr = "gmNgZGRkAIFXBqEFopc6760yugsVYWCA0YIwxgKjuxLSL6-mgmQA";
-    let r = json!(SigningRequest::decode(esr).unwrap());
+    let r = json!(SigningRequest::decode(esr, &opts).unwrap());
     warn!(%esr, %r);
 
     // assert!(false);

@@ -82,8 +82,6 @@ After splitting workspace into different crates, do the following:
 
 - implement `Debug` and `Display` trait for all basic types
 
-- can we remove `DynClone` and have a better way to store an `ABIProvider` in a `SigningRequest`
-
 - check how to specify shared deps for all projects in the workspace in an unified way (e.g.: `serde`, `thiserror`, etc.) in the root `Cargo.toml`
   https://blog.rust-lang.org/inside-rust/2024/05/07/this-development-cycle-in-cargo-1.79.html
 
