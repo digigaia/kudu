@@ -16,3 +16,7 @@ strum = { version = "0.26", features = ["derive"] }
 thiserror = "1.0"
 tracing = "0.1.40"
 tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
+
+# as suggested by: https://docs.rs/color-eyre/latest/color_eyre/#improving-perf-on-debug-builds
+[profile.dev.package.backtrace]
+opt-level = 3
