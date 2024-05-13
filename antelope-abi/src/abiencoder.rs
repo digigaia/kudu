@@ -1,10 +1,8 @@
 use std::collections::HashMap;
 
 use antelope_core::{AntelopeType, AntelopeValue, InvalidValue, Name};
-// use anyhow::Result;
 use color_eyre::eyre::Result;
 use serde_json::{
-    // Error as JsonError,
     json,
     Map as JsonMap,
     Value as JsonValue,

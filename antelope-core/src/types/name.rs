@@ -1,6 +1,6 @@
 use std::fmt;
 
-use anyhow::Result;
+use color_eyre::eyre::Result;
 use serde::de::{self, Visitor};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use thiserror::Error;

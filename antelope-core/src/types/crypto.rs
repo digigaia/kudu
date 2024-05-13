@@ -1,7 +1,6 @@
 use std::fmt;
 use std::marker::PhantomData;
 
-use anyhow::Result;
 use bs58;
 use ripemd::{Digest, Ripemd160};
 use sha2::Sha256;

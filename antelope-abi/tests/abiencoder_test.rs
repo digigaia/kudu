@@ -1,7 +1,6 @@
 use std::fmt::Display;
 
 use serde_json::json;
-// use anyhow::Result;
 use color_eyre::eyre::Result;
 use chrono::{NaiveDate, TimeZone, Utc};
 

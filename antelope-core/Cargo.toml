@@ -7,20 +7,19 @@ rust-version = "1.70"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-base64u = { path = "../base64u" }
-anyhow = "1"
+color-eyre = { workspace = true }
+hex = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+strum = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+
 chrono = { version = "0.4", features = ["serde"] }
 flate2 = "1.0"
-serde = { version = "1.0", features = ["derive"] }
-serde_json = { version = "1.0", features = ["preserve_order"] }
-thiserror = "1.0"
-color-eyre = "0.6"
-strum = { version = "0.26", features = ["derive"] }
 ripemd = "0.1"
 bs58 = "0.5"
 sha2 = "0.10"
 num = "0.4"
-hex = "0.4"
-tracing = "0.1.40"
 reqwest = { version = "0.12.4", features = ["blocking", "json"] }
 lazy_static = "1.4.0"
