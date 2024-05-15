@@ -10,7 +10,7 @@
 
 
 pub mod abi;
-pub mod abiencoder;
+pub mod abidefinition;
 pub mod abiserializable;
 pub mod binaryserializable;
 pub mod bytestream;
@@ -18,7 +18,7 @@ pub mod provider;
 pub mod data;
 pub mod typenameref;
 
-pub use abi::ABIDefinition;
-pub use abiencoder::ABIEncoder;
+pub use abi::ABI;
+pub use abidefinition::ABIDefinition;
 pub use bytestream::{ByteStream, StreamError};
 pub use provider::ABIProvider;

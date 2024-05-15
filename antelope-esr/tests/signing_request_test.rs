@@ -7,7 +7,7 @@ use tracing_subscriber::{
 };
 use color_eyre::Result;
 
-use antelope_core::{json, Name, APIClient};
+use antelope_core::{json, Name};
 use antelope_abi::ABIProvider;
 use antelope_esr::signing_request::*;
 
@@ -140,7 +140,7 @@ fn create_from_action() -> Result<()> {
             "authorization": [{"actor": "foo", "permission": "active"}],
             "data": {"from": "foo", "to": "bar", "quantity": "1.000 EOS", "memo": "hello there"},
         }))
-        .with_abi_provider(ABIProvider::API(APIClient::jungle()));
+        .with_abi_provider(ABIProvider::Test);
 
 
     assert_eq!(json!(req), json!({

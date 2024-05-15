@@ -8,9 +8,9 @@ use tracing_subscriber::{
     fmt::format::FmtSpan,
 };
 
-use antelope_abi::abi::{ABIDefinition, TypeNameRef};
+use antelope_abi::abidefinition::{ABIDefinition, TypeNameRef};
 use antelope_abi::{
-    ABIEncoder, ByteStream
+    ABI, ByteStream
 };
 
 use TypeNameRef as T;
@@ -57,30 +57,30 @@ fn init() {
 }
 
 #[instrument(skip(ds, abi))]
-fn try_encode_stream(ds: &mut ByteStream, abi: &ABIEncoder, typename: TypeNameRef, data: &str) -> Result<()> {
+fn try_encode_stream(ds: &mut ByteStream, abi: &ABI, typename: TypeNameRef, data: &str) -> Result<()> {
     let value: JsonValue = serde_json::from_str(data).map_err(InvalidValue::from)?;
     info!("{:?}", &value);
     abi.encode_variant(ds, typename, &value)?;
     Ok(())
 }
 
-fn try_encode(abi: &ABIEncoder, typename: &str, data: &str) -> Result<()> {
+fn try_encode(abi: &ABI, typename: &str, data: &str) -> Result<()> {
     let mut ds = ByteStream::new();
     try_encode_stream(&mut ds, abi, T(typename), data)
 }
 
-fn try_decode_stream(ds: &mut ByteStream, abi: &ABIEncoder, typename: TypeNameRef) -> Result<JsonValue> {
+fn try_decode_stream(ds: &mut ByteStream, abi: &ABI, typename: TypeNameRef) -> Result<JsonValue> {
     let decoded = abi.decode_variant(ds, typename)?;
     assert!(ds.leftover().is_empty());
     Ok(decoded)
 }
 
-fn try_decode<T: AsRef<[u8]>>(abi: &ABIEncoder, typename: &str, data: T) -> Result<JsonValue> {
+fn try_decode<T: AsRef<[u8]>>(abi: &ABI, typename: &str, data: T) -> Result<JsonValue> {
     let mut ds = ByteStream::from(hex::decode(data).map_err(InvalidValue::from)?);
     try_decode_stream(&mut ds, abi, T(typename))
 }
 
-fn round_trip(abi: &ABIEncoder, typename: &str, data: &str, hex: &str, expected: &str) -> Result<()> {
+fn round_trip(abi: &ABI, typename: &str, data: &str, hex: &str, expected: &str) -> Result<()> {
     debug!(r#"==== round-tripping type "{typename}" with value {data}"#);
     let mut ds = ByteStream::new();
 
@@ -113,17 +113,17 @@ fn check_error<F, T>(f: F, expected_error_msg: &str)
 }
 
 /// check roundtrip JSON -> variant -> bin -> variant -> JSON
-fn check_round_trip(abi: &ABIEncoder, typename: &str, data: &str, hex: &str) {
+fn check_round_trip(abi: &ABI, typename: &str, data: &str, hex: &str) {
     round_trip(abi, typename, data, hex, data).unwrap()
 }
 
-fn check_round_trip2(abi: &ABIEncoder, typename: &str, data: &str, hex: &str, expected: &str) {
+fn check_round_trip2(abi: &ABI, typename: &str, data: &str, hex: &str, expected: &str) {
     round_trip(abi, typename, data, hex, expected).unwrap()
 }
 
 
 ///// FIXME FIXME: what about the expected hex?
-fn _check_error_trip(abi: &ABIEncoder, typename: &str, data: &str, error_msg: &str) {
+fn _check_error_trip(abi: &ABI, typename: &str, data: &str, error_msg: &str) {
     check_error(|| round_trip(abi, typename, data, "", data), error_msg);
 }
 
@@ -137,21 +137,21 @@ fn integration_test() -> Result<()> {
     init();
 
     let _test_abi_def = ABIDefinition::from_str(TEST_ABI)?;
-    let _test_abi = ABIEncoder::from_abi(&_test_abi_def);
+    let _test_abi = ABI::from_abi(&_test_abi_def);
 
     let _transaction_abi_def = ABIDefinition::from_str(TRANSACTION_ABI)?;
-    let _transaction_abi = ABIEncoder::from_abi(&_transaction_abi_def);
+    let _transaction_abi = ABI::from_abi(&_transaction_abi_def);
 
-    let _token_abi = ABIEncoder::from_hex_abi(TOKEN_HEX_ABI)?;
+    let _token_abi = ABI::from_hex_abi(TOKEN_HEX_ABI)?;
 
     let _abi = &_transaction_abi;
 
     check_error(|| Ok(ABIDefinition::from_str("")?), "cannot parse JSON string");
-    check_error(|| Ok(ABIEncoder::from_hex_abi("")?), "stream ended");
-    check_error(|| Ok(ABIEncoder::from_hex_abi("00")?), "unsupported ABI version");
-    check_error(|| Ok(ABIEncoder::from_hex_abi(&str_to_hex("eosio::abi/9.0"))?), "unsupported ABI version");
-    check_error(|| Ok(ABIEncoder::from_hex_abi(&str_to_hex("eosio::abi/1.0"))?), "stream ended");
-    check_error(|| Ok(ABIEncoder::from_hex_abi(&str_to_hex("eosio::abi/1.1"))?), "stream ended");
+    check_error(|| Ok(ABI::from_hex_abi("")?), "stream ended");
+    check_error(|| Ok(ABI::from_hex_abi("00")?), "unsupported ABI version");
+    check_error(|| Ok(ABI::from_hex_abi(&str_to_hex("eosio::abi/9.0"))?), "unsupported ABI version");
+    check_error(|| Ok(ABI::from_hex_abi(&str_to_hex("eosio::abi/1.0"))?), "stream ended");
+    check_error(|| Ok(ABI::from_hex_abi(&str_to_hex("eosio::abi/1.1"))?), "stream ended");
 
     Ok(())
 }
@@ -162,7 +162,7 @@ fn test_type_properties() -> Result<()> {
     init();
 
     let transaction_abi_def = ABIDefinition::from_str(TRANSACTION_ABI)?;
-    let transaction_abi = ABIEncoder::from_abi(&transaction_abi_def);
+    let transaction_abi = ABI::from_abi(&transaction_abi_def);
     let _abi = &transaction_abi;
 
     // check_error(|| try_encode(abi, "int8?[]", "[]"), "failed test type properties");
@@ -179,7 +179,7 @@ fn roundtrip_bool() -> Result<()> {
     init();
 
     let transaction_abi_def = ABIDefinition::from_str(TRANSACTION_ABI)?;
-    let transaction_abi = ABIEncoder::from_abi(&transaction_abi_def);
+    let transaction_abi = ABI::from_abi(&transaction_abi_def);
     let abi = &transaction_abi;
 
     check_round_trip(abi, "bool", "true", "01");
@@ -199,7 +199,7 @@ fn roundtrip_i8() -> Result<()> {
     init();
 
     let transaction_abi_def = ABIDefinition::from_str(TRANSACTION_ABI)?;
-    let transaction_abi = ABIEncoder::from_abi(&transaction_abi_def);
+    let transaction_abi = ABI::from_abi(&transaction_abi_def);
     let abi = &transaction_abi;
 
 
@@ -229,7 +229,7 @@ fn roundtrip_i16() -> Result<()> {
     init();
 
     let transaction_abi_def = ABIDefinition::from_str(TRANSACTION_ABI)?;
-    let transaction_abi = ABIEncoder::from_abi(&transaction_abi_def);
+    let transaction_abi = ABI::from_abi(&transaction_abi_def);
     let abi = &transaction_abi;
 
     check_round_trip(abi, "int16", "0", "0000");
@@ -252,7 +252,7 @@ fn roundtrip_i32() -> Result<()> {
     init();
 
     let transaction_abi_def = ABIDefinition::from_str(TRANSACTION_ABI)?;
-    let transaction_abi = ABIEncoder::from_abi(&transaction_abi_def);
+    let transaction_abi = ABI::from_abi(&transaction_abi_def);
     let abi = &transaction_abi;
 
 
@@ -275,7 +275,7 @@ fn roundtrip_i64() -> Result<()> {
     init();
 
     let transaction_abi_def = ABIDefinition::from_str(TRANSACTION_ABI)?;
-    let transaction_abi = ABIEncoder::from_abi(&transaction_abi_def);
+    let transaction_abi = ABI::from_abi(&transaction_abi_def);
     let abi = &transaction_abi;
 
 
@@ -300,7 +300,7 @@ fn roundtrip_i128() -> Result<()> {
     init();
 
     let transaction_abi_def = ABIDefinition::from_str(TRANSACTION_ABI)?;
-    let transaction_abi = ABIEncoder::from_abi(&transaction_abi_def);
+    let transaction_abi = ABI::from_abi(&transaction_abi_def);
     let abi = &transaction_abi;
 
 
@@ -331,7 +331,7 @@ fn roundtrip_varints() -> Result<()> {
     init();
 
     let transaction_abi_def = ABIDefinition::from_str(TRANSACTION_ABI)?;
-    let transaction_abi = ABIEncoder::from_abi(&transaction_abi_def);
+    let transaction_abi = ABI::from_abi(&transaction_abi_def);
     let abi = &transaction_abi;
 
 
@@ -373,7 +373,7 @@ fn roundtrip_floats() -> Result<()> {
     init();
 
     let transaction_abi_def = ABIDefinition::from_str(TRANSACTION_ABI)?;
-    let transaction_abi = ABIEncoder::from_abi(&transaction_abi_def);
+    let transaction_abi = ABI::from_abi(&transaction_abi_def);
     let abi = &transaction_abi;
 
 
@@ -395,7 +395,7 @@ fn roundtrip_datetimes() -> Result<()> {
     init();
 
     let transaction_abi_def = ABIDefinition::from_str(TRANSACTION_ABI)?;
-    let transaction_abi = ABIEncoder::from_abi(&transaction_abi_def);
+    let transaction_abi = ABI::from_abi(&transaction_abi_def);
     let abi = &transaction_abi;
 
 
@@ -431,7 +431,7 @@ fn roundtrip_names() -> Result<()> {
     init();
 
     let transaction_abi_def = ABIDefinition::from_str(TRANSACTION_ABI)?;
-    let transaction_abi = ABIEncoder::from_abi(&transaction_abi_def);
+    let transaction_abi = ABI::from_abi(&transaction_abi_def);
     let abi = &transaction_abi;
 
     check_round_trip(abi, "name", r#""""#, "0000000000000000");
@@ -452,7 +452,7 @@ fn roundtrip_bytes() -> Result<()> {
     init();
 
     let transaction_abi_def = ABIDefinition::from_str(TRANSACTION_ABI)?;
-    let transaction_abi = ABIEncoder::from_abi(&transaction_abi_def);
+    let transaction_abi = ABI::from_abi(&transaction_abi_def);
     let abi = &transaction_abi;
 
     check_round_trip(abi, "bytes", r#""""#, "00");
@@ -472,7 +472,7 @@ fn roundtrip_strings() -> Result<()> {
     init();
 
     let transaction_abi_def = ABIDefinition::from_str(TRANSACTION_ABI)?;
-    let transaction_abi = ABIEncoder::from_abi(&transaction_abi_def);
+    let transaction_abi = ABI::from_abi(&transaction_abi_def);
     let abi = &transaction_abi;
 
     check_round_trip(abi, "string", r#""""#, "00");
@@ -493,7 +493,7 @@ fn roundtrip_crypto_types() -> Result<()> {
     init();
 
     let transaction_abi_def = ABIDefinition::from_str(TRANSACTION_ABI)?;
-    let transaction_abi = ABIEncoder::from_abi(&transaction_abi_def);
+    let transaction_abi = ABI::from_abi(&transaction_abi_def);
     let abi = &transaction_abi;
 
     check_round_trip(abi, "checksum160",
@@ -567,7 +567,7 @@ fn roundtrip_symbol() -> Result<()> {
     init();
 
     let transaction_abi_def = ABIDefinition::from_str(TRANSACTION_ABI)?;
-    let transaction_abi = ABIEncoder::from_abi(&transaction_abi_def);
+    let transaction_abi = ABI::from_abi(&transaction_abi_def);
     let abi = &transaction_abi;
 
     check_round_trip(abi, "symbol_code", r#""A""#, "4100000000000000");
@@ -590,7 +590,7 @@ fn roundtrip_asset() -> Result<()> {
     init();
 
     let transaction_abi_def = ABIDefinition::from_str(TRANSACTION_ABI)?;
-    let transaction_abi = ABIEncoder::from_abi(&transaction_abi_def);
+    let transaction_abi = ABI::from_abi(&transaction_abi_def);
     let abi = &transaction_abi;
 
     check_round_trip(abi, "asset", r#""0 FOO""#, "000000000000000000464F4F00000000");
@@ -619,10 +619,10 @@ fn roundtrip_transaction() -> Result<()> {
     init();
 
     let trx_abi_def = ABIDefinition::from_str(TRANSACTION_ABI)?;
-    let trx_abi = &ABIEncoder::from_abi(&trx_abi_def);
-    let token_abi = &ABIEncoder::from_hex_abi(TOKEN_HEX_ABI)?;
+    let trx_abi = &ABI::from_abi(&trx_abi_def);
+    let token_abi = &ABI::from_hex_abi(TOKEN_HEX_ABI)?;
     let packed_trx_abi_def = ABIDefinition::from_str(PACKED_TRANSACTION_ABI)?;
-    let packed_trx_abi = &ABIEncoder::from_abi(&packed_trx_abi_def);
+    let packed_trx_abi = &ABI::from_abi(&packed_trx_abi_def);
 
     check_round_trip(token_abi, "transfer",
                      r#"{"from":"useraaaaaaaa","to":"useraaaaaaab","quantity":"0.0001 SYS","memo":"test memo"}"#,
@@ -660,7 +660,7 @@ fn roundtrip_transaction_traces() -> Result<()> {
     init();
 
     let ship_abi_def = ABIDefinition::from_str(STATE_HISTORY_PLUGIN_ABI)?;
-    let ship_abi = &ABIEncoder::from_abi(&ship_abi_def);
+    let ship_abi = &ABI::from_abi(&ship_abi_def);
 
     check_round_trip(ship_abi, "transaction_trace",
                      r#"["transaction_trace_v0",{"id":"3098EA9476266BFA957C13FA73C26806D78753099CE8DEF2A650971F07595A69","status":0,"cpu_usage_us":2000,"net_usage_words":25,"elapsed":"194","net_usage":"200","scheduled":false,"action_traces":[["action_trace_v1",{"action_ordinal":1,"creator_action_ordinal":0,"receipt":["action_receipt_v0",{"receiver":"eosio","act_digest":"F2FDEEFF77EFC899EED23EE05F9469357A096DC3083D493571CF68A422C69EFE","global_sequence":"11","recv_sequence":"11","auth_sequence":[{"account":"eosio","sequence":"11"}],"code_sequence":2,"abi_sequence":0}],"receiver":"eosio","act":{"account":"eosio","name":"newaccount","authorization":[{"actor":"eosio","permission":"active"}],"data":"0000000000EA305500409406A888CCA501000000010002C0DED2BC1F1305FB0FAAC5E6C03EE3A1924234985427B6167CA569D13DF435CF0100000001000000010002C0DED2BC1F1305FB0FAAC5E6C03EE3A1924234985427B6167CA569D13DF435CF01000000"},"context_free":false,"elapsed":"83","console":"","account_ram_deltas":[{"account":"oracle.aml","delta":"2724"}],"account_disk_deltas":[],"except":null,"error_code":null,"return_value":""}]],"account_ram_delta":null,"except":null,"error_code":null,"failed_dtrx_trace":null,"partial":null}]"#,

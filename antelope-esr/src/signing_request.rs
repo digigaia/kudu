@@ -11,7 +11,7 @@ use serde::{Serialize, Serializer, ser::SerializeTuple, ser::SerializeStruct};
 use antelope_core::{types::antelopevalue::hex_to_boxed_array, JsonValue, Name, json};
 use antelope_abi::{
     ByteStream,
-    abi::TypeNameRef as T,
+    abidefinition::TypeNameRef as T,
     provider::{get_signing_request_abi, ABIProvider, InvalidABI},
 };
 

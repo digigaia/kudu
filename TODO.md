@@ -15,9 +15,7 @@ eg: settings paragraph in https://github.com/tesselode/kira/releases/tag/v0.9.0
 https://docs.rs/builder-pattern/latest/builder_pattern/
 https://zerotomastery.io/blog/rust-struct-guide/
 
-- clean abiencoder.rs
-
-- class `ABIEncoder` should probably just be named `ABI` as it can decode/encode
+- clean abi.rs
 
 - try defining the `ABISerializable` trait and implement it for all types, then replace the `AntelopeValue` struct with just the implementation of the base types
 
@@ -74,6 +72,8 @@ https://zerotomastery.io/blog/rust-struct-guide/
 - check for `unwrap` and `panic!` and `assert` everywhere
 
 - check abieos/test.cpp to ensure we cover also all the error cases with proper error messages
+
+- have some tests for `APIClient`, think how to do this smartly to not pound the API server
 
 - check tests in https://github.com/AntelopeIO/leap/blob/main/unittests/abi_tests.cpp
 

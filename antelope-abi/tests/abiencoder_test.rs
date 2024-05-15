@@ -4,9 +4,9 @@ use serde_json::json;
 use color_eyre::eyre::Result;
 use chrono::{NaiveDate, TimeZone, Utc};
 
-use antelope_abi::abi::*;
+use antelope_abi::abidefinition::*;
 use antelope_abi::{
-    ABIEncoder, ByteStream,
+    ABI, ByteStream,
     binaryserializable::write_var_u32,
     abiserializable::ABISerializable,
 };
@@ -25,7 +25,7 @@ fn test_serialize_ints() {
     let i1 = AntelopeValue::Uint64(5);
     let i2 = AntelopeValue::Int64(-23);
 
-    let abi = ABIEncoder::new();
+    let abi = ABI::new();
     let mut ds = ByteStream::new();
 
     abi.encode(&mut ds, &i1);
@@ -38,7 +38,7 @@ fn test_serialize_ints() {
 
 #[test]
 fn test_serialize_string() {
-    let abi = ABIEncoder::new();
+    let abi = ABI::new();
     let mut ds = ByteStream::new();
 
     abi.encode(&mut ds, &AntelopeValue::String("foo".to_owned()));
@@ -52,7 +52,7 @@ fn test_serialize_string() {
 #[test]
 fn test_serialize_array() {
     let a = ["foo", "bar", "baz"];
-    let abi = ABIEncoder::new();
+    let abi = ABI::new();
     let mut ds = ByteStream::new();
 
     abi.encode_variant(&mut ds, T("string[]"), &json!(a)).unwrap();
@@ -71,7 +71,7 @@ fn test_serialize_name() {
     let obj = Name::from_str("foobar").unwrap();
     let json = r#""foobar""#;
 
-    let abi = ABIEncoder::new();
+    let abi = ABI::new();
     let mut ds = ByteStream::new();
     abi.encode(&mut ds, &AntelopeValue::Name(obj));
 
@@ -89,7 +89,7 @@ fn test_serialize_symbol() {
     let obj = Symbol::from_str("4,FOO").unwrap();
     let json = r#""4,FOO""#;
 
-    let abi = ABIEncoder::new();
+    let abi = ABI::new();
     let mut ds = ByteStream::new();
     abi.encode(&mut ds, &AntelopeValue::Symbol(obj));
 
@@ -108,7 +108,7 @@ fn test_serialize_asset() {
     let obj = Asset::from_str("1.2345 FOO").unwrap();
     let json = r#""1.2345 FOO""#;
 
-    let abi = ABIEncoder::new();
+    let abi = ABI::new();
     let mut ds = ByteStream::new();
     abi.encode(&mut ds, &AntelopeValue::Asset(obj));
 
@@ -153,7 +153,7 @@ fn test_serialize_struct() {
         "four": ['f', 'o', 'u', 'r'],
     });
 
-    let abi = ABIEncoder::from_abi(&abi);
+    let abi = ABI::from_abi(&abi);
     let mut ds = ByteStream::new();
     abi.encode_variant(&mut ds, T("bar"), &obj).unwrap();
 
