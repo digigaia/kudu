@@ -21,12 +21,16 @@ pub mod api;
 pub mod config;
 pub mod types;
 
+// FIXME: check whether we want those typedefs? Does it make it easier or
+// does it obscure where those types are coming from?
 pub use serde_json::{
     Map as JsonMap,
     Value as JsonValue,
     Error as JsonError,
     json
 };
+
+pub use api::APIClient;
 
 pub use types::{
     ActionName, ScopeName, AccountName, PermissionName, TableName,

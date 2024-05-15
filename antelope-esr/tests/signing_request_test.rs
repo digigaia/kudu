@@ -7,7 +7,8 @@ use tracing_subscriber::{
 };
 use color_eyre::Result;
 
-use antelope_core::{json, Name};
+use antelope_core::{json, Name, APIClient};
+use antelope_abi::ABIProvider;
 use antelope_esr::signing_request::*;
 
 
@@ -52,9 +53,11 @@ fn encode() {
         }
     }]);
 
-    let opts = EncodeOptions::with_abi_provider("test");
+    // let opts = EncodeOptions::default();
+    // let opts = EncodeOptions::with_abi_provider("test");
     // let req = SigningRequest::new(json!({ "actions": actions }), opts);
-    let req = SigningRequest::from_actions(actions, opts);
+    let mut req = SigningRequest::from_actions(actions)
+        .with_abi_provider(ABIProvider::Test);
     warn!("{:?}", req);
     // assert!(false);
     let enc = req.encode();
@@ -75,9 +78,8 @@ fn decode() {
     // let esr = "gmNgZGRkAIFXBqEFopc6760yugsVYWCA0YIwxgKjuxLSL6-mgmQA";
 
     let esr = "gmNgZGRkAIFXBqEFopc6760yugsVYWBggtKCMIEFRnclpF9eTWUACgAA";
-    let opts = EncodeOptions::with_abi_provider("test");
 
-    let r = SigningRequest::decode(esr, &opts).unwrap();
+    let r = SigningRequest::decode(esr, Some(ABIProvider::Test)).unwrap();
 
     assert_eq!(r.chain_id, ChainId::Alias(1));
 
@@ -108,14 +110,12 @@ fn decode() {
 fn dec2() {
     init();
 
-    let opts = EncodeOptions::with_abi_provider("test");
-
     let esr = "gmNgZGRkAIFXBqEFopc6760yugsVYWBggtKCMIEFRnclpF9eTWUACgAA";
-    let r = json!(SigningRequest::decode(esr, &opts).unwrap());
+    let r = json!(SigningRequest::decode(esr, Some(ABIProvider::Test)).unwrap());
     warn!(%esr, %r);
 
     let esr = "gmNgZGRkAIFXBqEFopc6760yugsVYWCA0YIwxgKjuxLSL6-mgmQA";
-    let r = json!(SigningRequest::decode(esr, &opts).unwrap());
+    let r = json!(SigningRequest::decode(esr, Some(ABIProvider::Test)).unwrap());
     warn!(%esr, %r);
 
     // assert!(false);
@@ -131,14 +131,35 @@ fn dec2() {
 fn create_from_action() -> Result<()> {
     init();
 
-    let options = EncodeOptions::with_abi_provider("jungle");
+    // let options = EncodeOptions::default();
 
-    let req = SigningRequest::from_action(json!({
-        "account": "eosio.token",
-        "name": "transfer",
-        "authorization": [{"actor": "foo", "permission": "active"}],
-        "data": {"from": "foo", "to": "bar", "quantity": "1.000 EOS", "memo": "hello there"},
-    }), options);
+    let mut req = SigningRequest::from_action(
+        json!({
+            "account": "eosio.token",
+            "name": "transfer",
+            "authorization": [{"actor": "foo", "permission": "active"}],
+            "data": {"from": "foo", "to": "bar", "quantity": "1.000 EOS", "memo": "hello there"},
+        }))
+        .with_abi_provider(ABIProvider::API(APIClient::jungle()));
+
+
+    assert_eq!(json!(req), json!({
+        "chain_id": ["chain_alias", 1],
+        "req": [
+            "action",
+            {
+                "account": "eosio.token",
+                "name": "transfer",
+                "authorization": [{"actor": "foo", "permission": "active"}],
+                "data": {"from": "foo", "to": "bar", "quantity": "1.000 EOS", "memo": "hello there"},
+            },
+        ],
+        "callback": "",
+        "flags": 1,
+        "info": [],
+    }));
+
+    req.encode_actions();
 
     assert_eq!(json!(req), json!({
         "chain_id": ["chain_alias", 1],

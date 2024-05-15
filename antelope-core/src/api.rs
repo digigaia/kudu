@@ -28,4 +28,18 @@ impl APIClient {
             .send()?
             .json()
     }
+
+
+    // -----------------------------------------------------------------------------
+    //     helper functions for known endpoints
+    //     TODO: maybe this is not the best place to define them?
+    // -----------------------------------------------------------------------------
+
+    pub fn jungle() -> Self {
+        APIClient::new("https://jungle4.greymass.com")
+    }
+
+    pub fn eos() -> Self {
+        APIClient::new("https://eos.greymass.com")
+    }
 }

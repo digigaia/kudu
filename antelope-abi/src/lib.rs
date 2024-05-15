@@ -21,3 +21,4 @@ pub mod typenameref;
 pub use abi::ABIDefinition;
 pub use abiencoder::ABIEncoder;
 pub use bytestream::{ByteStream, StreamError};
+pub use provider::ABIProvider;

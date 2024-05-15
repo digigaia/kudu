@@ -10,6 +10,11 @@ After splitting workspace into different crates, do the following:
 
 ## API DESIGN
 
+- look at builder pattern / fluent interface for specifiying EncodeOptions in ESR
+eg: settings paragraph in https://github.com/tesselode/kira/releases/tag/v0.9.0
+https://docs.rs/builder-pattern/latest/builder_pattern/
+https://zerotomastery.io/blog/rust-struct-guide/
+
 - clean abiencoder.rs
 
 - class `ABIEncoder` should probably just be named `ABI` as it can decode/encode

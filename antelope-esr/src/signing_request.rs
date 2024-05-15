@@ -1,5 +1,4 @@
 use std::io::prelude::*;
-use std::rc::Rc;
 use std::fmt;
 
 use thiserror::Error;
@@ -13,7 +12,7 @@ use antelope_core::{types::antelopevalue::hex_to_boxed_array, JsonValue, Name, j
 use antelope_abi::{
     ByteStream,
     abi::TypeNameRef as T,
-    provider::{get_signing_request_abi, test_provider, ABIProvider, APICallABIProvider, InvalidABI, NullABIProvider, TestABIProvider},
+    provider::{get_signing_request_abi, ABIProvider, InvalidABI},
 };
 
 use tracing::{trace, debug, warn};
@@ -93,7 +92,8 @@ impl Serialize for Request {
 //
 // =============================================================================
 
-#[derive(Clone)]
+// FIXME: do we need to derive Clone? do we want to?
+// #[derive(Clone)]
 pub struct SigningRequest {
     pub chain_id: ChainId,
     // pub actions: Vec<JsonValue>,
@@ -102,7 +102,7 @@ pub struct SigningRequest {
     pub callback: Option<String>,
     pub info: Vec<JsonValue>, // TODO: consider getting something more precise
 
-    abi_provider: Rc<dyn ABIProvider>,
+    abi_provider: Option<ABIProvider>,
 }
 
 impl fmt::Debug for SigningRequest {
@@ -126,7 +126,7 @@ impl Default for SigningRequest {
             callback: None,
             info: vec![],
 
-            abi_provider: Rc::new(NullABIProvider::new()),
+            abi_provider: None,
         }
     }
 }
@@ -138,7 +138,6 @@ impl Default for SigningRequest {
 pub struct EncodeOptions {
     pub version: u8,
     pub use_compression: bool,
-    pub abi_provider: Rc<dyn ABIProvider>,
 }
 
 impl Default for EncodeOptions {
@@ -146,31 +145,10 @@ impl Default for EncodeOptions {
         EncodeOptions {
             version: 2,
             use_compression: true,
-            abi_provider: Rc::new(test_provider()),
         }
     }
 }
 
-impl EncodeOptions {
-    // helper functions for commonly used options to have a more ergonomic usage
-    pub fn with_abi_provider(name: &str) -> EncodeOptions {
-        match name {
-            "test" => EncodeOptions {
-                abi_provider: Rc::new(TestABIProvider::new()),
-                ..Default::default()
-            },
-            "jungle" => EncodeOptions {
-                abi_provider: Rc::new(APICallABIProvider::new("https://jungle4.greymass.com")),
-                ..Default::default()
-            },
-            "eos" => EncodeOptions {
-                abi_provider: Rc::new(APICallABIProvider::new("https://eos.greymass.com")),
-                ..Default::default()
-            },
-            _ => unimplemented!()
-        }
-    }
-}
 
 impl SigningRequest {
     // TODO: is there any case where we would want a & instead of an owned value?
@@ -178,54 +156,19 @@ impl SigningRequest {
     //       don't really gain anything here as we're gonna have to make a copy anyway
     //       the only argument (it seems) in favor of owned value is that the API is nicer
     //       as we can construct the args with the `json!` macro without prepending it with `&`
-    // FIXME: need to pass SigningRequestOptions struct as 2nd argument
-    // pub fn new(request: JsonValue, opts: EncodeOptions) -> Self {
-    //     // unimplemented!();
-    //     assert!(request.is_object(),
-    //             "request data passed when creating a SigningRequest needs to be JSON object");
 
-    //     let request_data = &request.as_object().unwrap();
-    //     let request_actions: Vec<JsonValue>;
-
-    //     if let Some(actions) = request_data.get("actions") {
-    //         // let actions = &request_data["actions"];
-    //         request_actions = actions.as_array().unwrap().to_vec();
-    //     }
-    //     else if let Some(action) = request_data.get("action") {
-    //         request_actions = vec![action.clone()];
-    //     }
-    //     else {
-    //         panic!("could not create SigningRequest with provided data: need to specify one of:\
-    //                 `action`, `actions`, `transaction`, `identity`");
-    //     }
-
-    //     // let mut result = SigningRequest {
-    //     //     actions: request_actions,
-    //     //     ..Default::default()
-    //     // };
-    //     // result.encode_actions(&opts.abi_provider);
-    //     // result
-    //     todo!()
-    // }
-
-    pub fn from_action(action: JsonValue, opts: EncodeOptions) -> Self {
-        let mut result = SigningRequest {
+     pub fn from_action(action: JsonValue) -> Self {
+        SigningRequest {
             request: Request::Action(action),
-            abi_provider: opts.abi_provider,
             ..Default::default()
-        };
-        result.encode_actions();
-        result
+        }
     }
 
-    pub fn from_actions(actions: JsonValue, opts: EncodeOptions) -> Self {
-        let mut result = SigningRequest {
+    pub fn from_actions(actions: JsonValue) -> Self {
+        SigningRequest {
             request: Request::Actions(actions.as_array().unwrap().to_vec()),
-            abi_provider: opts.abi_provider,
             ..Default::default()
-        };
-        result.encode_actions();
-        result
+        }
     }
 
     // FIXME: return Result<JsonValue, InvalidPayload>
@@ -266,25 +209,32 @@ impl SigningRequest {
                 "cannot decode SigningRequest from JSON representation".to_owned()))
     }
 
-    pub fn decode<T>(esr: T, opts: &EncodeOptions) -> Result<Self, SigningRequestError>
+    pub fn decode<T>(esr: T, abi_provider: Option<ABIProvider>) -> Result<Self, SigningRequestError>
     where
         T: AsRef<[u8]>
     {
         let payload = Self::decode_payload(esr)?;
         let mut result: Result<Self, SigningRequestError> = payload.try_into();
         if let Ok(ref mut request) = result {
-            request.set_abi_provider(opts.abi_provider.clone());
+            request.set_abi_provider(abi_provider);
             request.decode_actions();
         }
         result
     }
 
-    pub fn set_abi_provider(&mut self, abi_provider: Rc<dyn ABIProvider>) {
+    pub fn set_abi_provider(&mut self, abi_provider: Option<ABIProvider>) {
         self.abi_provider = abi_provider;
     }
 
+    pub fn with_abi_provider(self, abi_provider: ABIProvider) -> Self {
+        let mut req = self;
+        req.set_abi_provider(Some(abi_provider));
+        req
+    }
+
     pub fn encode_actions(&mut self) {
-        let abi_provider = &*self.abi_provider;
+        // FIXME: check whether we actually need an ABIProvider
+        let abi_provider = self.abi_provider.as_ref().unwrap();
         match self.request {
             Request::Action(ref mut action) => {
                 warn!("{}", action);
@@ -300,7 +250,8 @@ impl SigningRequest {
     }
 
     pub fn decode_actions(&mut self) {
-        let abi_provider = &*self.abi_provider;
+        // FIXME: check whether we actually need an ABIProvider
+        let abi_provider = self.abi_provider.as_ref().unwrap();
         match self.request {
             Request::Actions(ref mut actions) => {
                 for action in &mut actions[..] {
@@ -311,7 +262,7 @@ impl SigningRequest {
         }
     }
 
-    fn encode_action(action: &mut JsonValue, abi_provider: &dyn ABIProvider) -> Result<(), SigningRequestError> {
+    fn encode_action(action: &mut JsonValue, abi_provider: &ABIProvider) -> Result<(), SigningRequestError> {
         let is_action_data_encoded = action["data"].is_string();
         if is_action_data_encoded { return Ok(()); }
 
@@ -325,7 +276,7 @@ impl SigningRequest {
         Ok(())
     }
 
-    fn decode_action(action: &mut JsonValue, abi_provider: &dyn ABIProvider) -> Result<(), SigningRequestError> {
+    fn decode_action(action: &mut JsonValue, abi_provider: &ABIProvider) -> Result<(), SigningRequestError> {
         let is_action_data_encoded = action["data"].is_string();
         if !is_action_data_encoded { return Ok(()); }
 
@@ -338,23 +289,15 @@ impl SigningRequest {
         Ok(())
     }
 
-    pub fn encode(&self) -> Vec<u8> {
+    pub fn encode(&mut self) -> Vec<u8> {
         let mut ds = ByteStream::new();
         let abi = get_signing_request_abi();
 
-        // self.encode_actions();
+        self.encode_actions();
         let cid = json!(self.chain_id);
         warn!("chain id = {:?}", cid);
 
-        // let sr = json!({
-        //     "chain_id": self.chain_id,
-        //     "req": ["action[]", self.actions],
-        //     "flags": self.flags,
-        //     "callback": self.callback.clone().unwrap_or("".to_owned()),
-        //     "info": self.info,
-        // });
         let sr = json!(self);
-
         abi.encode_variant(&mut ds, T("signing_request"), &sr).unwrap(); // FIXME: remove this `unwrap`
         ds.into()
     }
@@ -367,13 +310,6 @@ impl Serialize for SigningRequest {
     {
         let mut req = serializer.serialize_struct("SigningRequest", 5)?;
         req.serialize_field("chain_id", &self.chain_id)?;
-        // let req_data = if self.actions.len() == 1 {
-        //     json!(["action", self.actions[0]])
-        // }
-        // else {
-        //     json!(["action[]", self.actions])
-        // };
-        // req.serialize_field("req", &req_data)?;
         req.serialize_field("req", &self.request)?;
         req.serialize_field("flags", &self.flags)?;
         req.serialize_field("callback", self.callback.as_ref().map_or("", |cb| cb))?;
