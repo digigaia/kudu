@@ -1,3 +1,5 @@
+use std::cell::RefCell;
+use std::collections::HashMap;
 use std::rc::Rc;
 use std::sync::OnceLock;
 
@@ -47,12 +49,30 @@ pub enum InvalidABI {
 pub enum ABIProvider {
     API(APIClient),
     Test,
+    Cached {
+        provider: Box<ABIProvider>,
+        cache: RefCell<HashMap<String, Rc<ABI>>>,
+    },
 }
 
 impl ABIProvider {
     pub fn get_abi(&self, abi_name: &str) -> Result<Rc<ABI>, InvalidABI> {
-        let abi_def = ABIDefinition::from_str(&self.get_abi_definition(abi_name)?)?;
-        Ok(Rc::new(ABI::from_abi(&abi_def)))
+        match self {
+            ABIProvider::Cached { provider, cache } => {
+                match cache.borrow().get(abi_name) {
+                    Some(abi) => Ok(abi.clone()),
+                    None => {
+                        let abi = provider.get_abi(abi_name)?;
+                        cache.borrow_mut().insert(abi_name.to_string(), abi.clone());
+                        Ok(abi)
+                    }
+                }
+            },
+            _ => {
+                let abi_def = ABIDefinition::from_str(&self.get_abi_definition(abi_name)?)?;
+                Ok(Rc::new(ABI::from_abi(&abi_def)))
+            }
+        }
     }
 
     pub fn get_abi_definition(&self, abi_name: &str) -> Result<String, InvalidABI> {
@@ -73,6 +93,9 @@ impl ABIProvider {
                         _ => unimplemented!(),
                     }
                 },
+                ABIProvider::Cached { provider, .. } => {
+                    provider.get_abi_definition(abi_name)
+                }
             }
         }
     }
