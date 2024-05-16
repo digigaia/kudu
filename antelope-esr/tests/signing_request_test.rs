@@ -131,7 +131,12 @@ fn dec2() {
 fn create_from_action() -> Result<()> {
     init();
 
-    // let options = EncodeOptions::default();
+    // let provider = ABIProvider::API(APIClient::jungle());
+    let provider = ABIProvider::Test;
+    let provider = ABIProvider::Cached {
+        provider: Box::new(provider),
+        cache: Default::default(),
+    };
 
     let mut req = SigningRequest::from_action(
         json!({
@@ -140,7 +145,7 @@ fn create_from_action() -> Result<()> {
             "authorization": [{"actor": "foo", "permission": "active"}],
             "data": {"from": "foo", "to": "bar", "quantity": "1.000 EOS", "memo": "hello there"},
         }))
-        .with_abi_provider(ABIProvider::Test);
+        .with_abi_provider(provider);
 
 
     assert_eq!(json!(req), json!({
@@ -160,6 +165,8 @@ fn create_from_action() -> Result<()> {
     }));
 
     req.encode_actions();
+    req.decode_actions();
+    req.encode_actions();
 
     assert_eq!(json!(req), json!({
         "chain_id": ["chain_alias", 1],
@@ -174,6 +181,123 @@ fn create_from_action() -> Result<()> {
         ],
         "callback": "",
         "flags": 1,
+        "info": [],
+    }));
+
+    Ok(())
+}
+
+
+#[test]
+fn create_from_actions() -> Result<()> {
+    init();
+
+    let provider = ABIProvider::Test;
+
+    let mut req = SigningRequest::from_actions(
+        json!([
+            {
+                "account": "eosio.token",
+                "name": "transfer",
+                "authorization": [{"actor": "foo", "permission": "active"}],
+                "data": {"from": "foo", "to": "bar", "quantity": "1.000 EOS", "memo": "hello there"},
+            },
+            {
+                "account": "eosio.token",
+                "name": "transfer",
+                "authorization": [{"actor": "baz", "permission": "active"}],
+                "data": {"from": "baz", "to": "bar", "quantity": "1.000 EOS", "memo": "hello there"},
+            }
+        ]))
+        .with_callback("https://example.com/?tx={{tx}}", true)
+        .with_abi_provider(provider);
+
+    req.encode_actions();
+
+
+    assert_eq!(json!(req), json!({
+        "chain_id": ["chain_alias", 1],
+        "req": [
+            "action[]",
+            [
+                {
+                    "account": "eosio.token",
+                    "name": "transfer",
+                    "authorization": [{"actor": "foo", "permission": "active"}],
+                    "data": "000000000000285D000000000000AE39E80300000000000003454F53000000000B68656C6C6F207468657265"
+                },
+                {
+                    "account": "eosio.token",
+                    "name": "transfer",
+                    "authorization": [{"actor": "baz", "permission": "active"}],
+                    "data": "000000000000BE39000000000000AE39E80300000000000003454F53000000000B68656C6C6F207468657265"
+                }
+            ]
+        ],
+        "callback": "https://example.com/?tx={{tx}}",
+        "flags": 3,
+        "info": [],
+    }));
+
+
+    Ok(())
+}
+
+
+#[test]
+fn create_from_transaction() -> Result<()> {
+    init();
+
+    let timestamp = "2018-02-15T00:00:00";
+
+    let mut req = SigningRequest::from_transaction(
+        json!({
+            "broadcast": false,
+            "callback": "https://example.com/?tx={{tx}}",
+            "transaction": {
+                "delay_sec": 123,
+                "expiration": timestamp,
+                "max_cpu_usage_ms": 99,
+                "actions": [
+                    {
+                        "account": "eosio.token",
+                        "name": "transfer",
+                        "authorization": [{"actor": "foo", "permission": "active"}],
+                        "data": "000000000000285D000000000000AE39E80300000000000003454F53000000000B68656C6C6F207468657265",
+                    }
+                ]
+            }
+        }));
+
+    // we should be able to call `SigningRequest::encode_actions()` without
+    // having to provide an ABIProvider as the action is already encoded
+    req.encode_actions();
+
+    assert_eq!(json!(req), json!({
+        "chain_id": ["chain_alias", 1],
+        "req": [
+            "transaction",
+            {
+                "actions": [
+                        {
+                            "account": "eosio.token",
+                            "name": "transfer",
+                            "authorization": [{"actor": "foo", "permission": "active"}],
+                            "data": "000000000000285d000000000000ae39e80300000000000003454f53000000000b68656c6c6f207468657265",
+                        },
+                    ],
+                    "context_free_actions": [],
+                    "delay_sec": 123,
+                    "expiration": timestamp,
+                    "max_cpu_usage_ms": 99,
+                    "max_net_usage_words": 0,
+                    "ref_block_num": 0,
+                    "ref_block_prefix": 0,
+                    "transaction_extensions": [],
+            },
+        ],
+        "callback": "https://example.com/?tx={{tx}}",
+        "flags": 0,
         "info": [],
     }));
 

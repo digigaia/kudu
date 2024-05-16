@@ -59,14 +59,13 @@ impl ABIProvider {
     pub fn get_abi(&self, abi_name: &str) -> Result<Rc<ABI>, InvalidABI> {
         match self {
             ABIProvider::Cached { provider, cache } => {
-                match cache.borrow().get(abi_name) {
-                    Some(abi) => Ok(abi.clone()),
-                    None => {
-                        let abi = provider.get_abi(abi_name)?;
-                        cache.borrow_mut().insert(abi_name.to_string(), abi.clone());
-                        Ok(abi)
-                    }
+                if let Some(abi) = cache.borrow().get(abi_name) {
+                    return Ok(abi.clone());
                 }
+
+                let abi = provider.get_abi(abi_name)?;
+                cache.borrow_mut().insert(abi_name.to_string(), abi.clone());
+                Ok(abi)
             },
             _ => {
                 let abi_def = ABIDefinition::from_str(&self.get_abi_definition(abi_name)?)?;
@@ -102,8 +101,10 @@ impl ABIProvider {
 }
 
 // -----------------------------------------------------------------------------
-//     static ABI defininitions for tests
+//     static ABI definitions for tests
 // -----------------------------------------------------------------------------
+
+// FIXME: replace this with actual ABIs from the networks
 
 static EOSIO_ABI: &str  = r#"{
     "version": "eosio::abi/1.2",

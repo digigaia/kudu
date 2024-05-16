@@ -171,6 +171,10 @@ impl SigningRequest {
         }
     }
 
+    pub fn from_transaction(tx: JsonValue) -> Self {
+        todo!();
+    }
+
     // FIXME: return Result<JsonValue, InvalidPayload>
     pub fn decode_payload<T: AsRef<[u8]>>(esr: T) -> Result<JsonValue, SigningRequestError> {
         let dec = BASE64_URL_SAFE.decode(esr)?;
@@ -232,6 +236,15 @@ impl SigningRequest {
         req
     }
 
+    pub fn with_callback(self, callback: &str, background: bool) -> Self {
+        let mut req = self;
+        req.callback = Some(callback.to_owned());
+        if background {
+            req.flags |= 1 << 1; // TODO: use something more explicit, such as https://docs.rs/bitflags
+        }
+        req
+    }
+
     pub fn encode_actions(&mut self) {
         // FIXME: check whether we actually need an ABIProvider
         let abi_provider = self.abi_provider.as_ref().unwrap();
@@ -257,6 +270,9 @@ impl SigningRequest {
                 for action in &mut actions[..] {
                     Self::decode_action(action, abi_provider).unwrap();
                 }
+            },
+            Request::Action(ref mut action) => {
+                Self::decode_action(action, abi_provider).unwrap();
             },
             _ => todo!(),
         }
