@@ -99,7 +99,7 @@ fn decode() {
     assert_eq!(data["proxy"], "greymassvote");
     assert_eq!(data["producers"].as_array().unwrap().len(), 0);
 
-    assert_eq!(r.flags, 1);
+    assert_eq!(r.flags, RequestFlags::Broadcast);
     assert_eq!(r.callback, None);
     assert!(r.info.is_empty());
 
@@ -252,22 +252,21 @@ fn create_from_transaction() -> Result<()> {
 
     let mut req = SigningRequest::from_transaction(
         json!({
-            "broadcast": false,
-            "callback": "https://example.com/?tx={{tx}}",
-            "transaction": {
-                "delay_sec": 123,
-                "expiration": timestamp,
-                "max_cpu_usage_ms": 99,
-                "actions": [
-                    {
-                        "account": "eosio.token",
-                        "name": "transfer",
-                        "authorization": [{"actor": "foo", "permission": "active"}],
-                        "data": "000000000000285D000000000000AE39E80300000000000003454F53000000000B68656C6C6F207468657265",
-                    }
-                ]
-            }
-        }));
+            "delay_sec": 123,
+            "expiration": timestamp,
+            "max_cpu_usage_ms": 99,
+            "actions": [
+                {
+                    "account": "eosio.token",
+                    "name": "transfer",
+                    "authorization": [{"actor": "foo", "permission": "active"}],
+                    "data": "000000000000285D000000000000AE39E80300000000000003454F53000000000B68656C6C6F207468657265",
+                }
+            ]
+        }))
+        .with_broadcast(false)
+        .with_callback("https://example.com/?tx={{tx}}", false);
+
 
     // we should be able to call `SigningRequest::encode_actions()` without
     // having to provide an ABIProvider as the action is already encoded
@@ -279,21 +278,22 @@ fn create_from_transaction() -> Result<()> {
             "transaction",
             {
                 "actions": [
-                        {
-                            "account": "eosio.token",
-                            "name": "transfer",
-                            "authorization": [{"actor": "foo", "permission": "active"}],
-                            "data": "000000000000285d000000000000ae39e80300000000000003454f53000000000b68656c6c6f207468657265",
-                        },
-                    ],
-                    "context_free_actions": [],
-                    "delay_sec": 123,
-                    "expiration": timestamp,
-                    "max_cpu_usage_ms": 99,
-                    "max_net_usage_words": 0,
-                    "ref_block_num": 0,
-                    "ref_block_prefix": 0,
-                    "transaction_extensions": [],
+                    {
+                        "account": "eosio.token",
+                        "name": "transfer",
+                        "authorization": [{"actor": "foo", "permission": "active"}],
+                        "data": "000000000000285D000000000000AE39E80300000000000003454F53000000000B68656C6C6F207468657265",
+                    },
+                ],
+                "context_free_actions": [],
+                "context_free_data": [],
+                "delay_sec": 123,
+                "expiration": timestamp,
+                "max_cpu_usage_ms": 99,
+                "max_net_usage_words": 0,
+                "ref_block_num": 0,
+                "ref_block_prefix": 0,
+                "transaction_extensions": [],
             },
         ],
         "callback": "https://example.com/?tx={{tx}}",

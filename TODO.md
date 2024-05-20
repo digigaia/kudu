@@ -95,3 +95,6 @@ https://zerotomastery.io/blog/rust-struct-guide/
 - implement action_result in abi and abi_parser
 
 - check with <https://crates.io/crates/antelope> whether we can get the crate name
+
+- report bug for wharfkit.request creation: duplicate context_free_actions, missing context_free_data
+  https://github.com/wharfkit/signing-request/blob/master/src/signing-request.ts#L410

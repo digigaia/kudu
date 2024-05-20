@@ -1,9 +1,10 @@
 use std::io::prelude::*;
 use std::fmt;
 
-use thiserror::Error;
 use base64::prelude::*;
+use flagset::{flags, FlagSet};
 use hex;
+use thiserror::Error;
 
 use flate2::read::DeflateDecoder;
 use serde::{Serialize, Serializer, ser::SerializeTuple, ser::SerializeStruct};
@@ -61,7 +62,7 @@ impl Serialize for ChainId {
 pub enum Request {
     Action(JsonValue),
     Actions(Vec<JsonValue>),
-    Transaction,
+    Transaction(JsonValue),
     Identity,
 }
 
@@ -79,10 +80,24 @@ impl Serialize for Request {
                 tup.serialize_element("action[]")?;
                 tup.serialize_element(&actions)?;
             },
-            Request::Transaction => todo!(),
+            Request::Transaction(tx) => {
+                tup.serialize_element("transaction")?;
+                tup.serialize_element(tx)?;
+            },
             Request::Identity => todo!(),
         }
         tup.end()
+    }
+}
+
+// -----------------------------------------------------------------------------
+//     Request flags definition
+// -----------------------------------------------------------------------------
+
+flags! {
+    pub enum RequestFlags : u8 {
+        Broadcast,
+        Background,
     }
 }
 
@@ -96,9 +111,8 @@ impl Serialize for Request {
 // #[derive(Clone)]
 pub struct SigningRequest {
     pub chain_id: ChainId,
-    // pub actions: Vec<JsonValue>,
     pub request: Request,
-    pub flags: u8,
+    pub flags: FlagSet<RequestFlags>,
     pub callback: Option<String>,
     pub info: Vec<JsonValue>, // TODO: consider getting something more precise
 
@@ -110,7 +124,7 @@ impl fmt::Debug for SigningRequest {
         fmt.debug_struct("SigningRequest")
            .field("chain_id", &self.chain_id)
            .field("request", &self.request)
-           .field("flags", &self.flags)
+           .field("flags", &self.flags.bits())
            .field("callback", &self.callback)
            .field("info", &self.info)
            .finish()
@@ -122,7 +136,7 @@ impl Default for SigningRequest {
         SigningRequest {
             chain_id: ChainId::Alias(1),
             request: Request::Actions(vec![]),
-            flags: 1,
+            flags: RequestFlags::Broadcast.into(),
             callback: None,
             info: vec![],
 
@@ -172,7 +186,23 @@ impl SigningRequest {
     }
 
     pub fn from_transaction(tx: JsonValue) -> Self {
-        todo!();
+        // set default values if missing
+        let mut tx = tx.as_object().unwrap().clone();
+        tx.entry("expiration")            .or_insert("1970-01-01T00:00:00.000".into());
+        tx.entry("ref_block_num")         .or_insert(json!(0));
+        tx.entry("ref_block_prefix")      .or_insert(json!(0));
+        tx.entry("max_cpu_usage_ms")      .or_insert(json!(0));
+        tx.entry("max_net_usage_words")   .or_insert(json!(0));
+        tx.entry("delay_sec")             .or_insert(json!(0));
+        tx.entry("context_free_actions")  .or_insert(json!([]));
+        tx.entry("actions")               .or_insert(json!([]));
+        tx.entry("transaction_extensions").or_insert(json!([]));
+        tx.entry("context_free_data")     .or_insert(json!([]));
+
+        SigningRequest {
+            request: Request::Transaction(JsonValue::Object(tx)),
+            ..Default::default()
+        }
     }
 
     // FIXME: return Result<JsonValue, InvalidPayload>
@@ -240,22 +270,43 @@ impl SigningRequest {
         let mut req = self;
         req.callback = Some(callback.to_owned());
         if background {
-            req.flags |= 1 << 1; // TODO: use something more explicit, such as https://docs.rs/bitflags
+            req.flags |= RequestFlags::Background;
+        }
+        else {
+            req.flags -= RequestFlags::Background;
         }
         req
     }
 
+    pub fn with_broadcast(self, broadcast: bool) -> Self {
+        let mut req = self;
+        if broadcast { req.flags |= RequestFlags::Broadcast }
+        else         { req.flags -= RequestFlags::Broadcast }
+        req
+    }
+
     pub fn encode_actions(&mut self) {
-        // FIXME: check whether we actually need an ABIProvider
-        let abi_provider = self.abi_provider.as_ref().unwrap();
+        let abi_provider = self.abi_provider.as_ref(); // do not unwrap the Option here, only do it when needed
+        const ERROR_MSG: &str = "No ABIProvider has been set for the signing request, cannot encode actions";
+
         match self.request {
             Request::Action(ref mut action) => {
-                warn!("{}", action);
-                Self::encode_action(action, abi_provider).unwrap();
+                if !Self::is_action_encoded(action) {
+                    Self::encode_action(action, abi_provider.expect(ERROR_MSG)).unwrap();
+                }
             },
             Request::Actions(ref mut actions) => {
                 for action in &mut actions[..] {
-                    Self::encode_action(action, abi_provider).unwrap();
+                    if !Self::is_action_encoded(action) {
+                        Self::encode_action(action, abi_provider.expect(ERROR_MSG)).unwrap();
+                    }
+                }
+            },
+            Request::Transaction(ref mut tx) => {
+                for action in tx["actions"].as_array_mut().unwrap() {
+                    if !Self::is_action_encoded(action) {
+                        Self::encode_action(action, abi_provider.expect(ERROR_MSG)).unwrap();
+                    }
                 }
             },
             _ => todo!(),
@@ -263,24 +314,28 @@ impl SigningRequest {
     }
 
     pub fn decode_actions(&mut self) {
-        // FIXME: check whether we actually need an ABIProvider
-        let abi_provider = self.abi_provider.as_ref().unwrap();
+        let abi_provider = self.abi_provider.as_ref();
+        const ERROR_MSG: &str = "No ABIProvider has been set for the signing request, cannot decode actions";
+
         match self.request {
             Request::Actions(ref mut actions) => {
                 for action in &mut actions[..] {
-                    Self::decode_action(action, abi_provider).unwrap();
+                    Self::decode_action(action, abi_provider.expect(ERROR_MSG)).unwrap();
                 }
             },
             Request::Action(ref mut action) => {
-                Self::decode_action(action, abi_provider).unwrap();
+                Self::decode_action(action, abi_provider.expect(ERROR_MSG)).unwrap();
             },
             _ => todo!(),
         }
     }
 
+    fn is_action_encoded(action: &JsonValue) -> bool {
+        action["data"].is_string()
+    }
+
     fn encode_action(action: &mut JsonValue, abi_provider: &ABIProvider) -> Result<(), SigningRequestError> {
-        let is_action_data_encoded = action["data"].is_string();
-        if is_action_data_encoded { return Ok(()); }
+        if Self::is_action_encoded(action) { return Ok(()); }
 
         let account = conv_action_field_str(action, "account")?;
         let action_name = conv_action_field_str(action, "name")?;
@@ -293,8 +348,7 @@ impl SigningRequest {
     }
 
     fn decode_action(action: &mut JsonValue, abi_provider: &ABIProvider) -> Result<(), SigningRequestError> {
-        let is_action_data_encoded = action["data"].is_string();
-        if !is_action_data_encoded { return Ok(()); }
+        if !Self::is_action_encoded(action) { return Ok(()); }
 
         let account     = conv_action_field_str(action, "account")?;
         let action_name = conv_action_field_str(action, "name")?;
@@ -327,7 +381,7 @@ impl Serialize for SigningRequest {
         let mut req = serializer.serialize_struct("SigningRequest", 5)?;
         req.serialize_field("chain_id", &self.chain_id)?;
         req.serialize_field("req", &self.request)?;
-        req.serialize_field("flags", &self.flags)?;
+        req.serialize_field("flags", &self.flags.bits())?;
         req.serialize_field("callback", self.callback.as_ref().map_or("", |cb| cb))?;
         req.serialize_field("info", &self.info)?;
         req.end()
@@ -370,7 +424,7 @@ impl TryFrom<JsonValue> for SigningRequest {
             _ => unimplemented!(),
         };
 
-        result.flags = payload["flags"].as_u64().unwrap().try_into().unwrap();
+        result.flags = FlagSet::<RequestFlags>::new(payload["flags"].as_u64().unwrap().try_into().unwrap()).unwrap();
         result.callback = match conv_str(&payload["callback"])? {
             "" => None,
             callback => Some(callback.to_owned()),
