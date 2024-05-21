@@ -197,12 +197,21 @@ impl SigningRequest {
         tx.entry("context_free_actions")  .or_insert(json!([]));
         tx.entry("actions")               .or_insert(json!([]));
         tx.entry("transaction_extensions").or_insert(json!([]));
-        tx.entry("context_free_data")     .or_insert(json!([]));
+        tx.entry("context_free_data")     .or_insert(json!([]));  // FIXME: needed? wanted?
 
         SigningRequest {
             request: Request::Transaction(JsonValue::Object(tx)),
             ..Default::default()
         }
+    }
+
+    pub fn from_uri(uri: &str) -> Result<Self, SigningRequestError> {
+        if !uri.starts_with("esr://") {
+            panic!("not a valid ESR URI");
+        }
+        let payload = &uri[6..];
+        warn!("payload: {}", payload);
+        Self::decode(payload, None)
     }
 
     // FIXME: return Result<JsonValue, InvalidPayload>

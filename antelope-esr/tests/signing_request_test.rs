@@ -26,6 +26,7 @@ fn init() {
         // .pretty()
             .init();
     });
+    color_eyre::install().unwrap();
 }
 
 #[test]
@@ -298,6 +299,35 @@ fn create_from_transaction() -> Result<()> {
         ],
         "callback": "https://example.com/?tx={{tx}}",
         "flags": 0,
+        "info": [],
+    }));
+
+    Ok(())
+}
+
+
+#[test]
+fn create_from_uri() -> Result<()> {
+    init();
+
+    let provider = ABIProvider::Test;
+    let uri = "esr://gmNgZGBY1mTC_MoglIGBIVzX5uxZRqAQGMBoExgDAjRi4fwAVz93ICUckpGYl12skJZfpFCSkaqQllmcwczAAAA";
+
+    let req = SigningRequest::from_uri(uri)?.with_abi_provider(provider);
+
+    assert_eq!(json!(req), json!({
+        "chain_id": ["chain_alias", 1],
+        "req": [
+            "action",
+            {
+                "account": "eosio.token",
+                "name": "transfer",
+                "authorization": [{"actor": "............1", "permission": "............1"}],
+                "data": "0100000000000000000000000000285d01000000000000000050454e47000000135468616e6b7320666f72207468652066697368",
+            },
+        ],
+        "callback": "",
+        "flags": 3,
         "info": [],
     }));
 

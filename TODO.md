@@ -98,3 +98,4 @@ https://zerotomastery.io/blog/rust-struct-guide/
 
 - report bug for wharfkit.request creation: duplicate context_free_actions, missing context_free_data
   https://github.com/wharfkit/signing-request/blob/master/src/signing-request.ts#L410
+  see tx def: https://docs.eosnetwork.com/docs/latest/advanced-topics/transactions-protocol/
