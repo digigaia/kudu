@@ -6,16 +6,18 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-base64 = { workspace = true }
-color-eyre = { workspace = true }
-hex = { workspace = true }
-serde = { workspace = true }
-serde_json = { workspace = true }
-tracing = { workspace = true }
+base64             = { workspace = true }
+color-eyre         = { workspace = true }
+hex                = { workspace = true }
+serde              = { workspace = true }
+serde_json         = { workspace = true }
+tracing            = { workspace = true }
 tracing-subscriber = { workspace = true }
-thiserror = { workspace = true }
+thiserror          = { workspace = true }
 
-antelope-core = { path="../antelope-core" }
-antelope-abi = { path="../antelope-abi" }
+annotated-error = { path = "../annotated-error" }
+antelope-core = { path = "../antelope-core" }
+antelope-abi = { path = "../antelope-abi" }
 flate2 = "1.0"
 flagset = "0.4.5"
+snafu = { version = "0.8.2", features = ["backtrace"] }

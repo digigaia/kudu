@@ -85,6 +85,8 @@ https://zerotomastery.io/blog/rust-struct-guide/
 
 ## MISC
 
+- set edition.workspace = true in the subcrates / unify all Cargo.toml files
+
 - implement `Debug` and `Display` trait for all basic types
 
 - check how to specify shared deps for all projects in the workspace in an unified way (e.g.: `serde`, `thiserror`, etc.) in the root `Cargo.toml`

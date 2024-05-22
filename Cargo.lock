@@ -42,6 +42,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "annotated-error"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "antelope-abi"
 version = "0.1.0"
 dependencies = [
@@ -83,6 +92,7 @@ dependencies = [
 name = "antelope-esr"
 version = "0.1.0"
 dependencies = [
+ "annotated-error",
  "antelope-abi",
  "antelope-core",
  "base64",
@@ -92,6 +102,7 @@ dependencies = [
  "hex",
  "serde",
  "serde_json",
+ "snafu",
  "thiserror",
  "tracing",
  "tracing-subscriber",
@@ -1206,6 +1217,28 @@ name = "smallvec"
 version = "1.13.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e6ecd384b10a64542d77071bd64bd7b231f4ed5940fba55e98c3de13824cf3d7"
+
+[[package]]
+name = "snafu"
+version = "0.8.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "75976f4748ab44f6e5332102be424e7c2dc18daeaf7e725f2040c3ebb133512e"
+dependencies = [
+ "backtrace",
+ "snafu-derive",
+]
+
+[[package]]
+name = "snafu-derive"
+version = "0.8.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b4b19911debfb8c2fb1107bc6cb2d61868aaf53a988449213959bb1b5b1ed95f"
+dependencies = [
+ "heck",
+ "proc-macro2",
+ "quote",
+ "syn",
+]
 
 [[package]]
 name = "socket2"

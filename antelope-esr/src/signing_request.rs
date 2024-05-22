@@ -1,15 +1,18 @@
+use std::backtrace::Backtrace;
 use std::io::prelude::*;
 use std::fmt;
 
 use base64::prelude::*;
+// use color_eyre::eyre::Context;
 use flagset::{flags, FlagSet};
 use hex;
-use thiserror::Error;
+use snafu::prelude::*;
 
 use flate2::read::DeflateDecoder;
 use serde::{Serialize, Serializer, ser::SerializeTuple, ser::SerializeStruct};
 
-use antelope_core::{types::antelopevalue::hex_to_boxed_array, JsonValue, Name, json};
+use annotated_error::with_location;
+use antelope_core::{types::antelopevalue::hex_to_boxed_array, JsonValue, Name, json, InvalidValue};
 use antelope_abi::{
     ByteStream,
     abidefinition::TypeNameRef as T,
@@ -214,17 +217,15 @@ impl SigningRequest {
         Self::decode(payload, None)
     }
 
-    // FIXME: return Result<JsonValue, InvalidPayload>
     pub fn decode_payload<T: AsRef<[u8]>>(esr: T) -> Result<JsonValue, SigningRequestError> {
-        let dec = BASE64_URL_SAFE.decode(esr)?;
-        assert!(!dec.is_empty());
+        let content = String::from_utf8(esr.as_ref().to_vec()).unwrap();
+        let dec = BASE64_URL_SAFE.decode(esr).context(Base64DecodeSnafu { content: content.clone() })?;
+        ensure!(!dec.is_empty(), InvalidSnafu { msg: format!("base64-decoded payload {content} is empty") });
 
         let compression = (dec[0] >> 7) == 1u8;
         let version = dec[0] & ((1 << 7) - 1);
 
-        if version != 2 && version != 3 {
-            return Err(SigningRequestError::InvalidVersion(version));
-        }
+        ensure!(version == 2 || version == 3, InvalidVersionSnafu { version });
 
         debug!(version, compression, "decoding payload");
 
@@ -232,8 +233,7 @@ impl SigningRequest {
         if compression {
             let mut deflater = DeflateDecoder::new(&dec[1..]);
             dec2 = vec![];
-            deflater.read_to_end(&mut dec2).map_err(
-                |_| SigningRequestError::Invalid("can not decompress payload data".to_owned()))?;
+            deflater.read_to_end(&mut dec2).context(DeflateSnafu)?;
 
         }
         else {
@@ -247,9 +247,7 @@ impl SigningRequest {
 
         let mut ds = ByteStream::from(dec2);
 
-        abi.decode_variant(&mut ds, T("signing_request"))
-            .map_err(|_| SigningRequestError::Invalid(
-                "cannot decode SigningRequest from JSON representation".to_owned()))
+        abi.decode_variant(&mut ds, T("signing_request")).context(JsonDecodeSnafu)
     }
 
     pub fn decode<T>(esr: T, abi_provider: Option<ABIProvider>) -> Result<Self, SigningRequestError>
@@ -350,7 +348,7 @@ impl SigningRequest {
         let action_name = conv_action_field_str(action, "name")?;
         let data = &action["data"];
         let mut ds = ByteStream::new();
-        let abi = abi_provider.get_abi(account)?;
+        let abi = abi_provider.get_abi(account).context(ABISnafu)?;
         abi.encode_variant(&mut ds, T(action_name), data).unwrap();
         action["data"] = JsonValue::String(ds.hex_data());
         Ok(())
@@ -363,7 +361,7 @@ impl SigningRequest {
         let action_name = conv_action_field_str(action, "name")?;
         let data        = conv_action_field_str(action, "data")?;
         let mut ds = ByteStream::from(hex::decode(data).unwrap());
-        let abi = abi_provider.get_abi(account)?;
+        let abi = abi_provider.get_abi(account).context(ABISnafu)?;
         action["data"] = abi.decode_variant(&mut ds, T(action_name)).unwrap();
         Ok(())
     }
@@ -411,7 +409,7 @@ impl TryFrom<JsonValue> for SigningRequest {
         result.chain_id = match chain_id_type {
             "chain_id" => {
                 let data = conv_str(&chain_id[1])?;
-                ChainId::Id(hex_to_boxed_array(data)?)
+                ChainId::Id(hex_to_boxed_array(data).context(HexDecodeSnafu)?)
             },
             "chain_alias" => {
                 let alias = chain_id[1].as_u64().unwrap();
@@ -444,31 +442,58 @@ impl TryFrom<JsonValue> for SigningRequest {
     }
 }
 
-#[derive(Error, Debug)]
+
+#[with_location]
+#[derive(Debug, Snafu)]
 pub enum SigningRequestError {
-    #[error("{0}")]
-    Invalid(String),
+    #[snafu(display("{msg}"))]
+    Invalid {
+        msg: String,
+        backtrace: Backtrace,
+    },
 
-    #[error("unsupported ESR protocol version: {0}")]
-    InvalidVersion(u8),
+    #[snafu(display("unsupported ESR protocol version: {version}"))]
+    InvalidVersion {
+        version: u8,
+        backtrace: Backtrace,
+    },
 
-    #[error("error decoding base64 content")]
-    Base64Decode(#[from] base64::DecodeError),
+    #[snafu(display("can not decompress (deflate) payload data"))]
+    Deflate {
+        source: std::io::Error,
+    },
 
-    #[error("hex decoding error")]
-    HexDecode(#[from] hex::FromHexError),
+    #[snafu(display("error decoding base64 content: {content}"))]
+    Base64Decode {
+        content: String,
+        source: base64::DecodeError,
+    },
 
-    #[error("ABI error")]
-    ABI(#[from] InvalidABI),
+    #[snafu(display("cannot decode SigningRequest from JSON representation"))]
+    JsonDecode {
+        source: InvalidValue,
+    },
+
+    #[snafu(display("hex decoding error"))]
+    HexDecode {
+        source: hex::FromHexError,
+    },
+
+    #[snafu(display("ABI error"))]
+    ABI {
+        source: InvalidABI,
+    },
+
 }
 
 pub fn conv_str(obj: &JsonValue) -> Result<&str, SigningRequestError> {
-    obj.as_str().ok_or(SigningRequestError::Invalid(
-        format!("Cannot convert object {:?} to str", obj)))
+    obj.as_str().context(InvalidSnafu {
+        msg: format!("Cannot convert object {:?} to str", obj)
+    })
 }
 
 pub fn conv_action_field_str<'a>(action: &'a JsonValue, field: &str) -> Result<&'a str, SigningRequestError> {
-    action[field].as_str().ok_or(
-        SigningRequestError::Invalid(format!("Cannot convert action['{}'] to str, actual type: {:?}",
-                                             field, action[field])))
+    action[field].as_str().context(InvalidSnafu {
+        msg: format!("Cannot convert action['{}'] to str, actual type: {:?}", field, action[field])
+    })
 }
