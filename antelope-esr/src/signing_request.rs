@@ -219,7 +219,7 @@ impl SigningRequest {
 
     pub fn decode_payload<T: AsRef<[u8]>>(esr: T) -> Result<JsonValue, SigningRequestError> {
         let content = String::from_utf8(esr.as_ref().to_vec()).unwrap();
-        let dec = BASE64_URL_SAFE.decode(esr).context(Base64DecodeSnafu { content: content.clone() })?;
+        let dec = BASE64_URL_SAFE_NO_PAD.decode(esr).context(Base64DecodeSnafu { content: content.clone() })?;
         ensure!(!dec.is_empty(), InvalidSnafu { msg: format!("base64-decoded payload {content} is empty") });
 
         let compression = (dec[0] >> 7) == 1u8;
@@ -257,8 +257,10 @@ impl SigningRequest {
         let payload = Self::decode_payload(esr)?;
         let mut result: Result<Self, SigningRequestError> = payload.try_into();
         if let Ok(ref mut request) = result {
-            request.set_abi_provider(abi_provider);
-            request.decode_actions();
+            if abi_provider.is_some() {
+                request.set_abi_provider(abi_provider);
+                request.decode_actions();
+            }
         }
         result
     }

@@ -157,7 +157,6 @@ fn integration_test() -> Result<()> {
 }
 
 #[test]
-#[ignore]
 fn test_type_properties() -> Result<()> {
     init();
 

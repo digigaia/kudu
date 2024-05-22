@@ -31,4 +31,10 @@ ABIProviderTrait or something similar.
 
 # STYLE
 
-- use `hex::encode_upper()` instead of `hex::encode()`
+## TODO: DECIDE: use `hex::encode_upper()` instead of `hex::encode()`
+
+Antelope C++ code uses UPPER_CASE
+Wharfkit TS code uses lower_case
+
+it seems that lower case encoding is more readable as lower case letters have a
+lower height than digits, whereas upper case letters have the same height

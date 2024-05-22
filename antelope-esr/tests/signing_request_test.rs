@@ -16,17 +16,18 @@ use antelope_esr::signing_request::*;
 // FIXME: look up more tests here: https://github.com/wharfkit/signing-request/blob/master/test/request.ts
 //
 
-static TRACING_INIT: Once = Once::new();
+static INIT: Once = Once::new();
 
 fn init() {
-    TRACING_INIT.call_once(|| {
+    INIT.call_once(|| {
         tracing_subscriber::fmt()
             .with_env_filter(EnvFilter::from_default_env())
         // .with_span_events(FmtSpan::ACTIVE)
         // .pretty()
             .init();
+
+        color_eyre::install().unwrap();
     });
-    color_eyre::install().unwrap();
 }
 
 #[test]
@@ -96,6 +97,7 @@ fn decode() {
     assert_eq!(auth["actor"], SIGNER_NAME.to_string());
     assert_eq!(auth["permission"], SIGNER_PERMISSION.to_string());
     let data = &a["data"];
+    assert!(data.is_object());
     assert_eq!(data["voter"], SIGNER_NAME.to_string());
     assert_eq!(data["proxy"], "greymassvote");
     assert_eq!(data["producers"].as_array().unwrap().len(), 0);
@@ -315,7 +317,7 @@ fn create_from_uri() -> Result<()> {
 
     let req = SigningRequest::from_uri(uri)?.with_abi_provider(provider);
 
-    assert_eq!(json!(req), json!({
+    let expected = json!({
         "chain_id": ["chain_alias", 1],
         "req": [
             "action",
@@ -323,13 +325,15 @@ fn create_from_uri() -> Result<()> {
                 "account": "eosio.token",
                 "name": "transfer",
                 "authorization": [{"actor": "............1", "permission": "............1"}],
-                "data": "0100000000000000000000000000285d01000000000000000050454e47000000135468616e6b7320666f72207468652066697368",
+                "data": "0100000000000000000000000000285D01000000000000000050454E47000000135468616E6B7320666F72207468652066697368",
             },
         ],
         "callback": "",
         "flags": 3,
         "info": [],
-    }));
+    });
+
+    assert_eq!(json!(req), expected);
 
     Ok(())
 }
