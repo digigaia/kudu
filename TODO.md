@@ -85,12 +85,7 @@ https://zerotomastery.io/blog/rust-struct-guide/
 
 ## MISC
 
-- set edition.workspace = true in the subcrates / unify all Cargo.toml files
-
 - implement `Debug` and `Display` trait for all basic types
-
-- check how to specify shared deps for all projects in the workspace in an unified way (e.g.: `serde`, `thiserror`, etc.) in the root `Cargo.toml`
-  https://blog.rust-lang.org/inside-rust/2024/05/07/this-development-cycle-in-cargo-1.79.html
 
 - crypto primitives do not implement WebAuthn key and signatures yet
 

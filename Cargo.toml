@@ -1,12 +1,19 @@
 [workspace]
 resolver = "2"
-edition = "2021"
 members = [
     "annotated-error",
     "antelope-abi",
     "antelope-core",
     "antelope-esr",
 ]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+rust-version = "1.70"
+# homepage = ""
+# repository = ""
 
 [workspace.dependencies]
 base64 = "0.22.0"
