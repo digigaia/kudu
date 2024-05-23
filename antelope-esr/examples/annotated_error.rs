@@ -5,7 +5,7 @@ use snafu::prelude::*;
 #[with_location]
 #[derive(Debug, Snafu)]
 pub enum MyError {
-    #[snafu(display("{msg}"))]
+    #[snafu(display(r#""{msg}""#))]
     Invalid {
         msg: String,
     },

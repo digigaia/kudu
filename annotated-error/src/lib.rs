@@ -83,8 +83,9 @@ impl VisitMut for AddLocationToDisplay {
                 // println!("found disp str while visiting: {disp}");
                 // println!("NODE = {:#?}", node);
 
-                let new_disp = format!("{disp} (at: {{location}})");
-                let new_display_attr = format!(r#"display("{new_disp}")"#);
+                let new_disp = format!(r#"{disp} (at: {{location}})"#);
+                let new_display_attr = format!(r##"display(r#"{new_disp}"#)"##); // prefer raw strings to escaped
+                // let new_display_attr = format!(r#"display({new_disp:?})"#);   // works too
 
                 match &mut node.meta {
                     Meta::List(ref mut snafu_display) => {

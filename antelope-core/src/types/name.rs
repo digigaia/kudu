@@ -3,12 +3,12 @@ use std::fmt;
 use color_eyre::eyre::Result;
 use serde::de::{self, Visitor};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use snafu::prelude::*;
+use snafu::{Snafu, ensure};
 
 use annotated_error::with_location;
 
 
-// #[with_location]
+#[with_location]
 #[derive(Debug, Snafu)]
 pub enum InvalidName {
     #[snafu(display(r#"Name is longer than 13 characters: "{name}""#))]
