@@ -41,6 +41,8 @@ https://zerotomastery.io/blog/rust-struct-guide/
   - <https://gist.github.com/quad/a8a7cc87d1401004c6a8973947f20365>
   - <https://stackoverflow.com/questions/60943851/how-do-you-see-an-errors-backtrace-when-using-snafu>
 
+- add #[with_location] to all error types derived with Snafu
+
 ### AntelopeValue
 
 - is `from_str` the best name for most of our types constructors? Reconsider disabling the clippy warning

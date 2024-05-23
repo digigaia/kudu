@@ -4,9 +4,11 @@ use antelope_core::{
     JsonValue,
     AntelopeType, AntelopeValue, InvalidValue,
     ActionName, TableName,
+    types::antelopevalue::InvalidDataSnafu,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::json;
+use snafu::OptionExt;
 
 use crate::abiserializable::ABISerializable;
 use crate::{ABI, ByteStream};
@@ -133,12 +135,14 @@ impl ABIDefinition {
 
     pub fn from_bin(data: &mut ByteStream) -> Result<Self, InvalidValue> {
         let version = AntelopeValue::from_bin(AntelopeType::String, data)?.to_variant();
-        let version_str = version.as_str().ok_or(InvalidValue::InvalidData(format!(
-            "expecting to read version string, instead got {:?}", version)))?;
+        let version_str = version.as_str().context(InvalidDataSnafu {
+            msg: format!("expecting to read version string, instead got {:?}", version)
+        })?;
 
         if !version_str.starts_with("eosio::abi/1.") {
-            return Err(InvalidValue::InvalidData(format!(
-                r#"unsupported ABI version: "{}""#, version_str)));
+            return InvalidDataSnafu {
+                msg: format!(r#"unsupported ABI version: "{}""#, version_str)
+            }.fail();
         }
 
         let parser = bin_abi_parser();

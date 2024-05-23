@@ -1,4 +1,7 @@
-use antelope_core::{AntelopeType, AntelopeValue, Asset, InvalidValue, Name, PrivateKey, PublicKey, Signature, Symbol};
+use antelope_core::{
+    AntelopeType, AntelopeValue, Asset, InvalidValue, Name, PrivateKey, PublicKey, Signature, Symbol,
+    types::antelopevalue::InvalidDataSnafu,
+};
 use bytemuck::{cast_ref, pod_read_unaligned};
 use tracing::instrument;
 
@@ -79,7 +82,7 @@ impl ABISerializable for AntelopeValue {
                 1 => Self::Bool(true),
                 0 => Self::Bool(false),
                 _ => {
-                    return Err(InvalidValue::InvalidData("cannot parse bool from stream".to_owned()));
+                    return InvalidDataSnafu { msg: "cannot parse bool from stream".to_owned() }.fail();
                 },
             },
             AntelopeType::Int8 => Self::Int8(stream.read_byte()? as i8),

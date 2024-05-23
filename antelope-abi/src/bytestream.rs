@@ -1,7 +1,10 @@
 use std::mem;
 use std::num::ParseIntError;
 
-use antelope_core::InvalidValue;
+use antelope_core::{
+    InvalidValue,
+    types::antelopevalue::InvalidDataSnafu,
+};
 use bytemuck::cast_ref;
 use hex;
 use thiserror::Error;
@@ -23,7 +26,7 @@ pub enum StreamError {
 impl From<StreamError> for InvalidValue {
     // FIXME: surely we can do better than that...
     fn from(err: StreamError) -> InvalidValue {
-        InvalidValue::InvalidData(err.to_string())
+        InvalidDataSnafu { msg: err.to_string() }.build()
     }
 }
 

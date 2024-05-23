@@ -19,6 +19,7 @@
 
 pub mod api;
 pub mod config;
+pub mod utils;
 pub mod types;
 
 // FIXME: check whether we want those typedefs? Does it make it easier or

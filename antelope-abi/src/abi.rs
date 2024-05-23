@@ -1,6 +1,9 @@
 use std::collections::HashMap;
 
-use antelope_core::{AntelopeType, AntelopeValue, InvalidValue, Name};
+use antelope_core::{
+    AntelopeType, AntelopeValue, InvalidValue, Name,
+    types::antelopevalue::{IncompatibleVariantTypesSnafu, InvalidDataSnafu},
+};
 use color_eyre::eyre::Result;
 use serde_json::{
     json,
@@ -141,7 +144,10 @@ impl ABI {
 
         debug!(rtype=rtype.0, ftype=ftype.0);
 
-        let incompatible_types = || InvalidValue::IncompatibleVariantTypes(rtype.0.to_owned(), object.clone());
+        let incompatible_types = || IncompatibleVariantTypesSnafu {
+            typename: rtype.0.to_owned(),
+            value: object.clone()
+        }.build();
 
         if AntelopeValue::VARIANTS.contains(&ftype.0) {
             // if our fundamental type is a builtin type, we can serialize it directly
@@ -172,9 +178,9 @@ impl ABI {
             if rtype.is_array() {
                 let Some(a) = object.as_array()
                 else {
-                    return Err(InvalidValue::InvalidData(
-                        "JSON object cannot be converted to array".to_owned(),
-                    ));
+                    return InvalidDataSnafu {
+                        msg: "JSON object cannot be converted to array".to_owned(),
+                    }.fail();
                 };
                 write_var_u32(ds, a.len() as u32);
                 for v in a {

@@ -3,16 +3,22 @@ use std::fmt;
 use color_eyre::eyre::Result;
 use serde::de::{self, Visitor};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use thiserror::Error;
+use snafu::prelude::*;
+
+use annotated_error::with_location;
 
 
-#[derive(Error, Debug)]
+// #[with_location]
+#[derive(Debug, Snafu)]
 pub enum InvalidName {
-    #[error("Name is longer than 13 characters: \"{0}\"")]
-    TooLong(String),
+    #[snafu(display(r#"Name is longer than 13 characters: "{name}""#))]
+    TooLong { name: String },
 
-    #[error(r#"Name not properly normalized (given name: "{0}", normalized: "{1}")"#)]
-    InvalidNormalization(String, String),
+    #[snafu(display(r#"Name not properly normalized (given name: "{given}", normalized: "{normalized}")"#))]
+    InvalidNormalization {
+        given: String,
+        normalized: String,
+    },
 }
 
 
@@ -23,7 +29,7 @@ pub struct Name {
 
 impl Name {
     pub fn from_str(s: &str) -> Result<Self, InvalidName> {
-        if s.len() > 13 { return Err(InvalidName::TooLong(s.to_owned())); }
+        ensure!(s.len() <= 13, TooLongSnafu { name: s.to_owned() });
 
         let result = Name {
             value: string_to_u64(s.as_bytes()),
@@ -33,7 +39,7 @@ impl Name {
             Ok(result)
         }
         else {
-            Err(InvalidName::InvalidNormalization(s.to_owned(), result.to_string()))
+            InvalidNormalizationSnafu { given: s.to_owned(), normalized: result.to_string() }.fail()
         }
     }
 

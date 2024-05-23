@@ -3,8 +3,10 @@ use std::str::from_utf8;
 use antelope_core::{
     types::crypto::{CryptoData, CryptoDataType, KeyType},
     Asset, InvalidValue, Name, Symbol,
+    types::antelopevalue::InvalidDataSnafu,
 };
 use bytemuck::pod_read_unaligned;
+use snafu::ensure;
 
 use crate::bytestream::ByteStream;
 
@@ -116,11 +118,8 @@ pub fn read_var_u32(stream: &mut ByteStream) -> Result<u32, InvalidValue> {
         result |= (byte as u32 & 0x7F) << offset;
         offset += 7;
         if (byte & 0x80) == 0 { break; }
-        if offset >= 32 {
-            return Err(InvalidValue::InvalidData(
-                "varint too long to fit in u32".to_owned()
-            ));
-        }
+
+        ensure!(offset < 32, InvalidDataSnafu { msg: "varint too long to fit in u32" });
     }
     Ok(result)
 }
