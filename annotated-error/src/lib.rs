@@ -117,6 +117,7 @@ pub fn with_location(_input: TokenStream, annotated_item: TokenStream) -> TokenS
     quote! { #error_enum }.into()
 }
 
+
 #[proc_macro_attribute]
 pub fn with_location2(_input: TokenStream, annotated_item: TokenStream) -> TokenStream {
 

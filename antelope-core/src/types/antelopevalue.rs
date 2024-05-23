@@ -5,11 +5,14 @@ use std::str::{ParseBoolError, Utf8Error};
 
 use chrono::{DateTime, NaiveDateTime, ParseError as ChronoParseError, TimeZone, Utc};
 use hex::FromHexError;
-use snafu::prelude::*;
+use snafu::{Snafu, IntoError, ResultExt, OptionExt};
 use strum::{Display, EnumDiscriminants, EnumString, VariantNames};
 use tracing::instrument;
 
-use crate::{config, json, JsonError, JsonValue};
+use crate::{
+    config, json, JsonError, JsonValue,
+    impl_auto_error_conversion,
+};
 
 use crate::types::{
     Asset, InvalidAsset,
@@ -433,21 +436,8 @@ pub enum InvalidValue {
     InvalidData { msg: String },  // acts as a generic error type with a given message
 }
 
-
-use snafu::IntoError;
-
-macro_rules! impl_error_conversion {
-    ($src:ty, $target:ty, $snafu:ident) => {
-        impl From<$src> for $target {
-            fn from(value: $src) -> $target {
-                $snafu.into_error(value)
-            }
-        }
-    };
-}
-
-impl_error_conversion!(ConversionError, InvalidValue, ConversionSnafu);
-impl_error_conversion!(FromHexError, InvalidValue, FromHexSnafu);
-impl_error_conversion!(strum::ParseError, InvalidValue, TypenameParseSnafu);
-impl_error_conversion!(JsonError, InvalidValue, JsonParseSnafu);
-impl_error_conversion!(Utf8Error, InvalidValue, Utf8Snafu);
+impl_auto_error_conversion!(ConversionError, InvalidValue, ConversionSnafu);
+impl_auto_error_conversion!(FromHexError, InvalidValue, FromHexSnafu);
+impl_auto_error_conversion!(strum::ParseError, InvalidValue, TypenameParseSnafu);
+impl_auto_error_conversion!(JsonError, InvalidValue, JsonParseSnafu);
+impl_auto_error_conversion!(Utf8Error, InvalidValue, Utf8Snafu);
