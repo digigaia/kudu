@@ -4,8 +4,9 @@ use std::marker::PhantomData;
 use bs58;
 use ripemd::{Digest, Ripemd160};
 use sha2::Sha256;
-use thiserror::Error;
+use snafu::{ensure, ResultExt, Snafu};
 
+use annotated_error::with_location;
 
 #[derive(Eq, PartialEq, Hash, Debug, Copy, Clone)]
 pub enum KeyType {
@@ -41,16 +42,16 @@ impl KeyType {
     }
 }
 
-
-#[derive(Error, Debug)]
+#[with_location]
+#[derive(Debug, Snafu)]
 pub enum InvalidCryptoData {
-    #[error("not crypto data: {0}")]
-    NotCryptoData(String),
+    #[snafu(display("not crypto data: {msg}"))]
+    NotCryptoData { msg: String },
 
-    #[error("error while decoding base58 data")]
-    Base58Error(#[from] bs58::decode::Error),
+    #[snafu(display("error while decoding base58 data"))]
+    Base58Error { source: bs58::decode::Error },
 
-    #[error("invalid checksum for crypto data")]
+    #[snafu(display("invalid checksum for crypto data"))]
     InvalidChecksum,
 }
 
@@ -105,7 +106,7 @@ impl<T: CryptoDataType, const DATA_SIZE: usize> CryptoData<T, DATA_SIZE> {
             unimplemented!()
         }
         else {
-            Err(InvalidCryptoData::NotCryptoData(s.to_owned()))
+            NotCryptoDataSnafu { msg: s.to_owned() }.fail()
         }
     }
 
@@ -158,13 +159,12 @@ pub type Signature = CryptoData<SignatureType, 65>;
 
 
 fn string_to_key_data(enc_data: &str, prefix: Option<&str>) -> Result<Vec<u8>, InvalidCryptoData> {
-    let data = bs58::decode(enc_data).into_vec()?;
-    if data.len() < 5 {
-        return Err(InvalidCryptoData::NotCryptoData(format!(
-            "Invalid length for decoded base58 crypto data, needs to be at least 5, is {}",
-            data.len()
-        )));
-    }
+    let data = bs58::decode(enc_data).into_vec().context(Base58Snafu)?;
+
+    ensure!(data.len() >= 5, NotCryptoDataSnafu { msg: format!(
+        "Invalid length for decoded base58 crypto data, needs to be at least 5, is {}",
+        data.len())
+    });
 
     let mut hasher = Ripemd160::new();
     hasher.update(&data[..data.len() - 4]);
@@ -184,13 +184,12 @@ fn string_to_key_data(enc_data: &str, prefix: Option<&str>) -> Result<Vec<u8>, I
 }
 
 fn from_wif(enc_data: &str) -> Result<Vec<u8>, InvalidCryptoData> {
-    let data = bs58::decode(enc_data).into_vec()?;
-    if data.len() < 5 {
-        return Err(InvalidCryptoData::NotCryptoData(format!(
-            "Invalid length for decoded base58 crypto data, needs to be at least 5, is {}",
-            data.len()
-        )));
-    }
+    let data = bs58::decode(enc_data).into_vec().context(Base58Snafu)?;
+
+    ensure!(data.len() >= 5, NotCryptoDataSnafu { msg: format!(
+        "Invalid length for decoded base58 crypto data, needs to be at least 5, is {}",
+        data.len())
+    });
 
     let digest = Sha256::digest(&data[..data.len() - 4]);
     let digest2 = Sha256::digest(digest);

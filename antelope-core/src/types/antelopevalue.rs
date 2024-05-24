@@ -9,6 +9,8 @@ use snafu::{Snafu, IntoError, ResultExt, OptionExt};
 use strum::{Display, EnumDiscriminants, EnumString, VariantNames};
 use tracing::instrument;
 
+use annotated_error::with_location;
+
 use crate::{
     config, json, JsonError, JsonValue,
     impl_auto_error_conversion,
@@ -383,9 +385,9 @@ mod tests {
 // Note: serde_json doesn't support "natively" 128-bit integer types
 //  see: https://github.com/serde-rs/json/issues/846
 
-
+// #[with_location]
 #[derive(Debug, Snafu)]
-#[snafu(visibility(pub))]
+#[snafu(visibility(pub))]   // FIXME: remove this visibility attr
 pub enum InvalidValue {
     #[snafu(display(r#"cannot convert given variant {value} to Antelope type "{typename}""#))]
     IncompatibleVariantTypes {

@@ -42,6 +42,7 @@ https://zerotomastery.io/blog/rust-struct-guide/
   - <https://stackoverflow.com/questions/60943851/how-do-you-see-an-errors-backtrace-when-using-snafu>
 
 - add #[with_location] to all error types derived with Snafu
+  with_location doesn't currently work with AntelopeValue error (seemingly because of the visibility attr?)
 
 ### AntelopeValue
 

@@ -87,7 +87,6 @@ dependencies = [
  "sha2",
  "snafu",
  "strum",
- "thiserror",
  "tracing",
 ]
 

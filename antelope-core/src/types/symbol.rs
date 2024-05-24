@@ -3,27 +3,27 @@ use std::num::ParseIntError;
 
 use serde::de::{self, Visitor};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use thiserror::Error;
+use snafu::{ensure, Snafu, ResultExt};
 
 
-#[derive(Error, Debug)]
+#[derive(Debug, Snafu)]
 pub enum InvalidSymbol {
-    #[error("creating Symbol from empty string")]
+    #[snafu(display("creating symbol from empty string"))]
     Empty,
 
-    #[error(r#"Symbol name longer than 7 characters: "{0}""#)]
-    TooLong(String),
+    #[snafu(display(r#"symbol name longer than 7 characters: "{name}""#))]
+    TooLong { name: String },
 
-    #[error("missing comma in Symbol")]
+    #[snafu(display("missing comma in symbol"))]
     MissingComma,
 
-    #[error(r#"invalid char '{1}' in Symbol "{0}""#)]
-    InvalidChar(String, char),
+    #[snafu(display(r#"invalid char '{c}' in symbol "{symbol}""#))]
+    InvalidChar { symbol: String, c: char },
 
-    #[error("could not parse precision for Symbol")]
-    ParsePrecisionError(#[from] ParseIntError),
+    #[snafu(display("could not parse precision for symbol"))]
+    ParsePrecisionError { source: ParseIntError },
 
-    #[error("given precision {given} should be <= max precision {max}")]
+    #[snafu(display("given precision {given} should be <= max precision {max}"))]
     InvalidPrecision { given: u8, max: u8 },
 }
 
@@ -46,7 +46,7 @@ impl Symbol {
         let s = s.trim();
         if s.is_empty() { return Err(InvalidSymbol::Empty); }
         let pos = s.find(',').ok_or(InvalidSymbol::MissingComma)?;
-        let precision: u8 = s[..pos].parse()?;
+        let precision: u8 = s[..pos].parse().context(ParsePrecisionSnafu)?;
         if precision > Self::MAX_PRECISION {
             return Err(InvalidSymbol::InvalidPrecision {
                 given: precision,
@@ -140,13 +140,13 @@ impl<'de> Deserialize<'de> for Symbol {
 // see ref implementation in AntelopeIO/leap/libraries/chain/symbol.{hpp,cpp}
 pub fn string_to_symbol_code(s: &[u8]) -> Result<u64, InvalidSymbol> {
     let mut result: u64 = 0;
-    if s.is_empty() { return Err(InvalidSymbol::Empty); }
+    ensure!(!s.is_empty(), EmptySnafu);
 
     let name = String::from_utf8(s.to_owned()).unwrap(); // unwrap should be safe here
-    if s.len() > 7 { return Err(InvalidSymbol::TooLong(name)); }
+    ensure!(s.len() <= 7, TooLongSnafu { name });
 
     for (i, &c) in s.iter().enumerate() {
-        if !c.is_ascii_uppercase() { return Err(InvalidSymbol::InvalidChar(name, c as char)); }
+        ensure!(c.is_ascii_uppercase(), InvalidCharSnafu { symbol: name, c: c as char });
         result |= (s[i] as u64) << (8 * i);
     }
     Ok(result)
