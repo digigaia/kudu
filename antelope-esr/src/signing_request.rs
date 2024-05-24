@@ -3,7 +3,6 @@ use std::io::prelude::*;
 use std::fmt;
 
 use base64::prelude::*;
-// use color_eyre::eyre::Context;
 use flagset::{flags, FlagSet};
 use hex;
 use snafu::prelude::*;

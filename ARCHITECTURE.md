@@ -17,6 +17,41 @@ for us, but for read operations that means that we panic if we reach the end of
 the stream, which is something that we could expect and we currently account
 properly for it with `StreamError`.
 
+## Error handling
+
+### `thiserror` vs `snafu`
+
+we started with `thiserror` as it seems to be the most popular library for error
+handling in the Rust ecosystem. It served us well to a point but it has a few
+shortcomings for us:
+
+- automatic error conversion using the #[from] attribute can only handle one
+  instance of a specific source error for all variants
+- errors lack some information such as location and/or backtrace which can make
+  it hard to track their root causes easily
+
+we switched to `snafu` for the following reasons:
+
+- context selectors are very ergonomic (when one understands them!) and they
+  allow to have some fields filled in automatically (location, backtrac)
+- there is no automatic conversion from an error to another (easy to implement,
+  though, see: `antelope_core::impl_auto_error_conversion` macro) and require
+  to manually add a context every time we want to convert an error. This might
+  seem overkill but is actually good practice: we get a full error stacktrace
+  for every error, without "skipping" levels
+- see these articles for inspiration:
+  - <https://www.reddit.com/r/rust/comments/1cp8xtx/error_handling_for_large_rust_projects/>
+  - <https://github.com/GreptimeTeam/greptimedb/blob/main/src/common/macro/src/stack_trace_debug.rs>
+  - <https://www.reddit.com/r/rust/comments/dfs1zk/2019_q4_error_patterns_snafu_vs_errderive_anyhow/>
+  - <https://dev.to/e_net4/migrating-from-quick-error-to-snafu-a-story-on-revamped-error-handling-in-rust-58h9>
+  - <https://gist.github.com/quad/a8a7cc87d1401004c6a8973947f20365>
+
+### Displaying errors: `color_eyre`
+
+`color_eyre` is used to display nice reports, with backtraces etc.
+
+It should only be used in unittests and user code, not in the libraries themselves.
+
 
 ## ABIProvider trait vs. ABIProvider enum
 

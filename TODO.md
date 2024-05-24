@@ -43,6 +43,7 @@ https://zerotomastery.io/blog/rust-struct-guide/
 
 - add #[with_location] to all error types derived with Snafu
   with_location doesn't currently work with AntelopeValue error (seemingly because of the visibility attr?)
+- define specific error to abi.rs, do not reuse InvalidValue for it
 
 ### AntelopeValue
 

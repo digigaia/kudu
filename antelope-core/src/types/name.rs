@@ -1,6 +1,5 @@
 use std::fmt;
 
-use color_eyre::eyre::Result;
 use serde::de::{self, Visitor};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use snafu::{Snafu, ensure};
@@ -153,6 +152,7 @@ fn u64_to_string(n: u64) -> Vec<u8> {
 
 #[cfg(test)]
 mod tests {
+    use color_eyre::eyre::Result;
     use super::*;
 
     #[test]

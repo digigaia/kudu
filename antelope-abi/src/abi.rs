@@ -4,7 +4,6 @@ use antelope_core::{
     AntelopeType, AntelopeValue, InvalidValue, Name,
     types::antelopevalue::{IncompatibleVariantTypesSnafu, InvalidDataSnafu},
 };
-use color_eyre::eyre::Result;
 use serde_json::{
     json,
     Map as JsonMap,

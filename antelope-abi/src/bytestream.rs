@@ -1,25 +1,28 @@
 use std::mem;
 use std::num::ParseIntError;
 
+use bytemuck::cast_ref;
+use hex;
+use snafu::{ensure, Snafu};
+use tracing::trace;
+
 use antelope_core::{
     InvalidValue,
     types::antelopevalue::InvalidDataSnafu,
 };
-use bytemuck::cast_ref;
-use hex;
-use thiserror::Error;
-use tracing::trace;
 
+use annotated_error::with_location;
 
-#[derive(Error, Debug)]
+#[with_location]
+#[derive(Debug, Snafu)]
 pub enum StreamError {
-    #[error("stream ended, tried to read {0} byte(s) but only {1} available")]
-    Ended(usize, usize),
+    #[snafu(display("stream ended, tried to read {wanted} byte(s) but only {available} available"))]
+    Ended { wanted: usize, available: usize },
 
-    #[error("invalid hex character")]
-    InvalidHexChar(#[from] ParseIntError),
+    #[snafu(display("invalid hex character"))]
+    InvalidHexChar { source: ParseIntError },
 
-    #[error("odd number of chars in hex representation")]
+    #[snafu(display("odd number of chars in hex representation"))]
     OddLength,
 }
 
@@ -105,26 +108,21 @@ impl ByteStream {
 
     pub fn read_byte(&mut self) -> Result<u8, StreamError> {
         let pos = self.read_pos;
-        if pos != self.data.len() {
-            trace!("read 1 byte - hex: {}", hex::encode_upper(&self.data[pos..pos + 1]));
-            self.read_pos += 1;
-            Ok(self.data[pos])
-        }
-        else {
-            Err(StreamError::Ended(1, 0))
-        }
+        ensure!(pos != self.data.len(), EndedSnafu { wanted: 1_usize, available: 0_usize });
+
+        trace!("read 1 byte - hex: {}", hex::encode_upper(&self.data[pos..pos + 1]));
+        self.read_pos += 1;
+        Ok(self.data[pos])
     }
 
     pub fn read_bytes(&mut self, n: usize) -> Result<&[u8], StreamError> {
-        if self.read_pos + n > self.data.len() {
-            Err(StreamError::Ended(n, self.data.len() - self.read_pos))
-        }
-        else {
-            let result = &self.data[self.read_pos..self.read_pos + n];
-            trace!("read {n} bytes - hex: {}", hex::encode_upper(result));
-            self.read_pos += n;
-            Ok(result)
-        }
+        let available = self.data.len() - self.read_pos;
+        ensure!(n <= available, EndedSnafu { wanted: n, available });
+
+        let result = &self.data[self.read_pos..self.read_pos + n];
+        trace!("read {n} bytes - hex: {}", hex::encode_upper(result));
+        self.read_pos += n;
+        Ok(result)
     }
 
     pub fn write_bytes(&mut self, bytes: &[u8]) {
@@ -192,24 +190,4 @@ impl ByteStream {
     pub fn write_f64(&mut self, x: f64) {
         self.data.extend_from_slice(cast_ref::<f64, [u8; 8]>(&x));
     }
-
-    // pub fn write_var_u32(&mut self, n: u32) {
-    //     // TODO: would it be better to use the `bytemuck` create here?
-    //     let mut n = n;
-    //     loop {
-    //         if n >> 7 != 0 {
-    //             self.write_byte((0x80 | (n & 0x7f)) as u8);
-    //             n >>= 7
-    //         }
-    //         else {
-    //             self.write_byte(n as u8);
-    //             break;
-    //         }
-    //     }
-    // }
-    //
-    // pub fn write_str(&mut self, s: &str) {
-    //     self.write_var_u32(s.len() as u32);
-    //     self.data.extend_from_slice(s.as_bytes());
-    // }
 }

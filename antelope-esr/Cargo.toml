@@ -16,7 +16,6 @@ serde_json         = { workspace = true }
 snafu              = { workspace = true }
 tracing            = { workspace = true }
 tracing-subscriber = { workspace = true }
-thiserror          = { workspace = true }
 
 annotated-error = { path = "../annotated-error" }
 antelope-core = { path = "../antelope-core" }

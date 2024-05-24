@@ -4,7 +4,7 @@ use std::rc::Rc;
 use std::sync::OnceLock;
 
 use serde_json::json;
-use thiserror::Error;
+use snafu::{Snafu, ResultExt};
 
 use antelope_core::{APIClient, InvalidValue};
 
@@ -35,13 +35,13 @@ pub fn get_signing_request_abi() -> &'static ABI {
 // =============================================================================
 
 
-#[derive(Error, Debug)]
+#[derive(Debug, Snafu)]
 pub enum InvalidABI {
-    #[error(r#"unknown ABI with name "{0}""#)]
-    Unknown(String),
+    #[snafu(display(r#"unknown ABI with name "{name}""#))]
+    Unknown { name: String },
 
-    #[error("could not parse ABI")]
-    ParseError(#[from] InvalidValue),
+    #[snafu(display("could not parse ABI"))]
+    ParseError { source: InvalidValue },
 
 }
 
@@ -68,7 +68,7 @@ impl ABIProvider {
                 Ok(abi)
             },
             _ => {
-                let abi_def = ABIDefinition::from_str(&self.get_abi_definition(abi_name)?)?;
+                let abi_def = ABIDefinition::from_str(&self.get_abi_definition(abi_name)?).context(ParseSnafu)?;
                 Ok(Rc::new(ABI::from_abi(&abi_def)))
             }
         }
