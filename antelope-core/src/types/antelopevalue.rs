@@ -22,7 +22,7 @@ use crate::types::{
 };
 
 use crate::utils::{
-    variant_to_int, variant_to_uint, variant_to_float,
+    variant_to_int, variant_to_uint, variant_to_float, variant_to_str,
     str_to_int, str_to_float,
     ConversionError
 };
@@ -123,7 +123,7 @@ impl AntelopeValue {
             AntelopeType::Name => Self::Name(Name::from_str(repr).context(NameSnafu)?),
             AntelopeType::SymbolCode => Self::SymbolCode(string_to_symbol_code(repr.as_bytes()).context(SymbolSnafu)?),
             AntelopeType::Symbol => Self::Symbol(Symbol::from_str(repr).context(SymbolSnafu)?),
-            AntelopeType::Asset => Self::Asset(Asset::from_str(repr).context(AssetSnafu)?),
+            AntelopeType::Asset => Self::Asset(Asset::from_str(repr).context(AssetSnafu { repr })?),
             AntelopeType::ExtendedAsset => Self::from_variant(typename, &serde_json::from_str(repr).context(JsonParseSnafu)?)?,
             // _ => { return Err(InvalidValue::InvalidType(typename.to_string())); },
         })
@@ -241,8 +241,9 @@ impl AntelopeValue {
             | AntelopeType::Asset => Self::from_str(typename, v.as_str().with_context(incompatible_types)?)?,
             AntelopeType::ExtendedAsset => {
                 let ea = v.as_object().with_context(incompatible_types)?;
+                let qty = variant_to_str(&ea["quantity"])?;
                 Self::ExtendedAsset(Box::new((
-                    Asset::from_str(ea["quantity"].as_str().with_context(incompatible_types)?).context(AssetSnafu)?,
+                    Asset::from_str(qty).context(AssetSnafu { repr: qty })?,
                     Name::from_str(ea["contract"].as_str().with_context(incompatible_types)?).context(NameSnafu)?,
                 )))
             },
@@ -405,7 +406,10 @@ pub enum InvalidValue {
     Symbol { source: InvalidSymbol },
 
     #[snafu(display("invalid asset"))]
-    Asset { source: InvalidAsset },
+    Asset {
+        repr: String,
+        source: InvalidAsset,
+    },
 
     #[snafu(display("invalid hex representation"))]
     FromHex { source: FromHexError },

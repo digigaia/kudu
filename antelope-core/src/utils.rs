@@ -6,28 +6,39 @@ use num::{Integer, Signed, Unsigned, Float};
 use serde_json::Value as JsonValue;
 use snafu::prelude::*;
 
+use annotated_error::with_location;
+
 
 // FIXME: rename this file to something else than utils.rs. Maybe convert.rs? conversion.rs? numeric.rs? mathutils.rs?
+
+type Result<T, E = ConversionError> = std::result::Result<T, E>;
 
 // -----------------------------------------------------------------------------
 //     Utility functions to convert numeric types
 // -----------------------------------------------------------------------------
 
-pub fn str_to_int<T>(s: &str) -> Result<T, ConversionError>
+pub fn variant_to_str(v: &JsonValue) -> Result<&str> {
+    v.as_str().with_context(|| IncompatibleVariantTypesSnafu {
+        typename: "&str",
+        value: v.clone(),
+    })
+}
+
+pub fn str_to_int<T>(s: &str) -> Result<T>
 where
     T: Integer + FromStr<Err = ParseIntError>,
 {
     s.parse().context(IntSnafu { repr: s })
 }
 
-pub fn str_to_float<T>(s: &str) -> Result<T, ConversionError>
+pub fn str_to_float<T>(s: &str) -> Result<T>
 where
     T: Float + FromStr<Err = ParseFloatError>,
 {
     s.parse().context(FloatSnafu { repr: s })
 }
 
-pub fn variant_to_int<T>(v: &JsonValue) -> Result<T, ConversionError>
+pub fn variant_to_int<T>(v: &JsonValue) -> Result<T>
 where
     T: TryFromInt64 + FromStr<Err = ParseIntError>,
 {
@@ -41,7 +52,7 @@ where
     }
 }
 
-pub fn variant_to_uint<T>(v: &JsonValue) -> Result<T, ConversionError>
+pub fn variant_to_uint<T>(v: &JsonValue) -> Result<T>
 where
     T: TryFromUint64 + FromStr<Err = ParseIntError>,
 {
@@ -55,7 +66,7 @@ where
     }
 }
 
-pub fn variant_to_float<T>(v: &JsonValue) -> Result<T, ConversionError>
+pub fn variant_to_float<T>(v: &JsonValue) -> Result<T>
 where
     T: TryFromFloat64 + FromStr<Err = ParseFloatError>,
 {
@@ -73,6 +84,7 @@ where
 //     Error type for all possible conversion errors
 // -----------------------------------------------------------------------------
 
+#[with_location]
 #[derive(Debug, Snafu)]
 pub enum ConversionError {
     #[snafu(display("invalid integer: {repr}"))]

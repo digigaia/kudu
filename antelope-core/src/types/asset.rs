@@ -3,30 +3,32 @@ use std::num::ParseIntError;
 
 use serde::de::{self, Visitor};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use thiserror::Error;
+use snafu::{ensure, Snafu, OptionExt, ResultExt};
 
+use annotated_error::with_location;
 use crate::{InvalidSymbol, Symbol};
 
 
-#[derive(Error, Debug)]
+#[with_location]
+#[derive(Debug, Snafu)]
 pub enum InvalidAsset {
-    #[error(r#"Asset's amount and symbol should be separated with space: "{0}""#)]
-    MissingSpace(String),
+    #[snafu(display("asset amount and symbol should be separated with space"))]
+    MissingSpace,
 
-    #[error("missing decimal fraction after decimal point")]
+    #[snafu(display("missing decimal fraction after decimal point"))]
     MissingDecimal,
 
-    #[error("could not parse amount for Asset")]
-    ParseAmount(#[from] ParseIntError),
+    #[snafu(display("could not parse amount for asset"))]
+    ParseAmount { source: ParseIntError },
 
-    #[error("amount overflow for: {0}")]
-    AmountOverflow(String),
+    #[snafu(display("amount overflow for: {amount}"))]
+    AmountOverflow { amount: String },
 
-    #[error("ammount out of range, max is 2^62-1")]
+    #[snafu(display("ammount out of range, max is 2^62-1"))]
     AmountOutOfRange,
 
-    #[error("could not parse Symbol from Asset string")]
-    InvalidSymbol(#[from] InvalidSymbol),
+    #[snafu(display("could not parse symbol from asset string"))]
+    InvalidSymbol { source: InvalidSymbol },
 }
 
 
@@ -52,11 +54,9 @@ impl Asset {
     }
 
     pub fn check_valid(&self) -> Result<(), InvalidAsset> {
-        match self.is_amount_within_range() {
-            true => Ok(()),
-            false => Err(InvalidAsset::AmountOutOfRange),
-        }
+        ensure!(self.is_amount_within_range(), AmountOutOfRangeSnafu);
         // no need to check for symbol.is_valid, it has been successfully constructed
+        Ok(())
     }
 
     pub fn amount(&self) -> i64 { self.amount }
@@ -73,7 +73,7 @@ impl Asset {
         let s = s.trim();
 
         // find space in order to split amount and symbol
-        let space_pos = s.find(' ').ok_or(InvalidAsset::MissingSpace(s.to_owned()))?;
+        let space_pos = s.find(' ').context(MissingSpaceSnafu)?;
 
         let amount_str = &s[..space_pos];
         let symbol_str = &s[space_pos + 1..].trim();
@@ -83,30 +83,29 @@ impl Asset {
         let precision;
         if let Some(dot_pos) = dot_pos {
             // Ensure that if decimal point is used (.), decimal fraction is specified
-            if dot_pos == amount_str.len() - 1 {
-                return Err(InvalidAsset::MissingDecimal);
-            }
+            ensure!(dot_pos != amount_str.len() - 1, MissingDecimalSnafu);
             precision = amount_str.len() - dot_pos - 1;
         }
         else {
             precision = 0;
         }
 
-        let symbol = Symbol::from_str(&format!("{},{}", precision, symbol_str))?;
+        let symbol = Symbol::from_str(&format!("{},{}", precision, symbol_str))
+            .context(InvalidSymbolSnafu)?;
 
         // parse amount
         let amount: i64 = match dot_pos {
-            None => amount_str.parse()?,
+            None => amount_str.parse().context(ParseAmountSnafu)?,
             Some(dot_pos) => {
-                let int_part: i64 = amount_str[..dot_pos].parse()?;
-                let mut frac_part: i64 = amount_str[dot_pos+1..].parse()?;
+                let int_part: i64 = amount_str[..dot_pos].parse().context(ParseAmountSnafu)?;
+                let mut frac_part: i64 = amount_str[dot_pos+1..].parse().context(ParseAmountSnafu)?;
                 if amount_str.starts_with('-') { frac_part *= -1; }
                 // check we don't overflow
                 int_part
                     .checked_mul(symbol.precision())
-                    .ok_or(InvalidAsset::AmountOverflow(amount_str.to_owned()))?
+                    .context(AmountOverflowSnafu { amount: amount_str.to_owned() })?
                     .checked_add(frac_part)
-                    .ok_or(InvalidAsset::AmountOverflow(amount_str.to_owned()))?
+                    .context(AmountOverflowSnafu { amount: amount_str.to_owned() })?
             },
         };
 

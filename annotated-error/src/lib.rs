@@ -11,9 +11,12 @@ use syn::visit_mut::{self, VisitMut};
 // FIXME: print a proper error if we already have a field named `location`
 // FIXME: print a proper error if we don't define a display string
 
+fn location_as_fields_named() -> FieldsNamed {
+    syn::parse_str("{ #[snafu(implicit)] location: snafu::Location }").unwrap()
+}
 
 fn location_field() -> Field {
-    let fs: FieldsNamed = syn::parse_str("{ #[snafu(implicit)] location: snafu::Location }").unwrap();
+    let fs: FieldsNamed = location_as_fields_named();
     let location_field = &fs.named[0];
     location_field.clone()
 }
@@ -32,8 +35,11 @@ impl VisitMut for AddLocationField {
             Fields::Named(ref mut fields) => {
                 fields.named.push(location_field());
             },
+            Fields::Unit => {
+                node.fields = location_as_fields_named().into()
+            },
             _ => {
-                panic!("variant '{}' needs to be a struct type to be able to add `location` to it!", &node.ident);
+                panic!("variant '{}' needs to be a struct or unit type to be able to add `location` to it!", &node.ident);
             }
 
         }
