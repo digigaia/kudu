@@ -4,13 +4,12 @@ use antelope_core::{
     JsonValue,
     AntelopeType, AntelopeValue, InvalidValue,
     ActionName, TableName,
-    types::antelopevalue::InvalidDataSnafu,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use snafu::OptionExt;
 
-use crate::abiserializable::ABISerializable;
+use crate::abiserializable::{ABISerializable, SerializeError, InvalidDataSnafu};
 use crate::{ABI, ByteStream};
 
 pub use crate::typenameref::TypeNameRef;
@@ -133,7 +132,7 @@ impl ABIDefinition {
         Ok(serde_json::from_str(&v.to_string())?)
     }
 
-    pub fn from_bin(data: &mut ByteStream) -> Result<Self, InvalidValue> {
+    pub fn from_bin(data: &mut ByteStream) -> Result<Self, SerializeError> {
         let version = AntelopeValue::from_bin(AntelopeType::String, data)?.to_variant();
         let version_str = version.as_str().context(InvalidDataSnafu {
             msg: format!("expecting to read version string, instead got {:?}", version)
@@ -160,7 +159,7 @@ impl ABIDefinition {
         // check here: https://github.com/wharfkit/antelope/blob/master/src/chain/abi.ts#L109
         assert_eq!(data.leftover(), [0u8; 2]);
 
-        Self::from_str(&abi.to_string())
+        Ok(Self::from_str(&abi.to_string())?)
     }
 }
 

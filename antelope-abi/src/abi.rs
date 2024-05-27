@@ -9,15 +9,17 @@ use serde_json::{
     Map as JsonMap,
     Value as JsonValue,
 };
+use snafu::ResultExt;
 use strum::VariantNames;
 use tracing::{debug, warn, instrument};
 
 // use super::*;
 // use crate::abi::*;
-use crate::{abiserializable::ABISerializable, binaryserializable::write_var_u32};
-use crate::{ByteStream, ABIDefinition};
-use crate::abidefinition::{
-    TypeName, TypeNameRef, Struct, Variant,
+use crate::{
+    ByteStream, ABIDefinition,
+    abidefinition::{TypeName, TypeNameRef, Struct, Variant},
+    abiserializable::{ABISerializable, SerializeError},
+    binaryserializable::write_var_u32,
 };
 
 // TODO: make sure that we can (de)serialize an ABI (ABIDefinition?) itself (eg, see: https://github.com/wharfkit/antelope/blob/master/src/chain/abi.ts, which implements ABISerializableObject)
@@ -58,11 +60,11 @@ impl ABI {
 
     pub fn with_abi(abi: &ABIDefinition) -> Self { Self::from_abi(abi) }
 
-    pub fn from_hex_abi(abi: &str) -> Result<Self, InvalidValue> {
+    pub fn from_hex_abi(abi: &str) -> Result<Self, SerializeError> {
         Self::from_bin_abi(&hex::decode(abi)?)
     }
 
-    pub fn from_bin_abi(abi: &[u8]) -> Result<Self, InvalidValue> {
+    pub fn from_bin_abi(abi: &[u8]) -> Result<Self, SerializeError> {
         let mut data = ByteStream::from(abi.to_owned());
         let abi_def = ABIDefinition::from_bin(&mut data)?;
         Ok(Self::from_abi(&abi_def))
@@ -244,11 +246,13 @@ impl ABI {
     }
 
     #[allow(clippy::collapsible_else_if)]
-    pub fn decode_variant(&self, ds: &mut ByteStream, typename: TypeNameRef) -> Result<JsonValue, InvalidValue> {
+    pub fn decode_variant(&self, ds: &mut ByteStream, typename: TypeNameRef) -> Result<JsonValue, SerializeError> {
         let rtype = self.resolve_type(typename);
         let ftype = rtype.fundamental_type();
 
         Ok(if AntelopeValue::VARIANTS.contains(&ftype.0) {
+            let type_ = ftype.try_into().unwrap(); //.context(InvalidTypeSnafu { name: ftype.0 })?;
+
             // if our fundamental type is a builtin type, we can deserialize it directly
             // from the stream
             if rtype.is_array() {
@@ -256,19 +260,19 @@ impl ABI {
                 debug!(r#"reading array of {item_count} elements of type "{ftype}""#);
                 let mut a = Vec::with_capacity(item_count);
                 for _ in 0..item_count {
-                    a.push(AntelopeValue::from_bin(ftype.try_into()?, ds)?.to_variant());
+                    a.push(AntelopeValue::from_bin(type_, ds)?.to_variant());
                 }
                 JsonValue::Array(a)
             }
             else if rtype.is_optional() {
                 let non_null: bool = AntelopeValue::from_bin(AntelopeType::Bool, ds)?.into();
                 match non_null {
-                    true => AntelopeValue::from_bin(ftype.try_into()?, ds)?.to_variant(),
+                    true => AntelopeValue::from_bin(type_, ds)?.to_variant(),
                     false => JsonValue::Null,
                 }
             }
             else {
-                AntelopeValue::from_bin(ftype.try_into()?, ds)?.to_variant()
+                AntelopeValue::from_bin(type_, ds)?.to_variant()
             }
         }
         else {
@@ -329,7 +333,7 @@ pub struct Struct {
 }
      */
 
-    fn decode_struct(&self, ds: &mut ByteStream, struct_def: &Struct) -> Result<JsonValue, InvalidValue> {
+    fn decode_struct(&self, ds: &mut ByteStream, struct_def: &Struct) -> Result<JsonValue, SerializeError> {
         // let mut result: Map<String, JsonValue> = Map::new();
         // result.insert("name".to_owned(), json!(struct_def.name));
         // result.insert("base".to_owned(), json!(struct_def.base));

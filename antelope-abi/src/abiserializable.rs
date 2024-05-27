@@ -1,16 +1,44 @@
+use bytemuck::{cast_ref, pod_read_unaligned};
+use hex::FromHexError;
+use snafu::{Snafu, IntoError};
+use tracing::instrument;
+
+use annotated_error::with_location;
 use antelope_core::{
     AntelopeType, AntelopeValue, Asset, InvalidValue, Name, PrivateKey, PublicKey, Signature, Symbol,
-    types::antelopevalue::InvalidDataSnafu,
+    impl_auto_error_conversion,
 };
-use bytemuck::{cast_ref, pod_read_unaligned};
-use tracing::instrument;
 
 use crate::{
     binaryserializable::{
         read_bytes, read_str, read_var_i32, read_var_u32, write_var_i32, write_var_u32, BinarySerializable,
     },
-    bytestream::ByteStream,
+    ByteStream, StreamError,
 };
+
+#[with_location]
+#[derive(Debug, Snafu)]
+#[snafu(visibility(pub))]
+pub enum SerializeError {
+    #[snafu(display("stream error"))]
+    StreamError { source: StreamError },
+
+    #[snafu(display("invalid value"))]
+    InvalidValue { source: InvalidValue },
+
+    // #[snafu(display(r#"cannot parse "{name}" as Antelope type"#))]
+    // InvalidType { name: String, source: ParseError },
+
+    #[snafu(display("cannot decode hex data"))]
+    HexDecodeError { source: FromHexError },
+
+    #[snafu(display("{msg}"))]
+    InvalidData { msg: String },  // acts as a generic error type with a given message
+}
+
+impl_auto_error_conversion!(StreamError, SerializeError, StreamSnafu);
+impl_auto_error_conversion!(InvalidValue, SerializeError, InvalidValueSnafu);
+impl_auto_error_conversion!(FromHexError, SerializeError, HexDecodeSnafu);
 
 // FIXME: from_bin should take &str instead of AntelopeType, and we might need to register an ABI provider
 pub trait ABISerializable {
@@ -19,7 +47,7 @@ pub trait ABISerializable {
     }
     // abi_base, abi_fields, see https://github.com/wharfkit/antelope/blob/master/src/chain/struct.ts
     fn to_bin(&self, _stream: &mut ByteStream);
-    fn from_bin(_typename: AntelopeType, _stream: &mut ByteStream) -> Result<Self, InvalidValue>
+    fn from_bin(_typename: AntelopeType, _stream: &mut ByteStream) -> Result<Self, SerializeError>
     where
         Self: Sized;
 }
@@ -76,7 +104,7 @@ impl ABISerializable for AntelopeValue {
     }
 
     #[instrument(skip(stream))]
-    fn from_bin(typename: AntelopeType, stream: &mut ByteStream) -> Result<Self, InvalidValue> {
+    fn from_bin(typename: AntelopeType, stream: &mut ByteStream) -> Result<Self, SerializeError> {
         Ok(match typename {
             AntelopeType::Bool => match stream.read_byte()? {
                 1 => Self::Bool(true),

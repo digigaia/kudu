@@ -3,17 +3,17 @@ use std::str::from_utf8;
 use antelope_core::{
     types::crypto::{CryptoData, CryptoDataType, KeyType},
     Asset, InvalidValue, Name, Symbol,
-    types::antelopevalue::InvalidDataSnafu,
+    types::antelopevalue::{InvalidDataSnafu, Utf8Snafu},
 };
 use bytemuck::pod_read_unaligned;
-use snafu::ensure;
+use snafu::{ensure, ResultExt};
 
-use crate::bytestream::ByteStream;
+use crate::{ByteStream, abiserializable::SerializeError};
 
 
 pub trait BinarySerializable {
     fn encode(&self, stream: &mut ByteStream);
-    fn decode(stream: &mut ByteStream) -> Result<Self, InvalidValue>
+    fn decode(stream: &mut ByteStream) -> Result<Self, SerializeError>
     where
         Self: Sized; // FIXME: this should be a different Error type
 }
@@ -25,7 +25,7 @@ impl BinarySerializable for i64 {
     fn encode(&self, stream: &mut ByteStream) {
         stream.write_i64(*self)
     }
-    fn decode(stream: &mut ByteStream) -> Result<Self, InvalidValue> {
+    fn decode(stream: &mut ByteStream) -> Result<Self, SerializeError> {
         Ok(pod_read_unaligned(stream.read_bytes(8)?))
     }
 }
@@ -34,7 +34,7 @@ impl BinarySerializable for u64 {
     fn encode(&self, stream: &mut ByteStream) {
         stream.write_u64(*self)
     }
-    fn decode(stream: &mut ByteStream) -> Result<Self, InvalidValue> {
+    fn decode(stream: &mut ByteStream) -> Result<Self, SerializeError> {
         Ok(pod_read_unaligned(stream.read_bytes(8)?))
     }
 }
@@ -44,7 +44,7 @@ impl BinarySerializable for Name {
         stream.write_u64(self.as_u64());
     }
 
-    fn decode(stream: &mut ByteStream) -> Result<Self, InvalidValue> {
+    fn decode(stream: &mut ByteStream) -> Result<Self, SerializeError> {
         let n = u64::decode(stream)?;
         Ok(Name::from_u64(n))
     }
@@ -56,7 +56,7 @@ impl BinarySerializable for Symbol {
         stream.write_u64(self.as_u64());
     }
 
-    fn decode(stream: &mut ByteStream) -> Result<Self, InvalidValue> {
+    fn decode(stream: &mut ByteStream) -> Result<Self, SerializeError> {
         let n = u64::decode(stream)?;
         Ok(Symbol::from_u64(n))
     }
@@ -69,7 +69,7 @@ impl BinarySerializable for Asset {
         self.symbol().encode(stream);
     }
 
-    fn decode(stream: &mut ByteStream) -> Result<Self, InvalidValue> {
+    fn decode(stream: &mut ByteStream) -> Result<Self, SerializeError> {
         let amount = i64::decode(stream)?;
         let symbol = Symbol::decode(stream)?;
         Ok(Asset::new(amount, symbol))
@@ -83,7 +83,7 @@ impl<T: CryptoDataType, const DATA_SIZE: usize> BinarySerializable for CryptoDat
         stream.write_bytes(self.data());
     }
 
-    fn decode(stream: &mut ByteStream) -> Result<Self, InvalidValue> {
+    fn decode(stream: &mut ByteStream) -> Result<Self, SerializeError> {
         let key_type = KeyType::from_index(stream.read_byte()?);
         let data = stream.read_bytes(DATA_SIZE)?.try_into().unwrap();
         Ok(Self::new(key_type, data))
@@ -110,7 +110,7 @@ pub fn write_var_i32(stream: &mut ByteStream, n: i32) {
     write_var_u32(stream, unsigned)
 }
 
-pub fn read_var_u32(stream: &mut ByteStream) -> Result<u32, InvalidValue> {
+pub fn read_var_u32(stream: &mut ByteStream) -> Result<u32, SerializeError> {
     let mut offset = 0;
     let mut result = 0;
     loop {
@@ -124,7 +124,7 @@ pub fn read_var_u32(stream: &mut ByteStream) -> Result<u32, InvalidValue> {
     Ok(result)
 }
 
-pub fn read_var_i32(stream: &mut ByteStream) -> Result<i32, InvalidValue> {
+pub fn read_var_i32(stream: &mut ByteStream) -> Result<i32, SerializeError> {
     let n = read_var_u32(stream)?;
     Ok(match n & 1 {
         0 => n >> 1,
@@ -132,12 +132,12 @@ pub fn read_var_i32(stream: &mut ByteStream) -> Result<i32, InvalidValue> {
     } as i32)
 }
 
-pub fn read_bytes(stream: &mut ByteStream) -> Result<Vec<u8>, InvalidValue> {
+pub fn read_bytes(stream: &mut ByteStream) -> Result<Vec<u8>, SerializeError> {
     let len = read_var_u32(stream)? as usize;
     Ok(Vec::from(stream.read_bytes(len)?))
 }
 
-pub fn read_str(stream: &mut ByteStream) -> Result<&str, InvalidValue> {
+pub fn read_str(stream: &mut ByteStream) -> Result<&str, SerializeError> {
     let len = read_var_u32(stream)? as usize;
-    Ok(from_utf8(stream.read_bytes(len)?)?)
+    Ok(from_utf8(stream.read_bytes(len)?).context(Utf8Snafu)?)
 }

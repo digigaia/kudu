@@ -385,7 +385,7 @@ mod tests {
 // Note: serde_json doesn't support "natively" 128-bit integer types
 //  see: https://github.com/serde-rs/json/issues/846
 
-// #[with_location]
+#[with_location]
 #[derive(Debug, Snafu)]
 #[snafu(visibility(pub))]   // FIXME: remove this visibility attr
 pub enum InvalidValue {
@@ -418,10 +418,6 @@ pub enum InvalidValue {
 
     #[snafu(display("invalid crypto data"))]
     CryptoData { source: InvalidCryptoData },
-
-    // FIXME!!!
-    // #[snafu(display("stream error")]
-    // StreamSnafu(Display(#[from] StreamError),
 
     #[snafu(display("cannot parse bytes as UTF-8"))]
     Utf8Error { source: Utf8Error },

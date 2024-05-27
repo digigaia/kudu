@@ -15,6 +15,7 @@ use antelope_core::{types::antelopevalue::hex_to_boxed_array, JsonValue, Name, j
 use antelope_abi::{
     ByteStream,
     abidefinition::TypeNameRef as T,
+    abiserializable::SerializeError,
     provider::{get_signing_request_abi, ABIProvider, InvalidABI},
 };
 
@@ -472,7 +473,7 @@ pub enum SigningRequestError {
 
     #[snafu(display("cannot decode SigningRequest from JSON representation"))]
     JsonDecode {
-        source: InvalidValue,
+        source: SerializeError,
     },
 
     #[snafu(display("hex decoding error"))]

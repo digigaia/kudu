@@ -26,12 +26,12 @@ pub enum StreamError {
     OddLength,
 }
 
-impl From<StreamError> for InvalidValue {
-    // FIXME: surely we can do better than that...
-    fn from(err: StreamError) -> InvalidValue {
-        InvalidDataSnafu { msg: err.to_string() }.build()
-    }
-}
+// impl From<StreamError> for InvalidValue {
+//     // FIXME: surely we can do better than that...
+//     fn from(err: StreamError) -> InvalidValue {
+//         InvalidDataSnafu { msg: err.to_string() }.build()
+//     }
+// }
 
 // TODO: we could provide default impl for u16, u32, etc. using only write_byte
 /*

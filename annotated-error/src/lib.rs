@@ -10,6 +10,9 @@ use syn::visit_mut::{self, VisitMut};
 // TODO: use proc_macro_attribute from proc_macro2 (?)
 // FIXME: print a proper error if we already have a field named `location`
 // FIXME: print a proper error if we don't define a display string
+// FIXME: do not use `node.parse_nested_meta(|meta| {})` on the `snafu` attribute,
+//        as some nested attrs can't be parsed like this, use `parse_args` instead
+
 
 fn location_as_fields_named() -> FieldsNamed {
     syn::parse_str("{ #[snafu(implicit)] location: snafu::Location }").unwrap()
@@ -77,12 +80,14 @@ impl VisitMut for AddLocationToDisplay {
                     Ok(())
                 }
                 else {
-                    let msg = format!("unrecognized attr for snafu: `{:?}`", meta.path.get_ident());
-                    println!("{}", msg);
-                    // Err(meta.error(msg))
+                    // let msg = format!("unrecognized attr for snafu: `{:?}`", meta.path.get_ident());
+                    // println!("{}", msg);
                     Ok(())
                 }
-            }).unwrap();
+            }).unwrap_or_else(|_e| {
+                // println!("cannot parse nested meta on attribute {:?}", node);
+                // println!("{:?}", e);
+            });
 
             if let Some(disp) = disp_str {
                 // println!("=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=");

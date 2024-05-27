@@ -31,16 +31,6 @@ https://zerotomastery.io/blog/rust-struct-guide/
 
 - `BinarySerializable` / `ABISerializable` need to use `StreamError` instead of `InvalidValue`
 
-- investigate whether `color_eyre::Result` is the right result type for the library. Maybe we should use `std::Result` and reserve the usage of `color_eyre::Result` for the unittests?
-
-- investigate `snafu` instead of `thiserror` for errors
-  - <https://www.reddit.com/r/rust/comments/dfs1zk/2019_q4_error_patterns_snafu_vs_errderive_anyhow/>
-  - <https://dev.to/e_net4/migrating-from-quick-error-to-snafu-a-story-on-revamped-error-handling-in-rust-58h9>
-  - <https://news.ycombinator.com/item?id=28802428>
-  - <https://news.ycombinator.com/item?id=28800680>
-  - <https://gist.github.com/quad/a8a7cc87d1401004c6a8973947f20365>
-  - <https://stackoverflow.com/questions/60943851/how-do-you-see-an-errors-backtrace-when-using-snafu>
-
 - add #[with_location] to all error types derived with Snafu
   with_location doesn't currently work with AntelopeValue error (seemingly because of the visibility attr?)
 - define specific error to abi.rs, do not reuse InvalidValue for it

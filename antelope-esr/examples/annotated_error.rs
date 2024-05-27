@@ -4,6 +4,7 @@ use snafu::prelude::*;
 
 #[with_location]
 #[derive(Debug, Snafu)]
+#[snafu(visibility(pub))]   // FIXME: remove this visibility attr
 pub enum MyError {
     #[snafu(display(r#""{msg}""#))]
     Invalid {
