@@ -6,11 +6,6 @@ use hex;
 use snafu::{ensure, Snafu};
 use tracing::trace;
 
-use antelope_core::{
-    InvalidValue,
-    types::antelopevalue::InvalidDataSnafu,
-};
-
 use annotated_error::with_location;
 
 #[with_location]
@@ -25,13 +20,6 @@ pub enum StreamError {
     #[snafu(display("odd number of chars in hex representation"))]
     OddLength,
 }
-
-// impl From<StreamError> for InvalidValue {
-//     // FIXME: surely we can do better than that...
-//     fn from(err: StreamError) -> InvalidValue {
-//         InvalidDataSnafu { msg: err.to_string() }.build()
-//     }
-// }
 
 // TODO: we could provide default impl for u16, u32, etc. using only write_byte
 /*
@@ -58,6 +46,7 @@ pub trait ByteStream {
 #[derive(Default)]
 pub struct ByteStream {
     // this should/could? also be made generic using the std::io::Write trait
+    // or maybe use the `bytes` crate to have an efficient copy-on-write bytes strucs?
     data: Vec<u8>,
 
     read_pos: usize,

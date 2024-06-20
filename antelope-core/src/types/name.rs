@@ -52,7 +52,7 @@ impl Name {
     pub fn prefix(&self) -> Name {
         // note: antelope C++ has a more efficient implementation based on direct bit twiddling,
         //       but we're going for a simpler implementation here
-        Name::from_str(self.to_string().rsplitn(2, '.').last().unwrap()).unwrap()
+        Name::from_str(self.to_string().rsplitn(2, '.').last().unwrap()).unwrap()  // both unwrap are safe here
     }
 }
 
@@ -94,7 +94,7 @@ impl<'de> Deserialize<'de> for Name {
 
 impl fmt::Display for Name {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", String::from_utf8(u64_to_string(self.value)).unwrap())
+        write!(f, "{}", u64_to_string(self.value))
     }
 }
 
@@ -128,7 +128,7 @@ fn string_to_u64(s: &[u8]) -> u64 {
 
 const CHARMAP: &[u8] = b".12345abcdefghijklmnopqrstuvwxyz";
 
-fn u64_to_string(n: u64) -> Vec<u8> {
+fn u64_to_bytes(n: u64) -> Vec<u8> {
     let mut n = n;
     let mut s: Vec<u8> = vec![b'.'; 13];
     for i in 0..=12 {
@@ -149,6 +149,17 @@ fn u64_to_string(n: u64) -> Vec<u8> {
     s.truncate(end_pos);
     s
 }
+
+fn u64_to_string(n: u64) -> String {
+    String::from_utf8(u64_to_bytes(n)).unwrap()  // unwrap is safe here
+}
+
+
+// =============================================================================
+//
+//     Unittests
+//
+// =============================================================================
 
 #[cfg(test)]
 mod tests {

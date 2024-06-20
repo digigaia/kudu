@@ -19,8 +19,6 @@ https://zerotomastery.io/blog/rust-struct-guide/
 
 - try defining the `ABISerializable` trait and implement it for all types, then replace the `AntelopeValue` struct with just the implementation of the base types
 
-- look into using the `bytes` crate
-
 - rename encode/decode methods everywhere to be more specific, such as `bin_to_json`/`json_to_bin`, etc. (esp. in tests)
 
 - check <https://rust-lang.github.io/api-guidelines/checklist.html>
@@ -30,6 +28,9 @@ https://zerotomastery.io/blog/rust-struct-guide/
 - better error handling when constructing types. We should remove `assert`s and `panic` and use proper error types
 
 - `BinarySerializable` / `ABISerializable` need to use `StreamError` instead of `InvalidValue`
+
+- it seems that `binaryserializable::SerializeError` might be overused, check that all error
+  definitions and usages are OK
 
 - add #[with_location] to all error types derived with Snafu
   with_location doesn't currently work with AntelopeValue error (seemingly because of the visibility attr?)
@@ -56,9 +57,6 @@ https://zerotomastery.io/blog/rust-struct-guide/
 - check whether we can fix this test for abieos float printing:
   `check_round_trip2(abi, "float64", "151115727451828646838272.0", "000000000000C044", "151115727451828650000000"`
 
-- IMPORTANT: check symbol name validation, in EOS it can overflow here:
-  <https://github.com/AntelopeIO/leap/blob/6817911900a088c60f91563995cf482d6b380b2d/libraries/chain/include/eosio/chain/symbol.hpp#L34>
-
 - do we allow constructing non-normalized names?
   see: tests/abieos_test.rs:402 vs.
   for Name type: check unittests and validity of non-normalized names
@@ -70,23 +68,32 @@ https://zerotomastery.io/blog/rust-struct-guide/
 - have some tests for `APIClient`, think how to do this smartly to not pound the API server
 
 - check tests in https://github.com/AntelopeIO/leap/blob/main/unittests/abi_tests.cpp
+  - at the end, there are tests about action results
 
 - do the other tests from here: <https://github.com/FACINGS/pyntelope/blob/main/tests/unit/types_test.py>
 
 - check other tests and ideas from: https://github.com/wharfkit/antelope
 
 
-
 ## MISC
+
+- check <https://rustprojectprimer.com/>
 
 - implement `Debug` and `Display` trait for all basic types
 
-- crypto primitives do not implement WebAuthn key and signatures yet
-
-- implement action_result in abi and abi_parser
+- document everything, also use boxes to show structure in source code files (ie: trait impls, etc. see: Symbol.rs as an example)
 
 - check with <https://crates.io/crates/antelope> whether we can get the crate name
+
+- investigate <https://github.com/eosrio/rs-abieos>
 
 - report bug for wharfkit.request creation: duplicate context_free_actions, missing context_free_data
   https://github.com/wharfkit/signing-request/blob/master/src/signing-request.ts#L410
   see tx def: https://docs.eosnetwork.com/docs/latest/advanced-topics/transactions-protocol/
+
+
+## MISSING FEATURES
+
+- crypto primitives do not implement WebAuthn key and signatures yet
+
+- implement action_result in abi and abi_parser

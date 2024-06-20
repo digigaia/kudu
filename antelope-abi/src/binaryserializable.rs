@@ -2,7 +2,7 @@ use std::str::from_utf8;
 
 use antelope_core::{
     types::crypto::{CryptoData, CryptoDataType, KeyType},
-    Asset, InvalidValue, Name, Symbol,
+    Asset, Name, Symbol,
     types::antelopevalue::{InvalidDataSnafu, Utf8Snafu},
 };
 use bytemuck::pod_read_unaligned;
@@ -58,7 +58,7 @@ impl BinarySerializable for Symbol {
 
     fn decode(stream: &mut ByteStream) -> Result<Self, SerializeError> {
         let n = u64::decode(stream)?;
-        Ok(Symbol::from_u64(n))
+        Ok(Symbol::from_u64(n)?)
     }
 }
 

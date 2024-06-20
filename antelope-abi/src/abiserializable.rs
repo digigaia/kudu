@@ -5,7 +5,8 @@ use tracing::instrument;
 
 use annotated_error::with_location;
 use antelope_core::{
-    AntelopeType, AntelopeValue, Asset, InvalidValue, Name, PrivateKey, PublicKey, Signature, Symbol,
+    AntelopeType, AntelopeValue, Asset, InvalidValue, Name,
+    PrivateKey, PublicKey, Signature, Symbol, InvalidSymbol,
     impl_auto_error_conversion,
 };
 
@@ -26,8 +27,8 @@ pub enum SerializeError {
     #[snafu(display("invalid value"))]
     InvalidValue { source: InvalidValue },
 
-    // #[snafu(display(r#"cannot parse "{name}" as Antelope type"#))]
-    // InvalidType { name: String, source: ParseError },
+    #[snafu(display("invalid symbol"))]
+    InvalidSymbol { source: InvalidSymbol },
 
     #[snafu(display("cannot decode hex data"))]
     HexDecodeError { source: FromHexError },
@@ -38,6 +39,7 @@ pub enum SerializeError {
 
 impl_auto_error_conversion!(StreamError, SerializeError, StreamSnafu);
 impl_auto_error_conversion!(InvalidValue, SerializeError, InvalidValueSnafu);
+impl_auto_error_conversion!(InvalidSymbol, SerializeError, InvalidSymbolSnafu);
 impl_auto_error_conversion!(FromHexError, SerializeError, HexDecodeSnafu);
 
 // FIXME: from_bin should take &str instead of AntelopeType, and we might need to register an ABI provider

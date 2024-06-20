@@ -84,10 +84,12 @@ impl VisitMut for AddLocationToDisplay {
                     // println!("{}", msg);
                     Ok(())
                 }
-            }).unwrap_or_else(|_e| {
-                // println!("cannot parse nested meta on attribute {:?}", node);
-                // println!("{:?}", e);
-            });
+            })
+            .unwrap_or(());
+            // .unwrap_or_else(|e| {
+            //     // println!("cannot parse nested meta on attribute {:?}", node);
+            //     // println!("{:?}", e);
+            // });
 
             if let Some(disp) = disp_str {
                 // println!("=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=");
