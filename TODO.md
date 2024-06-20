@@ -18,6 +18,7 @@ https://zerotomastery.io/blog/rust-struct-guide/
 - clean abi.rs
 
 - try defining the `ABISerializable` trait and implement it for all types, then replace the `AntelopeValue` struct with just the implementation of the base types
+  -> could something like this help? https://www.reddit.com/r/rust/comments/1d3b356/my_new_favorite_way_to_represent_asts_or_any/
 
 - rename encode/decode methods everywhere to be more specific, such as `bin_to_json`/`json_to_bin`, etc. (esp. in tests)
 
