@@ -85,6 +85,7 @@ https://zerotomastery.io/blog/rust-struct-guide/
 - document everything, also use boxes to show structure in source code files (ie: trait impls, etc. see: Symbol.rs as an example)
 
 - check with <https://crates.io/crates/antelope> whether we can get the crate name
+  alternatively, find another name: kudu, impala, tsessebe, etc. see: https://africafreak.com/fastest-african-antelope for fast antelopes :)
 
 - investigate <https://github.com/eosrio/rs-abieos>
 
