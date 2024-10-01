@@ -1,4 +1,5 @@
 use clap::{Parser, Subcommand};
+use tracing::info;
 use tracing_subscriber::EnvFilter;
 
 use antelope_tools::docker::Docker;
@@ -25,6 +26,7 @@ enum Commands {
     },
     ListContainers,
     BuildImage,
+    WalletPassword,
 }
 
 fn init_tracing() {
@@ -67,6 +69,10 @@ fn main() {
         Some(Commands::BuildImage) => {
             let docker = Docker::new("eos_container".to_string(), "eos:latest".to_string());
             docker.build_image();
+        }
+        Some(Commands::WalletPassword) => {
+            let docker = Docker::new("eos_container".to_string(), "eos:latest".to_string());
+            info!("Wallet password is: {}", &docker.get_wallet_password());
         }
         None => {},
     }

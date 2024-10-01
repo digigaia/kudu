@@ -36,8 +36,13 @@ impl Docker {
             let name = c["Names"].as_str().unwrap();
             if name == docker.container {
                 match c["State"].as_str().unwrap() {
-                    "running" => {},
-                    "exited" => { docker.execute_docker_cmd(&["container", "start", name]); },
+                    "running" => {
+                        info!("Container already running, using it");
+                    },
+                    "exited" => {
+                        info!("Container existing but stopped. Restarting it");
+                        docker.execute_docker_cmd(&["container", "start", name]);
+                    },
                     s => panic!("unknown state for container: {}", s),
                 }
                 return docker;
@@ -45,7 +50,25 @@ impl Docker {
         }
 
         // we didn't find an appropriate container, start one now
-        // docker.build_image();
+        let eos_image = duct::cmd!("docker", "images", "-q", &docker.image).read().unwrap();
+        if eos_image.is_empty() {
+            info!("No appropriate image found, building one before starting container");
+            docker.build_image();
+        }
+
+        info!("Starting container");
+        docker.execute_docker_cmd(&[
+            "run",
+            "-p", "127.0.0.1:8888:8888/tcp",
+            "-p", "127.0.0.1:9876:9876/tcp",
+            // "-p", "127.0.0.1:8080:8080/tcp",
+            // "-p", "127.0.0.1:3000:3000/tcp",
+            // "-p", "127.0.0.1:8000:8000/tcp",
+            "-v", "/:/host", "-d",
+            &format!("--name={}", &docker.container),
+            &docker.image,
+            "tail", "-f", "/dev/null",
+        ]);
 
         docker
     }
@@ -126,7 +149,23 @@ impl Docker {
             cmd("docker", args)
         };
 
-        expr.run().unwrap()
+        let output = expr.unchecked().run().unwrap();
+        if !output.status.success() {
+            error!("Error executing docker command: {:?}", args);
+            print_streams(&output);
+            process::exit(1);
+        }
+        output
+    }
+
+    pub fn execute_cmd(&self, args: &[&str]) -> Output {
+        let mut docker_cmd = vec!["container", "exec"];
+
+        docker_cmd.extend_from_slice(&["-w", "/app"]);
+        docker_cmd.push(&self.container);
+        docker_cmd.extend_from_slice(args);
+
+        self.execute_docker_cmd(&docker_cmd)
     }
 
     pub fn list_running_containers(&self) -> Vec<Value> {
@@ -135,5 +174,11 @@ impl Docker {
 
     pub fn list_all_containers(&self) -> Vec<Value> {
         self.execute_docker_cmd_json(&["container", "ls", "-a"])
+    }
+
+
+    pub fn get_wallet_password(&self) -> String {
+        let output = self.execute_cmd(&["cat", "/app/.wallet.pw"]);
+        String::from_utf8(output.stdout).unwrap()
     }
 }
