@@ -37,10 +37,10 @@ impl Docker {
             if name == docker.container {
                 match c["State"].as_str().unwrap() {
                     "running" => {
-                        info!("Container already running, using it");
+                        debug!("Container already running, using it");
                     },
                     "exited" => {
-                        info!("Container existing but stopped. Restarting it");
+                        debug!("Container existing but stopped. Restarting it");
                         docker.execute_docker_cmd(&["container", "start", name]);
                     },
                     s => panic!("unknown state for container: {}", s),

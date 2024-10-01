@@ -1,6 +1,6 @@
 use clap::{Parser, Subcommand};
-use tracing::info;
-use tracing_subscriber::EnvFilter;
+use tracing::{Level, info};
+use tracing_subscriber::{EnvFilter, filter::LevelFilter};
 
 use antelope_tools::docker::Docker;
 
@@ -29,24 +29,28 @@ enum Commands {
     WalletPassword,
 }
 
-fn init_tracing() {
-    tracing_subscriber::fmt()
-        .with_env_filter(EnvFilter::from_default_env())
-        .init();
+fn init_tracing(verbose_level: u8) {
+    // use an env filter with default level of INFO
+    let env_filter = EnvFilter::builder()
+        .with_default_directive(LevelFilter::INFO.into())
+        .from_env_lossy();
+
+    let tracing = tracing_subscriber::fmt()
+        .with_env_filter(env_filter);
+
+    // flags given on the command-line override those from the environment
+    match verbose_level {
+        0 => tracing.init(),
+        1 => tracing.with_max_level(Level::DEBUG).init(),
+        2 => tracing.with_max_level(Level::TRACE).init(),
+        _ => panic!("too many -v flags, 2 max allowed"),
+    };
 }
 
 fn main() {
-    init_tracing();
-
     let cli = Cli::parse();
 
-    // TODO: use that to set the log levels, overriding the env if needed
-    match cli.verbose {
-        0 => println!("Debug mode is off"),
-        1 => println!("Debug mode is kind of on"),
-        2 => println!("Debug mode is on"),
-        _ => println!("Don't be crazy"),
-    }
+    init_tracing(cli.verbose);
 
     // You can check for the existence of subcommands, and if found use their
     // matches just as you would the top level cmd
