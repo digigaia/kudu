@@ -78,7 +78,17 @@ https://zerotomastery.io/blog/rust-struct-guide/
 
 ## MISC
 
+- Require Rust 1.80 and use LazyLock/OnceLock from std lib instead of a 3rd-party library
+  <https://blog.rust-lang.org/2024/07/25/Rust-1.80.0.html> -
+  <https://www.reddit.com/r/rust/comments/1ebtftv/announcing_rust_1800_rust_blog/>
+
+  <https://codeandbitters.com/once-upon-a-lazy-init/>
+  <https://www.reddit.com/r/rust/comments/1egylcz/once_upon_a_lazy_init/>
+
 - check <https://rustprojectprimer.com/>
+
+- check <https://kerkour.com/rust-how-to-organize-large-workspaces>
+  <https://www.reddit.com/r/rust/comments/1e30mkl/how_to_organize_large_rust_codebases/>
 
 - implement `Debug` and `Display` trait for all basic types
 
