@@ -159,19 +159,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "antelope-tools"
-version = "0.1.0"
-dependencies = [
- "clap",
- "duct",
- "regex",
- "serde_json",
- "tempfile",
- "tracing",
- "tracing-subscriber",
-]
-
-[[package]]
 name = "autocfg"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -410,6 +397,19 @@ dependencies = [
  "once_cell",
  "os_pipe",
  "shared_child",
+]
+
+[[package]]
+name = "dune"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "duct",
+ "regex",
+ "serde_json",
+ "tempfile",
+ "tracing",
+ "tracing-subscriber",
 ]
 
 [[package]]

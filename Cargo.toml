@@ -5,7 +5,7 @@ members = [
     "antelope-abi",
     "antelope-core",
     "antelope-esr",
-    "antelope-tools",
+    "dune",
 ]
 
 [workspace.package]

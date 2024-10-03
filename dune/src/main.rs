@@ -2,7 +2,7 @@ use clap::{Parser, Subcommand};
 use tracing::{Level, debug, info};
 use tracing_subscriber::{EnvFilter, filter::LevelFilter};
 
-use antelope_tools::{docker::Docker, dune::Dune};
+use dune::{Docker, Dune};
 
 
 #[derive(Parser, Debug)]

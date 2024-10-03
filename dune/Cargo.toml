@@ -1,5 +1,5 @@
 [package]
-name = "antelope-tools"
+name = "dune"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
