@@ -37,11 +37,6 @@ impl Dune {
     }
 
 
-    pub fn get_wallet_password(&self) -> String {
-        let output = self.docker.execute_cmd(&["cat", "/app/.wallet.pw"]);
-        String::from_utf8(output.stdout).unwrap()
-    }
-
     // TODO: this should be private
     pub fn build_image(name: &str, base_image: &str) {
         // first make sure we are able to run pyinfra
@@ -85,6 +80,34 @@ impl Dune {
         self.docker.find_pid("nodeos").is_some()
     }
 
+    pub fn start_node(&self, replay_blockchain: bool) {
+        if self.is_node_running() {
+            info!("Node is already running");
+            return;
+        }
+
+        // TODO: check if we restart or not, whether to (over)write config.ini or not
+        self.docker.write_file("/app/config.ini", &get_config_ini());
+
+        let mut args = vec!["/app/launch_bg.sh", "nodeos", "--data-dir=/app/datadir"];
+        args.push("--config-dir=/app");
+        if replay_blockchain {
+            args.push("--replay-blockchain");
+        }
+
+        info!("Starting nodeos...");
+        let output = self.docker.execute_cmd(&args);
+
+        // print_streams(&output);
+
+        if output.status.success() && self.is_node_running() {
+            info!("Node active!");
+        }
+        else {
+            info!("Could not start node");
+        }
+    }
+
     pub fn stop_node(&self) {
         let max_wait_time_seconds = 30;
         let mut waited = 0;
@@ -111,30 +134,14 @@ impl Dune {
         }
     }
 
-    pub fn start_node(&self, replay_blockchain: bool) {
-        if self.is_node_running() {
-            info!("Node is already running");
-            return;
-        }
-
-        // TODO: check if we restart or not, whether to (over)write config.ini or not
-        self.docker.write_file("/app/config.ini", &get_config_ini());
-
-        let mut args = vec!["/app/launch_bg.sh", "nodeos", "--data-dir=/app/datadir"];
-        args.push("--config-dir=/app");
-        if replay_blockchain {
-            args.push("--replay-blockchain");
-        }
-
-        let output = self.docker.execute_cmd(&args);
-
-        // print_streams(&output);
-
-        if output.status.success() && self.is_node_running() {
-            info!("Node active!");
-        }
-        else {
-            info!("Could not start node");
-        }
+    pub fn destroy(&self) {
+        self.docker.destroy()
     }
+
+    pub fn get_wallet_password(&self) -> String {
+        let output = self.docker.execute_cmd(&["cat", "/app/.wallet.pw"]);
+        String::from_utf8(output.stdout).unwrap()
+    }
+
+
 }

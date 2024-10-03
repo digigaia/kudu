@@ -137,19 +137,20 @@ impl Docker {
     }
 
     pub fn start(&self) {
-        info!("Starting docker container `{}`'", &self.container);
+        info!("Starting docker container `{}`...'", &self.container);
         Docker::execute_docker_cmd(&["container", "start", &self.container]);
     }
 
     pub fn stop(&self) {
-        info!("Stopping docker container `{}`'", &self.container);
+        info!("Stopping docker container `{}`...'", &self.container);
         Docker::execute_docker_cmd(&["container", "stop", &self.container]);
     }
 
     pub fn destroy(&self) {
         self.stop();
-        info!("Destroying docker container `{}`'", &self.container);
+        info!("Destroying docker container `{}`...'", &self.container);
         Docker::execute_docker_cmd(&["container", "rm", &self.container]);
+        info!("Docker container `{}` destroyed successfully!", &self.container);
     }
 
     /// this is a very crude implementation

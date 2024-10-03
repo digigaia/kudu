@@ -6,7 +6,7 @@ use dune::{Docker, Dune};
 
 
 #[derive(Parser, Debug)]
-#[command(version, about, long_about = None)]
+#[command(version, about, arg_required_else_help(true))]
 struct Cli {
     /// Turn verbose level
     #[arg(short, long, action = clap::ArgAction::Count)]
@@ -18,15 +18,9 @@ struct Cli {
 
 #[derive(Subcommand, Debug)]
 enum Commands {
-    /// does testing things
-    Test {
-        /// lists test values
-        #[arg(short, long)]
-        list: bool,
-    },
-
-    /// Show help
-    //Help,
+    // -----------------------------------------------------------------------------
+    //     General commands
+    // -----------------------------------------------------------------------------
 
     /// List all the Docker containers
     ListContainers,
@@ -37,8 +31,9 @@ enum Commands {
         base: String
     },
 
-    /// Show the wallet password
-    WalletPassword,
+    // -----------------------------------------------------------------------------
+    //     Commands operating on a docker container
+    // -----------------------------------------------------------------------------
 
     /// Start running nodeos in the current container
     StartNode {
@@ -49,6 +44,13 @@ enum Commands {
 
     /// Stop nodeos in the current container
     StopNode,
+
+    /// Destroy the current EOS container
+    Destroy,
+
+    /// Show the wallet password
+    WalletPassword,
+
 }
 
 fn init_tracing(verbose_level: u8) {
@@ -80,21 +82,11 @@ fn main() {
     let container_name = "eos_container";
     let image_name = "eos:latest";
 
-    let cmd = match cli.command {
-        Some(command) => command,
-        None => Commands::ListContainers, // TODO: we want to show the help here
-    };
+    let Some(cmd) = cli.command else { unreachable!("no command -> show help"); };
 
     // first check the commands that don't need an instance of a Dune docker runner
     // this avoids building and starting a container when it is not needed
     match cmd {
-        Commands::Test { list } => {
-            if list {
-                println!("Printing testing lists...");
-            } else {
-                println!("Not printing testing lists...");
-            }
-        },
         Commands::ListContainers => {
             for c in Docker::list_all_containers().iter() {
                 let name = c["Names"].to_string();
@@ -119,9 +111,9 @@ fn main() {
                 Commands::StopNode => {
                     dune.stop_node();
                 },
-                // Commands::Help => {
-                //     todo!();
-                // }
+                Commands::Destroy => {
+                    dune.destroy();
+                },
                 _ => todo!(),
             }
         }
