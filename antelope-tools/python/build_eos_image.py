@@ -40,6 +40,11 @@ def install_base_packages():
     # make sure our base folder to install the app exists
     files.directory('/app')
 
+    # upload some utility scripts
+    files.put(src='scripts/launch_bg.sh',
+              dest='/app/launch_bg.sh',
+              mode='755')
+
 
 @deploy('Install NodeJS and Webpack')
 def deploy_nodejs(major_version=18):

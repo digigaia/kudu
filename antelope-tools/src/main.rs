@@ -1,11 +1,11 @@
 use clap::{Parser, Subcommand};
-use tracing::{Level, info};
+use tracing::{Level, debug, info};
 use tracing_subscriber::{EnvFilter, filter::LevelFilter};
 
-use antelope_tools::docker::Docker;
+use antelope_tools::{docker::Docker, dune::Dune};
 
 
-#[derive(Parser)]
+#[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
 struct Cli {
     /// Turn verbose level
@@ -16,7 +16,7 @@ struct Cli {
     command: Option<Commands>,
 }
 
-#[derive(Subcommand)]
+#[derive(Subcommand, Debug)]
 enum Commands {
     /// does testing things
     Test {
@@ -24,9 +24,31 @@ enum Commands {
         #[arg(short, long)]
         list: bool,
     },
+
+    /// Show help
+    //Help,
+
+    /// List all the Docker containers
     ListContainers,
-    BuildImage,
+
+    /// Build an EOS image starting from the given base image (default: ubuntu:22.04)
+    BuildImage {
+        #[arg(default_value = "ubuntu:22.04")]
+        base: String
+    },
+
+    /// Show the wallet password
     WalletPassword,
+
+    /// Start running nodeos in the current container
+    StartNode {
+        /// whether to replay the blockchain from the beginning when starting
+        #[arg(short, long, default_value_t=false)]
+        replay_blockchain: bool,
+    },
+
+    /// Stop nodeos in the current container
+    StopNode,
 }
 
 fn init_tracing(verbose_level: u8) {
@@ -50,34 +72,59 @@ fn init_tracing(verbose_level: u8) {
 fn main() {
     let cli = Cli::parse();
 
-    init_tracing(cli.verbose);
+    debug!("{:?}", cli);
 
-    // You can check for the existence of subcommands, and if found use their
-    // matches just as you would the top level cmd
-    match &cli.command {
-        Some(Commands::Test { list }) => {
-            if *list {
+    // init_tracing(cli.verbose);
+    init_tracing(2);  // FIXME: temp
+
+    let container_name = "eos_container";
+    let image_name = "eos:latest";
+
+    let cmd = match cli.command {
+        Some(command) => command,
+        None => Commands::ListContainers, // TODO: we want to show the help here
+    };
+
+    // first check the commands that don't need an instance of a Dune docker runner
+    // this avoids building and starting a container when it is not needed
+    match cmd {
+        Commands::Test { list } => {
+            if list {
                 println!("Printing testing lists...");
             } else {
                 println!("Not printing testing lists...");
             }
         },
-        Some(Commands::ListContainers) => {
-            let docker = Docker::new("eos_container".to_string(), "eos:latest".to_string());
-            for c in docker.list_all_containers().iter() {
+        Commands::ListContainers => {
+            for c in Docker::list_all_containers().iter() {
                 let name = c["Names"].to_string();
                 let status = c["Status"].as_str().unwrap();
                 println!("Container: {:20} ({})", name, status);
             }
         },
-        Some(Commands::BuildImage) => {
-            let docker = Docker::new("eos_container".to_string(), "eos:latest".to_string());
-            docker.build_image();
+        Commands::BuildImage { base } => {
+            Dune::build_image(image_name, &base);
+        },
+        // all the other commands need a `Dune` instance, get one now and keep matching
+        _ => {
+            let dune = Dune::new(container_name.to_string(), image_name.to_string());
+
+            match cmd {
+                Commands::WalletPassword => {
+                    info!("Wallet password is: {}", &dune.get_wallet_password());
+                },
+                Commands::StartNode { replay_blockchain } => {
+                    dune.start_node(replay_blockchain);
+                },
+                Commands::StopNode => {
+                    dune.stop_node();
+                },
+                // Commands::Help => {
+                //     todo!();
+                // }
+                _ => todo!(),
+            }
         }
-        Some(Commands::WalletPassword) => {
-            let docker = Docker::new("eos_container".to_string(), "eos:latest".to_string());
-            info!("Wallet password is: {}", &docker.get_wallet_password());
-        }
-        None => {},
     }
+
 }
