@@ -1,3 +1,4 @@
+use std::time::Duration;
 use std::{process, thread, time};
 
 use regex::Regex;
@@ -75,7 +76,7 @@ impl Dune {
             },
             false => {
                 warn!("Error while building image");
-                print_streams(&output);
+                print_streams!(warn, &output);
                 process::exit(1);
             },
         }
@@ -106,6 +107,7 @@ impl Dune {
         // print_streams(&output);
 
         if output.status.success() && self.is_node_running() {
+            self.wait_blockchain_ready();
             info!("Node active!");
         }
         else {
@@ -235,13 +237,24 @@ impl Dune {
         self.cleos_cmd(&["wallet", "import", "--private-key", privkey]);
     }
 
+    fn wait_blockchain_ready(&self) {
+        let url = format!("{}/v1/chain/get_info", self.config.http_addr());
+
+        loop {
+            let output = self.docker.command(&["curl", "--request", "POST", &url]).check_status(false).run();
+            if output.status.success() { break; }
+            debug!("blockchain not ready yet, waiting 1 second before retrying");
+            thread::sleep(Duration::from_secs(1));
+        }
+    }
+
     fn preactivate_features(&self) {
         let url = format!("{}/v1/producer/schedule_protocol_feature_activations",
                           self.config.http_addr());
         let feature = "0ec7e080177b2c02b278d5088611686b49d739925a92d9bfcacd7fc6b74053bd";
         let data = format!(r#"{{"protocol_features_to_activate": ["{feature}"]}}"#);
 
-        let args = &["curl", "--noproxy", "-X", "POST", &url, "-d", &data];
+        let args = &["curl", "--request", "POST", &url, "-d", &data];
 
         debug!("Preactivating features");
         self.docker.command(args).run();

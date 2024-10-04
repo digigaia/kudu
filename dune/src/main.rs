@@ -1,5 +1,5 @@
 use clap::{Parser, Subcommand};
-use tracing::{Level, info};
+use tracing::{Level, debug, info};
 use tracing_subscriber::{EnvFilter, filter::LevelFilter};
 
 use dune::{Docker, Dune};
@@ -7,6 +7,7 @@ use dune::{Docker, Dune};
 
 #[derive(Parser, Debug)]
 #[command(version, about, arg_required_else_help(true))]
+#[command(about = "Dune: Docker Utilities for Node Execution")]
 struct Cli {
     /// Turn verbose level
     #[arg(short, long, action = clap::ArgAction::Count)]
@@ -15,6 +16,7 @@ struct Cli {
     #[command(subcommand)]
     command: Option<Commands>,
 }
+
 
 #[derive(Subcommand, Debug)]
 enum Commands {
@@ -56,6 +58,7 @@ enum Commands {
     },
 
     /// Create a new account on the blockchain with initial resources
+    #[command(name="system-newaccount")]
     SystemNewAccount {
         /// The name for the new account
         account: String,
@@ -80,8 +83,11 @@ enum Commands {
     /// Show the wallet password
     WalletPassword,
 
-    /// TODO: Pass-through that runs the given cleos command in the container
-    CleosCmd,
+    /// Pass-through that runs the given command in the container
+    Exec {
+        /// The commands you want to execute and its arguments
+        cmd: Vec<String>,
+    },
 }
 
 fn init_tracing(verbose_level: u8) {
@@ -103,12 +109,12 @@ fn init_tracing(verbose_level: u8) {
 }
 
 fn main() {
-    let mut cli = Cli::parse();
+    let cli = Cli::parse();
 
-    cli.verbose = cli.verbose.max(1);  // FIXME: temporary
+    // cli.verbose = cli.verbose.max(1);  // FIXME: temporary
 
     init_tracing(cli.verbose);
-    // trace!("{:?}", cli);
+    debug!("{:?}", cli);
 
     let container_name = "eos_container";
     let image_name = "eos:latest";
@@ -157,6 +163,10 @@ fn main() {
                 Commands::CmakeBuild { location } => {
                     dune.cmake_build(&location);
                 },
+                Commands::Exec { cmd } => {
+                    let cmd: Vec<_> = cmd.iter().map(String::as_str).collect();
+                    dune.command(&cmd).capture_output(false).run();
+                }
                 _ => todo!(),
             }
         }

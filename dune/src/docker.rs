@@ -4,7 +4,8 @@ use serde_json::Value;
 use tempfile::NamedTempFile;
 use tracing::{debug, info};
 
-pub use crate::command::{DockerCommand, DockerCommandJson, from_stream, print_streams};
+pub use crate::command::{DockerCommand, DockerCommandJson};
+pub use crate::{print_streams, util::from_stream};
 
 pub struct Docker {
     /// the container name in which we run the docker commands

@@ -2,28 +2,9 @@ use std::process::{self, Output};
 
 use duct::cmd;
 use serde_json::Value;
-use tracing::{debug, error};
+use tracing::error;
 
-
-pub fn from_stream(stream: &[u8]) -> &str {
-    std::str::from_utf8(stream).expect("Process output is invalid utf-8!!")
-}
-
-pub fn print_streams(output: &Output) {
-    let stdout = from_stream(&output.stdout);
-    let stderr = from_stream(&output.stderr);
-
-    if !stdout.is_empty() {
-        debug!("================ STDOUT ================\n{}", stdout);
-    }
-    if !stderr.is_empty() {
-        debug!("================ STDERR ================\n{}", stderr);
-    }
-    if stdout.is_empty() && stderr.is_empty() {
-        debug!("=============== NO OUTPUT ==============");
-    }
-    debug!("========================================");
-}
+use crate::{print_streams, util::join_quote};
 
 #[derive(Debug)]
 pub struct DockerCommand {
@@ -78,7 +59,7 @@ impl DockerCommand {
             error!("Error executing docker command:");
             error!("{:?}", self.args);
             error!("pretty -->  {}", &self.pretty_command());
-            print_streams(output);
+            print_streams!(error, output);
             process::exit(1);
         }
     }
@@ -87,19 +68,20 @@ impl DockerCommand {
         self.args.iter().map(|x| x.as_str()).collect()
     }
 
-    /// Return a string repr of the command that can be easily copy-pasted
-    /// if it is executed within a container, try to return only that part
+    /// Return a string repr of the command that can be easily copy-pasted.
+    /// If it is executed within a container, try to return only that part
     /// (ie: without the "docker container exec" prefix, etc.)
     pub fn pretty_command(&self) -> String {
-        match &self.args_ref()[..] {
+        let args = self.args_ref();
+        match &args[..] {
             &["container", "exec", ref tail @ ..] => {
                 match tail {
-                    ["-w", _workdir, _container, rest @ ..] => rest.join(" "),
-                    [_container, rest @ ..] => rest.join(" "),
-                    _ => self.args.join(" ")
+                    ["-w", _workdir, _container, rest @ ..] => join_quote(rest),
+                    [_container, rest @ ..] => join_quote(rest),
+                    _ => join_quote(&args)
                 }
             }
-            _ => self.args.join(" ")
+            _ => join_quote(&args)
         }
     }
 }

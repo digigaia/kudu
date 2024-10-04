@@ -8,6 +8,9 @@
 - check experimental packages for leap (arm64) (see: bootstrap_leap.sh)
 - replace println/etc. with proper calls to tracing/logging functions
 
+- check some use cases from here: https://docs.eosnetwork.com/docs/latest/node-operation/api-node/
+  can we fulfill them?
+
 # README
 
 Here is a list of workflows that should be enabled by the `dune` utility
