@@ -1,8 +1,9 @@
+use std::fs;
 use std::io::Write;
 
 use serde_json::Value;
 use tempfile::NamedTempFile;
-use tracing::{debug, info};
+use tracing::info;
 
 pub use crate::command::{DockerCommand, DockerCommandJson};
 pub use crate::{print_streams, util::from_stream};
@@ -15,10 +16,12 @@ pub struct Docker {
     image: String,
 }
 
+const HOST_MOUNT_PATH: &str = "/host";
+
 impl Docker {
     pub fn new(container: String, image: String) -> Docker {
         let docker = Docker { container, image };
-        docker.start();
+        docker.start(false);
         docker
     }
 
@@ -44,6 +47,19 @@ impl Docker {
         Self::docker_command(&docker_cmd)
     }
 
+    /// Return a `DockerCommand` builder that you can later run inside
+    /// the docker container
+    pub fn color_command(&self, args: &[&str]) -> DockerCommand {
+        let mut docker_cmd = vec!["container", "exec"];
+
+        docker_cmd.extend_from_slice(&["-t", "-e", "TERM=xterm-256color"]);
+        docker_cmd.extend_from_slice(&["-w", "/app"]);
+        docker_cmd.push(&self.container);
+        docker_cmd.extend_from_slice(args);
+
+        Self::docker_command(&docker_cmd)
+    }
+
 
     pub fn list_running_containers() -> Vec<Value> {
         Self::docker_command_json(&["container", "ls"]).run()
@@ -53,16 +69,17 @@ impl Docker {
         Self::docker_command_json(&["container", "ls", "-a"]).run()
     }
 
-    fn start(&self) {
+    /// Start the docker container if needed. Show log output if `log=true`.
+    fn start(&self, log: bool) {
         for c in Docker::list_all_containers() {
             let name = c["Names"].as_str().unwrap();
             if name == self.container {
                 match c["State"].as_str().unwrap() {
                     "running" => {
-                        debug!("Container `{}` already running, using it", name);
+                        if log { info!("Container `{}` already running, using it", name); }
                     },
                     "exited" => {
-                        debug!("Container `{}` existing but stopped. Restarting it", name);
+                        if log { info!("Container `{}` existing but stopped. Restarting it", name); }
                         Self::docker_command(&["container", "start", name]).run();
                     },
                     s => panic!("unknown state for container: {}", s),
@@ -74,7 +91,7 @@ impl Docker {
         // we didn't find an already existing container,
         // start one from scratch now
 
-        info!("Starting container...");
+        if log { info!("Starting container..."); }
         Self::docker_command(&[
             "run",
             "-p", "127.0.0.1:8888:8888/tcp",
@@ -82,21 +99,27 @@ impl Docker {
             // "-p", "127.0.0.1:8080:8080/tcp",
             // "-p", "127.0.0.1:3000:3000/tcp",
             // "-p", "127.0.0.1:8000:8000/tcp",
-            "-v", "/:/host", "-d",
+            "-v", &format!("/:{}", HOST_MOUNT_PATH), "-d",
             &format!("--name={}", &self.container),
             &self.image,
             "tail", "-f", "/dev/null",
         ]).run();
     }
 
+    pub fn abs_host_path(path: &str) -> String {
+        let path = fs::canonicalize(path).expect("Given path does not exist...");
+        let path = path.to_str().expect("Given path is not valid utf-8!...");
+        format!("{}{}", HOST_MOUNT_PATH, path)
+    }
+
     pub fn stop(&self) {
-        info!("Stopping docker container `{}`...'", &self.container);
+        info!("Stopping docker container `{}`...", &self.container);
         Docker::docker_command(&["container", "stop", &self.container]).run();
     }
 
     pub fn destroy(&self) {
         self.stop();
-        info!("Destroying docker container `{}`...'", &self.container);
+        info!("Destroying docker container `{}`...", &self.container);
         Docker::docker_command(&["container", "rm", &self.container]).run();
         info!("Docker container `{}` destroyed successfully!", &self.container);
     }

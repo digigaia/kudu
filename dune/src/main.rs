@@ -1,5 +1,5 @@
 use clap::{Parser, Subcommand};
-use tracing::{Level, debug, info};
+use tracing::{Level, info, trace};
 use tracing_subscriber::{EnvFilter, filter::LevelFilter};
 
 use dune::{Docker, Dune};
@@ -63,7 +63,8 @@ enum Commands {
         /// The name for the new account
         account: String,
         /// The name of the creator of the account
-        creator: String,
+        #[arg(default_value="eosio")]
+        creator: Option<String>,
     },
 
     /// Deploy a compiled contract to the blockchain
@@ -111,10 +112,8 @@ fn init_tracing(verbose_level: u8) {
 fn main() {
     let cli = Cli::parse();
 
-    // cli.verbose = cli.verbose.max(1);  // FIXME: temporary
-
     init_tracing(cli.verbose);
-    debug!("{:?}", cli);
+    trace!("{:?}", cli);  // FIXME: temporary
 
     let container_name = "eos_container";
     let image_name = "eos:latest";
@@ -155,15 +154,18 @@ fn main() {
                     dune.bootstrap_system(full);
                 },
                 Commands::SystemNewAccount { account, creator } => {
-                    dune.system_newaccount(&account, &creator);
+                    dune.system_newaccount(&account, creator.as_deref().unwrap_or("eosio"));
                 },
                 Commands::DeployContract { location, account } => {
-                    dune.deploy_contract(&location, &account);
+                    dune.deploy_contract(&Docker::abs_host_path(&location), &account);
                 },
                 Commands::CmakeBuild { location } => {
                     dune.cmake_build(&location);
                 },
                 Commands::Exec { cmd } => {
+                    // FIXME: we should deactivate all forms of logging before getting here
+                    // otherwise we can get our stdout (which holds the result of the command)
+                    // polluted by our own logging
                     let cmd: Vec<_> = cmd.iter().map(String::as_str).collect();
                     dune.command(&cmd).capture_output(false).run();
                 }

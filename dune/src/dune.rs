@@ -282,14 +282,19 @@ impl Dune {
         self.docker.command(args).capture_output(false)
     }
 
+    pub fn color_command(&self, args: &[&str]) -> DockerCommand {
+        self.docker.color_command(args).capture_output(false)
+    }
+
     pub fn cmake_build(&self, location: &str) {
-        let build_dir = format!("{location}/build");
+        let container_dir = Docker::abs_host_path(location);
+        let build_dir = format!("{container_dir}/build");
         self.docker.command(&["mkdir", "-p", &build_dir]).run();
         // TODO: make sure we have colors
-        self.command(&[
-            "cmake", "-S", location, "-B", &build_dir,
+        self.color_command(&[
+            "cmake", "-S", &container_dir, "-B", &build_dir,
         ]).run();
-        self.command(&["cmake", "--build", &build_dir]).run();
+        self.color_command(&["cmake", "--build", &build_dir]).run();
     }
 
     fn cleos_cmd(&self, cmd: &[&str]) -> process::Output {

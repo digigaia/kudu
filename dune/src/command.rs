@@ -24,18 +24,12 @@ impl DockerCommand {
         }
     }
 
-    pub fn check_status(self, check: bool) -> Self {
-        DockerCommand {
-            check_status: check,
-            ..self
-        }
+    pub fn check_status(self, check_status: bool) -> Self {
+        DockerCommand { check_status, ..self }
     }
 
-    pub fn capture_output(self, capture: bool) -> Self {
-        DockerCommand {
-            capture_output: capture,
-            ..self
-        }
+    pub fn capture_output(self, capture_output: bool) -> Self {
+        DockerCommand { capture_output, ..self }
     }
 
     pub fn run(&self) -> Output {
@@ -72,9 +66,10 @@ impl DockerCommand {
     /// If it is executed within a container, try to return only that part
     /// (ie: without the "docker container exec" prefix, etc.)
     pub fn pretty_command(&self) -> String {
-        let args = self.args_ref();
+        let mut args = self.args_ref();
+        args.insert(0, "docker");
         match &args[..] {
-            &["container", "exec", ref tail @ ..] => {
+            &["docker", "container", "exec", ref tail @ ..] => {
                 match tail {
                     ["-w", _workdir, _container, rest @ ..] => join_quote(rest),
                     [_container, rest @ ..] => join_quote(rest),
