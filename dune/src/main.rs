@@ -48,9 +48,18 @@ enum Commands {
     /// Destroy the current EOS container
     Destroy,
 
+    /// Bootstrap a running system by installing the system contracts etc. FIXME desc
+    Bootstrap {
+        /// full also deploys [...] FIXME desc!
+        #[arg(short, long, default_value_t=false)]
+        full: bool
+    },
+
     /// Show the wallet password
     WalletPassword,
 
+    /// TODO: Pass-through that runs the given cleos command in the container
+    CleosCmd,
 }
 
 fn init_tracing(verbose_level: u8) {
@@ -113,6 +122,9 @@ fn main() {
                 },
                 Commands::Destroy => {
                     dune.destroy();
+                },
+                Commands::Bootstrap { full } => {
+                    dune.bootstrap_system(full);
                 },
                 _ => todo!(),
             }
