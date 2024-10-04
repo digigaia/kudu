@@ -1,5 +1,5 @@
 use clap::{Parser, Subcommand};
-use tracing::{Level, debug, info};
+use tracing::{Level, info};
 use tracing_subscriber::{EnvFilter, filter::LevelFilter};
 
 use dune::{Docker, Dune};
@@ -55,6 +55,28 @@ enum Commands {
         full: bool
     },
 
+    /// Create a new account on the blockchain with initial resources
+    SystemNewAccount {
+        /// The name for the new account
+        account: String,
+        /// The name of the creator of the account
+        creator: String,
+    },
+
+    /// Deploy a compiled contract to the blockchain
+    DeployContract {
+        /// The folder where the contract is located
+        location: String,
+        /// The account name on which to deploy the contract
+        account: String,
+    },
+
+    /// Build the cmake project in the given directory
+    CmakeBuild {
+        /// The source directory containing the project
+        location: String,
+    },
+
     /// Show the wallet password
     WalletPassword,
 
@@ -81,12 +103,12 @@ fn init_tracing(verbose_level: u8) {
 }
 
 fn main() {
-    let cli = Cli::parse();
+    let mut cli = Cli::parse();
 
-    debug!("{:?}", cli);
+    cli.verbose = cli.verbose.max(1);  // FIXME: temporary
 
-    // init_tracing(cli.verbose);
-    init_tracing(2);  // FIXME: temp
+    init_tracing(cli.verbose);
+    // trace!("{:?}", cli);
 
     let container_name = "eos_container";
     let image_name = "eos:latest";
@@ -126,9 +148,17 @@ fn main() {
                 Commands::Bootstrap { full } => {
                     dune.bootstrap_system(full);
                 },
+                Commands::SystemNewAccount { account, creator } => {
+                    dune.system_newaccount(&account, &creator);
+                },
+                Commands::DeployContract { location, account } => {
+                    dune.deploy_contract(&location, &account);
+                },
+                Commands::CmakeBuild { location } => {
+                    dune.cmake_build(&location);
+                },
                 _ => todo!(),
             }
         }
     }
-
 }

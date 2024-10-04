@@ -1,11 +1,11 @@
 use std::{process, thread, time};
 
 use regex::Regex;
-use tracing::{debug, info, warn, error};
+use tracing::{debug, info, warn, error, trace};
 use serde_json::Value;
 
 use antelope_core::config::EOS_FEATURES;
-use crate::docker::{Docker, print_streams, from_stream};
+use crate::docker::{Docker, DockerCommand, print_streams, from_stream};
 use crate::configini::NodeConfig;
 
 
@@ -145,8 +145,8 @@ impl Dune {
 
     pub fn bootstrap_system(&self, full: bool) {
         let currency = "SYS";
-        let max_value = "10000000000.0000";
-        let initial_value = "1000000000.0000";
+        let max_value     = "10000000000.0000";
+        let initial_value =  "1000000000.0000";
 
         self.preactivate_features();
 
@@ -259,12 +259,28 @@ impl Dune {
         self.cleos_cmd(&["push", "action", account, action, data, "-p", permission]);
     }
 
-    fn deploy_contract(&self, location: &str, account: &str) {
+    pub fn deploy_contract(&self, location: &str, account: &str) {
+        debug!("Deploying `{account}` contract (from: {location})");
         self.cleos_cmd(&["set", "account", "permission", account, "active", "--add-code"]);
         self.cleos_cmd(&["set", "contract", account, location]);
     }
 
+    pub fn command(&self, args: &[&str]) -> DockerCommand {
+        self.docker.command(args).capture_output(false)
+    }
+
+    pub fn cmake_build(&self, location: &str) {
+        let build_dir = format!("{location}/build");
+        self.docker.command(&["mkdir", "-p", &build_dir]).run();
+        // TODO: make sure we have colors
+        self.command(&[
+            "cmake", "-S", location, "-B", &build_dir,
+        ]).run();
+        self.command(&["cmake", "--build", &build_dir]).run();
+    }
+
     fn cleos_cmd(&self, cmd: &[&str]) -> process::Output {
+        trace!("Running cleos command: {:?}", cmd);
         self.unlock_wallet();
         let url = format!("http://{}", self.config.http_addr());
         let mut cleos_cmd = vec!["cleos", "--verbose", "-u", &url];
@@ -278,8 +294,6 @@ impl Dune {
     }
 
     pub fn unlock_wallet(&self) {
-        // FIXME: fail properly if we have an error, but not if it is
-        // "wallet already unlocked"
         let command = self.docker.command(&[
             "cleos", "wallet", "unlock", "--password", &self.get_wallet_password()
         ]).check_status(false);
@@ -297,5 +311,16 @@ impl Dune {
         }
     }
 
+    pub fn system_newaccount(&self, account: &str, creator: &str) {
+        let (private, public) = self.create_key();
+        self.import_key(&private);
 
+        self.cleos_cmd(&[
+            "system", "newaccount",
+            "--stake-net", "1.0000 SYS",
+            "--stake-cpu", "1.0000 SYS",
+            "--buy-ram-kbytes", "512",
+            creator, account, &public,
+        ]);
+    }
 }
