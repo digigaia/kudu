@@ -19,9 +19,12 @@ pub struct Docker {
 const HOST_MOUNT_PATH: &str = "/host";
 
 impl Docker {
+    // the Docker constructor is pretty barebones and doesn't ensure
+    // anything is running. You have to call the `start()` method yourself
+    // if you need to ensure the container is running
     pub fn new(container: String, image: String) -> Docker {
         let docker = Docker { container, image };
-        docker.start(false);
+        // docker.start(false);
         docker
     }
 
@@ -70,7 +73,8 @@ impl Docker {
     }
 
     /// Start the docker container if needed. Show log output if `log=true`.
-    fn start(&self, log: bool) {
+    pub fn start(&self, log: bool) {
+        // FIXME: use `find_container()`
         for c in Docker::list_all_containers() {
             let name = c["Names"].as_str().unwrap();
             if name == self.container {
@@ -106,22 +110,31 @@ impl Docker {
         ]).run();
     }
 
+    fn find_container(name: &str) -> Option<Value> {
+        for c in Docker::list_all_containers() {
+            if c["Names"].as_str().unwrap() == name {
+                return Some(c);
+            }
+        }
+        None
+    }
+
     pub fn abs_host_path(path: &str) -> String {
         let path = fs::canonicalize(path).expect("Given path does not exist...");
         let path = path.to_str().expect("Given path is not valid utf-8!...");
         format!("{}{}", HOST_MOUNT_PATH, path)
     }
 
-    pub fn stop(&self) {
-        info!("Stopping docker container `{}`...", &self.container);
-        Docker::docker_command(&["container", "stop", &self.container]).run();
+    pub fn stop(container_name: &str) {
+        info!("Stopping docker container `{}`...", container_name);
+        Docker::docker_command(&["container", "stop", container_name]).run();
     }
 
-    pub fn destroy(&self) {
-        self.stop();
-        info!("Destroying docker container `{}`...", &self.container);
-        Docker::docker_command(&["container", "rm", &self.container]).run();
-        info!("Docker container `{}` destroyed successfully!", &self.container);
+    pub fn destroy(container_name: &str) {
+        Docker::stop(container_name);
+        info!("Destroying docker container `{}`...", container_name);
+        Docker::docker_command(&["container", "rm", container_name]).run();
+        info!("Docker container `{}` destroyed successfully!", container_name);
     }
 
     /// this is a very crude implementation

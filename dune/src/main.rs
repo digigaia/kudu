@@ -4,6 +4,9 @@ use tracing_subscriber::{EnvFilter, filter::LevelFilter};
 
 use dune::{Docker, Dune};
 
+const CONTAINER_NAME: &str = "eos_container";
+const IMAGE_NAME: &str = "eos:latest";
+
 
 #[derive(Parser, Debug)]
 #[command(version, about, arg_required_else_help(true))]
@@ -48,7 +51,10 @@ enum Commands {
     StopNode,
 
     /// Destroy the current EOS container
-    Destroy,
+    Destroy {
+        #[arg(default_value=CONTAINER_NAME)]
+        container_name: Option<String>,
+    },
 
     /// Bootstrap a running system by installing the system contracts etc. FIXME desc
     Bootstrap {
@@ -115,8 +121,8 @@ fn main() {
     init_tracing(cli.verbose);
     trace!("{:?}", cli);  // FIXME: temporary
 
-    let container_name = "eos_container";
-    let image_name = "eos:latest";
+    // let container_name = "eos_container";
+    // let image_name = "eos:latest";
 
     let Some(cmd) = cli.command else { unreachable!("no command -> show help"); };
 
@@ -131,11 +137,15 @@ fn main() {
             }
         },
         Commands::BuildImage { base } => {
-            Dune::build_image(image_name, &base);
+            Dune::build_image(IMAGE_NAME, &base);
+        },
+        Commands::Destroy { container_name } => {
+            Docker::destroy(container_name.as_deref()
+                            .expect("has default value"));
         },
         // all the other commands need a `Dune` instance, get one now and keep matching
         _ => {
-            let dune = Dune::new(container_name.to_string(), image_name.to_string());
+            let dune = Dune::new(CONTAINER_NAME.to_string(), IMAGE_NAME.to_string());
 
             match cmd {
                 Commands::WalletPassword => {
@@ -147,14 +157,12 @@ fn main() {
                 Commands::StopNode => {
                     dune.stop_node();
                 },
-                Commands::Destroy => {
-                    dune.destroy();
-                },
                 Commands::Bootstrap { full } => {
                     dune.bootstrap_system(full);
                 },
                 Commands::SystemNewAccount { account, creator } => {
-                    dune.system_newaccount(&account, creator.as_deref().unwrap_or("eosio"));
+                    dune.system_newaccount(&account, creator.as_deref()
+                                           .expect("has default value"));
                 },
                 Commands::DeployContract { location, account } => {
                     dune.deploy_contract(&Docker::abs_host_path(&location), &account);

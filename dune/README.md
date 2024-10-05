@@ -11,6 +11,8 @@
 - check some use cases from here: https://docs.eosnetwork.com/docs/latest/node-operation/api-node/
   can we fulfill them?
 
+- embed deploy_eos_image.py in the binary so we can run "dune build-image" from anywhere
+
 # README
 
 Here is a list of workflows that should be enabled by the `dune` utility

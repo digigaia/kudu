@@ -19,6 +19,10 @@ pub struct Dune {
 const DEFAULT_BASE_IMAGE: &str = "ubuntu:22.04";
 
 impl Dune {
+    /// the Dune constructor ensures that everything needed is up and running
+    /// properly, and getting an instance fully created means we have a running
+    /// container
+    /// In contrast, the Docker constructor is barebones and doesn't perform additional actions
     pub fn new(container: String, image: String) -> Dune {
         // make sure we have a docker image ready in case we need one to build
         // a new container off of it
@@ -29,6 +33,7 @@ impl Dune {
         }
 
         let docker = Docker::new(container, image);
+        docker.start(true);
 
         // FIXME: if config exists in container pull it from there
         Dune { docker, config: NodeConfig::default() }
@@ -141,10 +146,6 @@ impl Dune {
         }
     }
 
-    pub fn destroy(&self) {
-        self.docker.destroy()
-    }
-
     pub fn bootstrap_system(&self, full: bool) {
         let currency = "SYS";
         let max_value     = "10000000000.0000";
@@ -254,7 +255,7 @@ impl Dune {
         let feature = "0ec7e080177b2c02b278d5088611686b49d739925a92d9bfcacd7fc6b74053bd";
         let data = format!(r#"{{"protocol_features_to_activate": ["{feature}"]}}"#);
 
-        let args = &["curl", "--request", "POST", &url, "-d", &data];
+        let args = &["curl", "--no-progress-meter", "--request", "POST", &url, "-d", &data];
 
         debug!("Preactivating features");
         self.docker.command(args).run();
