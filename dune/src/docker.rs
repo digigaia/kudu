@@ -3,7 +3,7 @@ use std::io::Write;
 
 use serde_json::Value;
 use tempfile::NamedTempFile;
-use tracing::info;
+use tracing::{info, debug};
 
 pub use crate::command::{DockerCommand, DockerCommandJson};
 pub use crate::{print_streams, util::from_stream};
@@ -74,22 +74,21 @@ impl Docker {
 
     /// Start the docker container if needed. Show log output if `log=true`.
     pub fn start(&self, log: bool) {
-        // FIXME: use `find_container()`
-        for c in Docker::list_all_containers() {
-            let name = c["Names"].as_str().unwrap();
-            if name == self.container {
-                match c["State"].as_str().unwrap() {
-                    "running" => {
-                        if log { info!("Container `{}` already running, using it", name); }
-                    },
-                    "exited" => {
-                        if log { info!("Container `{}` existing but stopped. Restarting it", name); }
-                        Self::docker_command(&["container", "start", name]).run();
-                    },
-                    s => panic!("unknown state for container: {}", s),
-                }
-                return;
+        let name = &self.container;
+
+        // check first if a container with the same name already exists
+        if let Some(c) = Docker::find_container(name) {
+            match c["State"].as_str().unwrap() {
+                "running" => {
+                    if log { debug!("Container `{}` already running, using it", name); }
+                },
+                "exited" => {
+                    if log { debug!("Container `{}` existing but stopped. Restarting it", name); }
+                    Self::docker_command(&["container", "start", name]).run();
+                },
+                s => panic!("unknown state for container: {}", s),
             }
+            return;
         }
 
         // we didn't find an already existing container,
