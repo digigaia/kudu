@@ -65,7 +65,8 @@ impl Dune {
 
         debug!("Building EOS image with a {base_image} base");
         let output = duct::cmd!("pyinfra", "-y", format!("@docker/{base_image}"), "scripts/build_eos_image.py")
-            .stdout_capture().stderr_capture().unchecked().run().unwrap();
+            .stdout_capture().stderr_capture()
+            .unchecked().run().unwrap();
 
         match output.status.success() {
             true => {
@@ -91,10 +92,15 @@ impl Dune {
         self.docker.find_pid("nodeos").is_some()
     }
 
-    pub fn start_node(&self, replay_blockchain: bool) {
+    pub fn start_node(&self, replay_blockchain: bool, clean: bool) {
         if self.is_node_running() {
             info!("Node is already running");
             return;
+        }
+
+        if clean {
+            self.docker.command(&["rm", "-fr", "/app/datadir"]).run();
+            self.docker.command(&["mkdir", "-p", "/app/datadir"]).run();
         }
 
         // TODO: check if we restart or not, whether to (over)write config.ini or not

@@ -134,6 +134,18 @@ def create_default_wallet():
                  _chdir='/app')
 
 
+@deploy('Install reaper script for zombie processes')
+def install_reaper_script_for_zombies():
+    apt.packages(['runit'])
+    # thanks to github.com/phusion
+    # this should solve reaping issues of stopped nodes
+    files.put(src='scripts/my_init',
+              dest='/sbin/my_init',
+              mode='755')
+
+
+
+
 ################################################################################
 ##                                                                            ##
 ##   Execution of the main steps                                              ##
@@ -147,3 +159,4 @@ deploy_leap(version=LEAP_VERSION)
 deploy_cdt(version=CDT_VERSION)
 deploy_reference_contracts(commit=REF_CONTRACTS_COMMIT)
 create_default_wallet()
+install_reaper_script_for_zombies()

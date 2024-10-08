@@ -105,7 +105,7 @@ impl Docker {
             "-v", &format!("/:{}", HOST_MOUNT_PATH), "-d",
             &format!("--name={}", &self.container),
             &self.image,
-            "tail", "-f", "/dev/null",
+            "/sbin/my_init",
         ]).run();
     }
 

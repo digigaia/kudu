@@ -52,6 +52,10 @@ enum Commands {
         /// whether to replay the blockchain from the beginning when starting
         #[arg(short, long, default_value_t=false)]
         replay_blockchain: bool,
+
+        /// whether to clean the datadir and start with a fresh one
+        #[arg(short, long, default_value_t=false)]
+        clean: bool,
     },
 
     /// Stop nodeos in the current container
@@ -161,8 +165,8 @@ fn main() {
                     info!("Wallet password is:");
                     println!("{}", &dune.get_wallet_password());
                 },
-                Commands::StartNode { replay_blockchain } => {
-                    dune.start_node(replay_blockchain);
+                Commands::StartNode { replay_blockchain, clean } => {
+                    dune.start_node(replay_blockchain, clean);
                 },
                 Commands::StopNode => {
                     dune.stop_node();
