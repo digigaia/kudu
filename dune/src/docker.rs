@@ -3,7 +3,7 @@ use std::io::Write;
 
 use serde_json::Value;
 use tempfile::NamedTempFile;
-use tracing::{info, debug};
+use tracing::{info, debug, trace};
 
 pub use crate::command::{DockerCommand, DockerCommandJson};
 pub use crate::{print_streams, util::from_stream};
@@ -23,9 +23,7 @@ impl Docker {
     // anything is running. You have to call the `start()` method yourself
     // if you need to ensure the container is running
     pub fn new(container: String, image: String) -> Docker {
-        let docker = Docker { container, image };
-        // docker.start(false);
-        docker
+        Docker { container, image }
     }
 
     /// Return a `DockerCommand` builder that you can later run.
@@ -148,9 +146,26 @@ impl Docker {
         None
     }
 
+    // -----------------------------------------------------------------------------
+    //     File management methods
+    // -----------------------------------------------------------------------------
+
+    pub fn file_exists(&self, filename: &str) -> bool {
+        self.command(&["test", "-f", filename])
+            .check_status(false).run()
+            .status.success()
+    }
+
     pub fn cp_host_to_container(&self, host_file: &str, container_file: &str) {
+        trace!("Copy file {} from host to container:{}", host_file, container_file);
         let dest = format!("{}:{}", &self.container, container_file);
         Docker::docker_command(&["cp", host_file, &dest]).run();
+    }
+
+    pub fn cp_container_to_host(&self, container_file: &str, host_file: &str) {
+        trace!("Copy file {} from container to host:{}", container_file, host_file);
+        let src = format!("{}:{}", &self.container, container_file);
+        Docker::docker_command(&["cp", &src, host_file]).run();
     }
 
     pub fn write_file(&self, filename: &str, content: &str) {
@@ -158,5 +173,14 @@ impl Docker {
         let _ = temp_file.write(content.as_bytes()).unwrap();
 
         self.cp_host_to_container(temp_file.path().to_str().unwrap(), filename);
+    }
+
+    pub fn read_file(&self, filename: &str) -> String {
+        // FIXME: this impl sucks!
+        let temp_file = "/tmp/scratch";
+        self.cp_container_to_host(filename, temp_file);
+        let result = std::fs::read_to_string(temp_file).unwrap();
+        std::fs::remove_file(temp_file).unwrap();
+        result
     }
 }

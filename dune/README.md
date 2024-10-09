@@ -13,6 +13,9 @@
 
 - embed deploy_eos_image.py in the binary so we can run "dune build-image" from anywhere
 
+- use IndexMap and the indexmap feature on configparser to ensure we do not mess up the config file order
+  also ensure we're keeping comments from the config file
+
 # README
 
 Here is a list of workflows that should be enabled by the `dune` utility
@@ -41,4 +44,17 @@ dune start-node
 ```{sh}
 dune destroy    # ensure that we don't have a lingering docker container
 dune start-node --config <CONFIG_FILE.INI>
+```
+
+## set our own default config instead of nodeos default
+
+in particular, we want to expose the http port to all listeners, not only localhost
+
+```{sh}
+dune set-config default
+```
+
+you can set specific values like so:
+```{sh}
+dune set-config http-server-address=0.0.0.0:8888 chain-state-db-size-mb=65536 contracts-console=true
 ```

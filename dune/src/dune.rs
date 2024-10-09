@@ -7,16 +7,18 @@ use serde_json::Value;
 
 use antelope_core::config::EOS_FEATURES;
 use crate::docker::{Docker, DockerCommand, print_streams, from_stream};
-use crate::configini::NodeConfig;
+use crate::nodeconfig::NodeConfig;
 
 
 pub struct Dune {
     docker: Docker,
 
-    config: NodeConfig, // FIXME: Option<NodeConfig>?
+    http_addr: String,
 }
 
 const DEFAULT_BASE_IMAGE: &str = "ubuntu:22.04";
+const DEFAULT_HTTP_ADDR: &str = "0.0.0.0:8888";
+const CONFIG_PATH: &str = "/app/config.ini";
 
 impl Dune {
     /// the Dune constructor ensures that everything needed is up and running
@@ -35,8 +37,12 @@ impl Dune {
         let docker = Docker::new(container, image);
         docker.start(true);
 
-        // FIXME: if config exists in container pull it from there
-        Dune { docker, config: NodeConfig::default() }
+        let mut result = Dune { docker, http_addr: DEFAULT_HTTP_ADDR.to_string() };
+        // if config exists in container pull the nodeos server http address from there
+        if result.docker.file_exists(CONFIG_PATH) {
+            result.http_addr = result.pull_config().http_addr().to_string();
+        }
+        result
     }
 
     pub fn list_running_containers(&self) -> Vec<Value> {
@@ -88,11 +94,50 @@ impl Dune {
         }
     }
 
+
+    // =============================================================================
+    //
+    //     Config related methods (handling of `config.ini`, etc.)
+    //
+    // =============================================================================
+
+    pub fn has_config(&self) -> bool {
+        self.docker.file_exists(CONFIG_PATH)
+    }
+
+    pub fn rm_config(&self) {
+        self.docker.command(&["rm", CONFIG_PATH]).run();
+    }
+
+    /// Push the given `NodeConfig` to the `config.ini` file inside the container
+    ///
+    /// this also updates the cached `dune.http_addr` value if necessary
+    pub fn push_config(&mut self, config: &NodeConfig) {
+        self.docker.write_file(CONFIG_PATH, &config.to_ini());
+        self.http_addr = config.http_addr().to_string();
+    }
+
+    /// Pull the config from the `config.ini` file inside the container and return it
+    /// as a `NodeConfig`. If it cannot be found, return a default config.
+    pub fn pull_config(&self) -> NodeConfig {
+        match self.docker.file_exists(CONFIG_PATH) {
+            true => NodeConfig::from_ini(&self.docker.read_file(CONFIG_PATH)),
+            false => NodeConfig::default(),
+        }
+    }
+
+
+    // =============================================================================
+    //
+    //     Nodeos management methods
+    //
+    // =============================================================================
+
     pub fn is_node_running(&self) -> bool {
         self.docker.find_pid("nodeos").is_some()
     }
 
-    pub fn start_node(&self, replay_blockchain: bool, clean: bool) {
+    pub fn start_node(&mut self, replay_blockchain: bool, clean: bool) {
         if self.is_node_running() {
             info!("Node is already running");
             return;
@@ -102,9 +147,6 @@ impl Dune {
             self.docker.command(&["rm", "-fr", "/app/datadir"]).run();
             self.docker.command(&["mkdir", "-p", "/app/datadir"]).run();
         }
-
-        // TODO: check if we restart or not, whether to (over)write config.ini or not
-        self.docker.write_file("/app/config.ini", &self.config.get_config_ini());
 
         let mut args = vec!["/app/launch_bg.sh", "nodeos", "--data-dir=/app/datadir"];
         args.push("--config-dir=/app");
@@ -151,6 +193,32 @@ impl Dune {
             }
         }
     }
+
+    fn wait_blockchain_ready(&self) {
+        let url = format!("{}/v1/chain/get_info", self.http_addr);
+        let max_wait_time_seconds = 10;
+        let mut waited = 0;
+
+        loop {
+            let output = self.docker.command(&["curl", "--request", "POST", &url]).check_status(false).run();
+            if output.status.success() { break; }
+            debug!("blockchain not ready yet, waiting 1 second before retrying");
+            thread::sleep(Duration::from_secs(1));
+            waited += 1;
+            if waited > max_wait_time_seconds {
+                warn!("Cannot connect to blockchain to make sure it is ready, tried for {} seconds...",
+                      max_wait_time_seconds);
+                break;
+            }
+        }
+    }
+
+
+    // =============================================================================
+    //
+    //     Blockchain-related methods
+    //
+    // =============================================================================
 
     pub fn bootstrap_system(&self, full: bool) {
         let currency = "SYS";
@@ -244,20 +312,9 @@ impl Dune {
         self.cleos_cmd(&["wallet", "import", "--private-key", privkey]);
     }
 
-    fn wait_blockchain_ready(&self) {
-        let url = format!("{}/v1/chain/get_info", self.config.http_addr());
-
-        loop {
-            let output = self.docker.command(&["curl", "--request", "POST", &url]).check_status(false).run();
-            if output.status.success() { break; }
-            debug!("blockchain not ready yet, waiting 1 second before retrying");
-            thread::sleep(Duration::from_secs(1));
-        }
-    }
-
     fn preactivate_features(&self) {
         let url = format!("{}/v1/producer/schedule_protocol_feature_activations",
-                          self.config.http_addr());
+                          self.http_addr);
         let feature = "0ec7e080177b2c02b278d5088611686b49d739925a92d9bfcacd7fc6b74053bd";
         let data = format!(r#"{{"protocol_features_to_activate": ["{feature}"]}}"#);
 
@@ -307,7 +364,7 @@ impl Dune {
     fn cleos_cmd(&self, cmd: &[&str]) -> process::Output {
         trace!("Running cleos command: {:?}", cmd);
         self.unlock_wallet();
-        let url = format!("http://{}", self.config.http_addr());
+        let url = format!("http://{}", self.http_addr);
         let mut cleos_cmd = vec!["cleos", "--verbose", "-u", &url];
         cleos_cmd.extend_from_slice(cmd);
         self.docker.command(&cleos_cmd).run()

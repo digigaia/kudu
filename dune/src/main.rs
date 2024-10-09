@@ -1,8 +1,10 @@
+use std::{fs, process};
+
 use clap::{Parser, Subcommand};
-use tracing::{Level, info, trace};
+use tracing::{error, info, trace, warn, Level};
 use tracing_subscriber::{EnvFilter, filter::LevelFilter};
 
-use dune::{Docker, Dune};
+use dune::{Docker, Dune, NodeConfig};
 
 const CONTAINER_NAME: &str = "eos_container";
 const IMAGE_NAME: &str = "eos:latest";
@@ -30,6 +32,7 @@ struct Cli {
 
 #[derive(Subcommand, Debug)]
 enum Commands {
+
     // -----------------------------------------------------------------------------
     //     General commands
     // -----------------------------------------------------------------------------
@@ -43,17 +46,46 @@ enum Commands {
         base: String
     },
 
+    /// Pass-through that runs the given command in the container
+    Exec {
+        /// The commands you want to execute and its arguments
+        cmd: Vec<String>,
+    },
+
     // -----------------------------------------------------------------------------
     //     Commands operating on a docker container
     // -----------------------------------------------------------------------------
 
+    /// Update config values for this container's nodeos instance. This can take
+    /// all the values that the nodeos `config.ini` file will take.
+    ///
+    /// A special value of "default" will reset the entire config to its default.
+    SetConfig {
+        args: Vec<String>,
+    },
+
     /// Start running nodeos in the current container
     StartNode {
-        /// whether to replay the blockchain from the beginning when starting
+        /// Path to a `config.ini` file to be used
+        ///
+        /// If not specified, nodeos will use the one already existing in the app
+        /// folder, or create and use a default configuration if it is not
+        /// already present in the container.
+        ///
+        /// The special value of `none` indicates we don't want to have a config
+        /// file prepared before launching `nodeos`, which will create its own one.
+        /// If there was already one in the app folder, remove it before starting.
+        ///
+        /// The special value of `default` indicates we want a default config to
+        /// overwrite the one already in the container.
+        #[arg(long)]
+        config: Option<String>,
+
+        /// Whether to replay the blockchain from the beginning when starting
         #[arg(short, long, default_value_t=false)]
         replay_blockchain: bool,
 
-        /// whether to clean the datadir and start with a fresh one
+        /// Whether to clean the datadir and start with a fresh one
         #[arg(short, long, default_value_t=false)]
         clean: bool,
     },
@@ -66,6 +98,11 @@ enum Commands {
         #[arg(default_value=CONTAINER_NAME)]
         container_name: Option<String>,
     },
+
+    // -----------------------------------------------------------------------------
+    //     Blockchain-related commands
+    // -----------------------------------------------------------------------------
+
 
     /// Bootstrap a running system by installing the system contracts etc. FIXME desc
     Bootstrap {
@@ -101,11 +138,6 @@ enum Commands {
     /// Show the wallet password
     WalletPassword,
 
-    /// Pass-through that runs the given command in the container
-    Exec {
-        /// The commands you want to execute and its arguments
-        cmd: Vec<String>,
-    },
 }
 
 fn init_tracing(verbose_level: u8) {
@@ -158,14 +190,52 @@ fn main() {
         },
         // all the other commands need a `Dune` instance, get one now and keep matching
         _ => {
-            let dune = Dune::new(CONTAINER_NAME.to_string(), IMAGE_NAME.to_string());
+            let mut dune = Dune::new(CONTAINER_NAME.to_string(), IMAGE_NAME.to_string());
 
             match cmd {
                 Commands::WalletPassword => {
                     info!("Wallet password is:");
                     println!("{}", &dune.get_wallet_password());
                 },
-                Commands::StartNode { replay_blockchain, clean } => {
+                Commands::SetConfig { args } => {
+                    warn!("set config: {:?}", &args);
+                    let cfg = if args.len() == 1 && args[0] == "default" {
+                        NodeConfig::default()
+                    }
+                    else {
+                        let mut cfg = dune.pull_config();
+                        for arg in args {
+                            cfg.add_param(&arg).unwrap_or_else(|msg| {
+                                error!("{}", msg);
+                                process::exit(1);
+                            });
+                        }
+                        cfg
+                    };
+                    dune.push_config(&cfg);
+                },
+                Commands::StartNode { config, replay_blockchain, clean } => {
+                    info!("config: {:?}", config);
+                    match config.as_deref() {
+                        Some("none") => {
+                            if dune.has_config() {
+                                dune.rm_config();
+                            }
+                        },
+                        Some("default") => {
+                            dune.push_config(&NodeConfig::default());
+                        },
+                        Some(filename) => {
+                            let contents = fs::read_to_string(filename).unwrap();
+                            dune.push_config(&NodeConfig::from_ini(&contents));
+                        },
+                        None => {
+                            // use the one already there, or create a default one
+                            if !dune.has_config() {
+                                dune.push_config(&NodeConfig::default());
+                            }
+                        }
+                    }
                     dune.start_node(replay_blockchain, clean);
                 },
                 Commands::StopNode => {

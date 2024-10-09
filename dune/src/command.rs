@@ -2,7 +2,7 @@ use std::process::{self, Output};
 
 use duct::cmd;
 use serde_json::Value;
-use tracing::error;
+use tracing::{error, trace};
 
 use crate::{print_streams, util::join_quote};
 
@@ -39,6 +39,8 @@ impl DockerCommand {
         else {
             cmd("docker", &self.args)
         };
+
+        trace!("run command: {:?}", &self.args);
 
         let output = expr.unchecked().run().unwrap();
 
