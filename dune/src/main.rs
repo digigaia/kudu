@@ -1,6 +1,7 @@
 use std::{fs, process};
 
 use clap::{Parser, Subcommand};
+use color_eyre::eyre::Result;
 use tracing::{error, info, trace, warn, Level};
 use tracing_subscriber::{EnvFilter, filter::LevelFilter};
 
@@ -158,7 +159,8 @@ fn init_tracing(verbose_level: u8) {
     };
 }
 
-fn main() {
+fn main() -> Result<()> {
+    color_eyre::install()?;
     let cli = Cli::parse();
 
     if !cli.silent {
@@ -182,7 +184,8 @@ fn main() {
             }
         },
         Commands::BuildImage { base } => {
-            Dune::build_image(IMAGE_NAME, &base);
+            info!("Building EOS image from base image: {}", base);
+            Dune::build_image(IMAGE_NAME, &base)?;
         },
         Commands::Destroy { container_name } => {
             Docker::destroy(container_name.as_deref()
@@ -190,7 +193,7 @@ fn main() {
         },
         // all the other commands need a `Dune` instance, get one now and keep matching
         _ => {
-            let mut dune = Dune::new(CONTAINER_NAME.to_string(), IMAGE_NAME.to_string());
+            let mut dune = Dune::new(CONTAINER_NAME.to_string(), IMAGE_NAME.to_string())?;
 
             match cmd {
                 Commands::WalletPassword => {
@@ -215,7 +218,6 @@ fn main() {
                     dune.push_config(&cfg);
                 },
                 Commands::StartNode { config, replay_blockchain, clean } => {
-                    info!("config: {:?}", config);
                     match config.as_deref() {
                         Some("none") => {
                             if dune.has_config() {
@@ -265,4 +267,6 @@ fn main() {
             }
         }
     }
+
+    Ok(())
 }

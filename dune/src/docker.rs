@@ -70,6 +70,10 @@ impl Docker {
         Self::docker_command_json(&["container", "ls", "-a"]).run()
     }
 
+    pub fn list_images() -> Vec<Value> {
+        Self::docker_command_json(&["images"]).run()
+    }
+
     /// Start the docker container if needed. Show log output if `log=true`.
     pub fn start(&self, log: bool) {
         let name = &self.container;
@@ -108,12 +112,8 @@ impl Docker {
     }
 
     fn find_container(name: &str) -> Option<Value> {
-        for c in Docker::list_all_containers() {
-            if c["Names"].as_str().unwrap() == name {
-                return Some(c);
-            }
-        }
-        None
+        Docker::list_all_containers().into_iter()
+            .find(|c| c["Names"].as_str().unwrap() == name)
     }
 
     pub fn abs_host_path(path: &str) -> String {

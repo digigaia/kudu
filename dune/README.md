@@ -4,9 +4,7 @@
 - better error handling instead of unwrap, esp. on docker commands
   -> bubble up errors and display then with color_eyre?
 
-- from Dockerfile: see whether /sbin_myinit is necessary
 - check experimental packages for leap (arm64) (see: bootstrap_leap.sh)
-- replace println/etc. with proper calls to tracing/logging functions
 
 - check some use cases from here: https://docs.eosnetwork.com/docs/latest/node-operation/api-node/
   can we fulfill them?
@@ -15,6 +13,8 @@
 
 - use IndexMap and the indexmap feature on configparser to ensure we do not mess up the config file order
   also ensure we're keeping comments from the config file
+
+- make sure we can generate a decent documentation
 
 # README
 

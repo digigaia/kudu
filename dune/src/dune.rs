@@ -1,14 +1,33 @@
+use std::fs::{DirBuilder, write as write_file};
+use std::path::Path;
 use std::time::Duration;
 use std::{process, thread, time};
 
+use color_eyre::eyre::{eyre, Result};
+use color_eyre::{Section, SectionExt};
 use regex::Regex;
-use tracing::{debug, info, warn, error, trace};
+use tracing::{debug, info, warn, trace};
 use serde_json::Value;
 
 use antelope_core::config::EOS_FEATURES;
-use crate::docker::{Docker, DockerCommand, print_streams, from_stream};
+use crate::docker::{Docker, DockerCommand, from_stream};
 use crate::nodeconfig::NodeConfig;
 
+
+const DEFAULT_BASE_IMAGE: &str = "ubuntu:22.04";
+const DEFAULT_HTTP_ADDR: &str = "0.0.0.0:8888";
+const CONFIG_PATH: &str = "/app/config.ini";
+const TEMP_FOLDER: &str = "/tmp/scratch";
+
+
+fn unpack_scripts(scripts: &Path) -> Result<()> {
+    DirBuilder::new().recursive(true).create(scripts)?;  // make sure dir exists
+
+    write_file(scripts.join("launch_bg.sh"), include_str!("../scripts/launch_bg.sh"))?;
+    write_file(scripts.join("build_eos_image.py"), include_str!("../scripts/build_eos_image.py"))?;
+    write_file(scripts.join("my_init"), include_str!("../scripts/my_init"))?;
+    Ok(())
+}
 
 pub struct Dune {
     docker: Docker,
@@ -16,22 +35,18 @@ pub struct Dune {
     http_addr: String,
 }
 
-const DEFAULT_BASE_IMAGE: &str = "ubuntu:22.04";
-const DEFAULT_HTTP_ADDR: &str = "0.0.0.0:8888";
-const CONFIG_PATH: &str = "/app/config.ini";
-
 impl Dune {
     /// the Dune constructor ensures that everything needed is up and running
     /// properly, and getting an instance fully created means we have a running
     /// container
     /// In contrast, the Docker constructor is barebones and doesn't perform additional actions
-    pub fn new(container: String, image: String) -> Dune {
+    pub fn new(container: String, image: String) -> Result<Dune> {
         // make sure we have a docker image ready in case we need one to build
         // a new container off of it
         let eos_image = duct::cmd!("docker", "images", "-q", &image).read().unwrap();
         if eos_image.is_empty() {
             info!("No appropriate image found, building one before starting container");
-            Self::build_image(&image, DEFAULT_BASE_IMAGE);
+            Self::build_image(&image, DEFAULT_BASE_IMAGE)?;
         }
 
         let docker = Docker::new(container, image);
@@ -42,7 +57,7 @@ impl Dune {
         if result.docker.file_exists(CONFIG_PATH) {
             result.http_addr = result.pull_config().http_addr().to_string();
         }
-        result
+        Ok(result)
     }
 
     pub fn list_running_containers(&self) -> Vec<Value> {
@@ -54,8 +69,7 @@ impl Dune {
     }
 
 
-    // TODO: this should be private
-    pub fn build_image(name: &str, base_image: &str) {
+    pub fn build_image(name: &str, base_image: &str) -> Result<()> {
         // first make sure we are able to run pyinfra
         let status = duct::cmd!("which", "pyinfra")
             .stdout_capture()
@@ -64,34 +78,71 @@ impl Dune {
             .status;
 
         if !status.success() {
-            error!(concat!("You need to have `pyinfra` installed and available, in an activated ",
-                           "virtual env or (recommended) through `pipx` to be able to build the EOS image"));
-            process::exit(1);
+            let msg = concat!(
+                "You need to have `pyinfra` installed and available, in an activated ",
+                "virtual env or (recommended) through `pipx` to be able to build the EOS image"
+             );
+            // error!(msg);
+            // process::exit(1);
+            return Err(eyre!(msg));
         }
 
+        // unpack script files to a temporary location
+        unpack_scripts(&Path::new(TEMP_FOLDER).join("scripts"))?;
+
+        // build image using pyinfra
         debug!("Building EOS image with a {base_image} base");
-        let output = duct::cmd!("pyinfra", "-y", format!("@docker/{base_image}"), "scripts/build_eos_image.py")
-            .stdout_capture().stderr_capture()
-            .unchecked().run().unwrap();
+        const CAPTURE_OUTPUT: bool = false;
+
+        let command = duct::cmd!("pyinfra", "-y",
+                                 format!("@docker/{base_image}"),
+                                 "scripts/build_eos_image.py");
+
+        let command = if CAPTURE_OUTPUT {
+            command.stdout_capture().stderr_capture()
+        }
+        else {
+            command
+        }.dir(TEMP_FOLDER);
+
+        let output = command.unchecked().run().unwrap();
 
         match output.status.success() {
             true => {
-                let stderr = std::str::from_utf8(&output.stderr).unwrap();
-                debug!("Image built successfully!");
-                let re = Regex::new(r"image ID: ([0-9a-f]+)").unwrap();
-                let m = re.captures(stderr).unwrap();
-                let image_id = &m[1];
-                info!("Image built successfully with image ID: {:?}", &m[1]);
+                let image_id = if CAPTURE_OUTPUT {
+                    // we captured the output of the process, parse it to get the image ID
+                    let stderr = std::str::from_utf8(&output.stderr)?;
+                    debug!("Image built successfully!");
+                    let re = Regex::new(r"image ID: ([0-9a-f]+)").unwrap();
+                    let m = re.captures(stderr).expect("could not parse image ID from stderr");
+                    let image_id = &m[1];
+                    info!("Image built successfully with image ID: {:?}", image_id);
+                    image_id.to_string()
+                }
+                else {
+                    // we didn't capture any output, get the image ID from the
+                    // latest docker image and hope for the best
+                    // FIXME: we should do this properly
+                    Docker::list_images()[0]["ID"].as_str().unwrap().to_string()
+                };
 
-                Docker::docker_command(&["tag", image_id, name]).run();
+                Docker::docker_command(&["tag", &image_id, name]).run();
                 info!("Image tagged as: `{}`", &name);
+
+                Ok(())
             },
             false => {
-                warn!("Error while building image");
-                print_streams!(warn, &output);
-                process::exit(1);
+                // warn!("Error while building image");
+                // print_streams!(warn, &output);
+                let stdout = String::from_utf8_lossy(&output.stdout);
+                let stderr = String::from_utf8_lossy(&output.stderr);
+                Err(eyre!("Error while building image")
+                    .with_section(move || stdout.trim().to_string().header(format!("{:━^80}", " STDOUT ")))
+                    .with_section(move || stderr.trim().to_string().header(format!("{:━^80}", " STDERR "))))
             },
         }
+
+        // TODO: remove $TEMP_FOLDER/scripts ?
     }
 
 
