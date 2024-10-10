@@ -19,10 +19,12 @@ struct Cli {
     #[arg(short, long, action = clap::ArgAction::Count)]
     verbose: u8,
 
-    /// Do not print any logging messages. Normal output of the command is
-    /// still available on stdout. Use this when you want to make sure that
-    /// the expected output will not be garbled by the logging messages
-    /// (eg: if you're expecting some JSON output from the command)
+    /// Do not print any logging messages.
+    ///
+    /// Normal output of the command is still available on stdout.
+    /// Use this when you want to make sure that the expected output will not
+    /// be garbled by the logging messages (eg: if you're expecting some JSON
+    /// output from the command)
     #[arg(short, long)]
     silent: bool,
 

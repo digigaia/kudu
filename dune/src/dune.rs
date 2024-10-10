@@ -4,14 +4,14 @@ use std::time::Duration;
 use std::{process, thread, time};
 
 use color_eyre::eyre::{eyre, Result};
-use color_eyre::{Section, SectionExt};
 use regex::Regex;
 use tracing::{debug, info, warn, trace};
 use serde_json::Value;
 
 use antelope_core::config::EOS_FEATURES;
-use crate::docker::{Docker, DockerCommand, from_stream};
+use crate::docker::{Docker, DockerCommand};
 use crate::nodeconfig::NodeConfig;
+use crate::util::eyre_from_output;
 
 
 const DEFAULT_BASE_IMAGE: &str = "ubuntu:22.04";
@@ -29,6 +29,10 @@ fn unpack_scripts(scripts: &Path) -> Result<()> {
     Ok(())
 }
 
+/// A `Dune` instance manages a Docker container in which we can run a `nodeos` instance
+/// that will run an EOS blockchain.
+///
+/// This is nice for contract development. TODO: write more doc here!
 pub struct Dune {
     docker: Docker,
 
@@ -53,10 +57,8 @@ impl Dune {
         docker.start(true);
 
         let mut result = Dune { docker, http_addr: DEFAULT_HTTP_ADDR.to_string() };
-        // if config exists in container pull the nodeos server http address from there
-        if result.docker.file_exists(CONFIG_PATH) {
-            result.http_addr = result.pull_config().http_addr().to_string();
-        }
+        result.sync_config();
+
         Ok(result)
     }
 
@@ -67,7 +69,6 @@ impl Dune {
     pub fn list_all_containers(&self) -> Vec<Value> {
         Docker::list_all_containers()
     }
-
 
     pub fn build_image(name: &str, base_image: &str) -> Result<()> {
         // first make sure we are able to run pyinfra
@@ -82,8 +83,6 @@ impl Dune {
                 "You need to have `pyinfra` installed and available, in an activated ",
                 "virtual env or (recommended) through `pipx` to be able to build the EOS image"
              );
-            // error!(msg);
-            // process::exit(1);
             return Err(eyre!(msg));
         }
 
@@ -109,14 +108,13 @@ impl Dune {
 
         match output.status.success() {
             true => {
+                debug!("Image built successfully!");
                 let image_id = if CAPTURE_OUTPUT {
                     // we captured the output of the process, parse it to get the image ID
                     let stderr = std::str::from_utf8(&output.stderr)?;
-                    debug!("Image built successfully!");
                     let re = Regex::new(r"image ID: ([0-9a-f]+)").unwrap();
                     let m = re.captures(stderr).expect("could not parse image ID from stderr");
                     let image_id = &m[1];
-                    info!("Image built successfully with image ID: {:?}", image_id);
                     image_id.to_string()
                 }
                 else {
@@ -126,23 +124,41 @@ impl Dune {
                     Docker::list_images()[0]["ID"].as_str().unwrap().to_string()
                 };
 
+                info!("Image built successfully with image ID: {:?}", &image_id);
                 Docker::docker_command(&["tag", &image_id, name]).run();
                 info!("Image tagged as: `{}`", &name);
 
                 Ok(())
             },
             false => {
-                // warn!("Error while building image");
-                // print_streams!(warn, &output);
-                let stdout = String::from_utf8_lossy(&output.stdout);
-                let stderr = String::from_utf8_lossy(&output.stderr);
-                Err(eyre!("Error while building image")
-                    .with_section(move || stdout.trim().to_string().header(format!("{:━^80}", " STDOUT ")))
-                    .with_section(move || stderr.trim().to_string().header(format!("{:━^80}", " STDERR "))))
+                Err(eyre_from_output("Error while building image", &output))
             },
         }
 
         // TODO: remove $TEMP_FOLDER/scripts ?
+    }
+
+    // =============================================================================
+    //
+    //     Command builder methods
+    //
+    // =============================================================================
+
+    pub fn command(&self, args: &[&str]) -> DockerCommand {
+        self.docker.command(args).capture_output(false)
+    }
+
+    pub fn color_command(&self, args: &[&str]) -> DockerCommand {
+        self.docker.color_command(args).capture_output(false)
+    }
+
+    fn cleos_cmd(&self, cmd: &[&str]) -> process::Output {
+        trace!("Running cleos command: {:?}", cmd);
+        self.unlock_wallet();
+        let url = format!("http://{}", self.http_addr);
+        let mut cleos_cmd = vec!["cleos", "--verbose", "-u", &url];
+        cleos_cmd.extend_from_slice(cmd);
+        self.docker.command(&cleos_cmd).run()
     }
 
 
@@ -160,12 +176,16 @@ impl Dune {
         self.docker.command(&["rm", CONFIG_PATH]).run();
     }
 
+    fn sync_config(&mut self) {
+        self.http_addr = self.pull_config().http_addr().to_string();
+    }
+
     /// Push the given `NodeConfig` to the `config.ini` file inside the container
     ///
-    /// this also updates the cached `dune.http_addr` value if necessary
+    /// this also updates the cached `dune.http_addr` value (and others) if necessary
     pub fn push_config(&mut self, config: &NodeConfig) {
         self.docker.write_file(CONFIG_PATH, &config.to_ini());
-        self.http_addr = config.http_addr().to_string();
+        self.sync_config()
     }
 
     /// Pull the config from the `config.ini` file inside the container and return it
@@ -267,6 +287,53 @@ impl Dune {
 
     // =============================================================================
     //
+    //     Wallet management
+    //
+    // =============================================================================
+
+    /// Return a newly created (private, public) keypair
+    /// TODO: use antelope types (or a tagged type), to avoid confusion between
+    ///       private and public
+    fn create_key(&self) -> (String, String) {
+        let output = self.cleos_cmd(&["create", "key", "--to-console"]);
+        let mut stdout = std::str::from_utf8(&output.stdout).unwrap().lines();
+        let private = stdout.next().unwrap().split(": ").nth(1).unwrap().to_string();
+        let public = stdout.next().unwrap().split(": ").nth(1).unwrap().to_string();
+        (private, public)
+    }
+
+    fn import_key(&self, privkey: &str) {
+        self.unlock_wallet();
+        self.cleos_cmd(&["wallet", "import", "--private-key", privkey]);
+    }
+
+    pub fn get_wallet_password(&self) -> String {
+        let output = self.docker.command(&["cat", "/app/.wallet.pw"]).run();
+        String::from_utf8(output.stdout).unwrap()
+    }
+
+    pub fn unlock_wallet(&self) {
+        let command = self.docker.command(&[
+            "cleos", "wallet", "unlock", "--password", &self.get_wallet_password()
+        ]).check_status(false);
+
+        let output = command.run();
+
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            if stderr.contains("Already unlocked") {
+                // all good, we don't want to fail here
+                return;
+            }
+
+            command.handle_error(&output);
+        }
+    }
+
+
+
+    // =============================================================================
+    //
     //     Blockchain-related methods
     //
     // =============================================================================
@@ -319,7 +386,8 @@ impl Dune {
             "eosio.token@active"
         );
 
-        // Issue initial_value tokens (Remaining tokens not in circulation can be considered to be held in reserve.)
+        // Issue initial_value tokens (Remaining tokens not in circulation can be
+        // considered to be held in reserve.)
         self.send_action(
             "issue",
             "eosio.token",
@@ -327,7 +395,8 @@ impl Dune {
             "eosio@active"
         );
 
-        // Initialize the system account with code zero (needed at initialization time) and currency / token with precision 4
+        // Initialize the system account with code zero (needed at initialization time)
+        // and currency / token with precision 4
         self.send_action(
             "init",
             "eosio",
@@ -345,22 +414,6 @@ impl Dune {
         let creator = creator.unwrap_or("eosio");
         self.cleos_cmd(&["create", "account", creator, name, &public]);
         self.import_key(&private);
-    }
-
-    /// Return a newly created (private, public) keypair
-    /// TODO: use antelope types (or a tagged type), to avoid confusion between
-    ///       private and public
-    fn create_key(&self) -> (String, String) {
-        let output = self.cleos_cmd(&["create", "key", "--to-console"]);
-        let mut stdout = std::str::from_utf8(&output.stdout).unwrap().lines();
-        let private = stdout.next().unwrap().split(": ").nth(1).unwrap().to_string();
-        let public = stdout.next().unwrap().split(": ").nth(1).unwrap().to_string();
-        (private, public)
-    }
-
-    fn import_key(&self, privkey: &str) {
-        self.unlock_wallet();
-        self.cleos_cmd(&["wallet", "import", "--private-key", privkey]);
     }
 
     fn preactivate_features(&self) {
@@ -393,14 +446,6 @@ impl Dune {
         self.cleos_cmd(&["set", "contract", account, location]);
     }
 
-    pub fn command(&self, args: &[&str]) -> DockerCommand {
-        self.docker.command(args).capture_output(false)
-    }
-
-    pub fn color_command(&self, args: &[&str]) -> DockerCommand {
-        self.docker.color_command(args).capture_output(false)
-    }
-
     pub fn cmake_build(&self, location: &str) {
         let container_dir = Docker::abs_host_path(location);
         let build_dir = format!("{container_dir}/build");
@@ -410,38 +455,6 @@ impl Dune {
             "cmake", "-S", &container_dir, "-B", &build_dir,
         ]).run();
         self.color_command(&["cmake", "--build", &build_dir]).run();
-    }
-
-    fn cleos_cmd(&self, cmd: &[&str]) -> process::Output {
-        trace!("Running cleos command: {:?}", cmd);
-        self.unlock_wallet();
-        let url = format!("http://{}", self.http_addr);
-        let mut cleos_cmd = vec!["cleos", "--verbose", "-u", &url];
-        cleos_cmd.extend_from_slice(cmd);
-        self.docker.command(&cleos_cmd).run()
-    }
-
-    pub fn get_wallet_password(&self) -> String {
-        let output = self.docker.command(&["cat", "/app/.wallet.pw"]).run();
-        String::from_utf8(output.stdout).unwrap()
-    }
-
-    pub fn unlock_wallet(&self) {
-        let command = self.docker.command(&[
-            "cleos", "wallet", "unlock", "--password", &self.get_wallet_password()
-        ]).check_status(false);
-
-        let output = command.run();
-
-        if !output.status.success() {
-            let stderr = from_stream(&output.stderr);
-            if stderr.contains("Already unlocked") {
-                // all good, we don't want to fail here
-                return;
-            }
-
-            command.handle_error(&output);
-        }
     }
 
     pub fn system_newaccount(&self, account: &str, creator: &str) {

@@ -1,8 +1,16 @@
+use std::process;
+
+use color_eyre::eyre::{eyre, Report};
+use color_eyre::{Section, SectionExt};
 use tracing::debug;
 
 
-pub fn from_stream(stream: &[u8]) -> &str {
-    std::str::from_utf8(stream).expect("Process output is invalid utf-8!!")
+pub fn eyre_from_output(msg: &str, output: &process::Output) -> Report {
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    eyre!(msg.to_string())
+        .with_section(move || stdout.trim().to_string().header(format!("{:━^80}", " STDOUT ")))
+        .with_section(move || stderr.trim().to_string().header(format!("{:━^80}", " STDERR ")))
 }
 
 

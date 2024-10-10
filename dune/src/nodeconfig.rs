@@ -96,15 +96,6 @@ impl NodeConfig {
         Ok(())
     }
 
-    // TODO: remove me, unused
-    pub fn with_params(params: &[(&str, &str)]) -> Self {
-        let mut result = NodeConfig::default();
-        for (k, v) in params {
-            result.params.insert(k.to_string(), v.to_string());
-        }
-        result
-    }
-
     pub fn http_addr(&self) -> &str {
         self.params.get("http-server-address").map_or(DEFAULT_HTTP_ADDR, |x| x)
     }
