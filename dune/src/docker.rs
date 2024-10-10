@@ -176,7 +176,7 @@ impl Docker {
 
     pub fn read_file(&self, filename: &str) -> String {
         // FIXME: this impl sucks!
-        let temp_file = "/tmp/scratch";
+        let temp_file = "/tmp/tempfile";
         self.cp_container_to_host(filename, temp_file);
         let result = std::fs::read_to_string(temp_file).unwrap();
         std::fs::remove_file(temp_file).unwrap();
