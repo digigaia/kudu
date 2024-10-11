@@ -1,4 +1,4 @@
-use std::{fs, process};
+use std::{fs, io, process};
 
 use clap::{Parser, Subcommand};
 use color_eyre::eyre::Result;
@@ -150,6 +150,7 @@ fn init_tracing(verbose_level: u8) {
         .from_env_lossy();
 
     let tracing = tracing_subscriber::fmt()
+        .with_writer(io::stderr)
         .with_env_filter(env_filter);
 
     // flags given on the command-line override those from the environment
@@ -169,9 +170,6 @@ fn main() -> Result<()> {
         init_tracing(cli.verbose);
         trace!("{:?}", cli);  // FIXME: temporary
     }
-
-    // let container_name = "eos_container";
-    // let image_name = "eos:latest";
 
     let Some(cmd) = cli.command else { unreachable!("no command -> show help"); };
 
@@ -259,9 +257,6 @@ fn main() -> Result<()> {
                     dune.cmake_build(&location);
                 },
                 Commands::Exec { cmd } => {
-                    // FIXME: we should deactivate all forms of logging before getting here
-                    // otherwise we can get our stdout (which holds the result of the command)
-                    // polluted by our own logging
                     let cmd: Vec<_> = cmd.iter().map(String::as_str).collect();
                     dune.command(&cmd).capture_output(false).run();
                 }

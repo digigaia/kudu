@@ -16,6 +16,9 @@
 
 - make sure we can generate a decent documentation
 
+- try to follow guidelines from <https://clig.dev>
+
+
 # README
 
 Here is a list of workflows that should be enabled by the `dune` utility
