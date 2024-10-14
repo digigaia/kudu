@@ -44,7 +44,7 @@ impl Dune {
     /// properly, and getting an instance fully created means we have a running
     /// container
     /// In contrast, the Docker constructor is barebones and doesn't perform additional actions
-    pub fn new(container: String, image: String) -> Result<Dune> {
+    pub fn new(container: String, image: String, host_mount: String) -> Result<Dune> {
         // make sure we have a docker image ready in case we need one to build
         // a new container off of it
         let eos_image = duct::cmd!("docker", "images", "-q", &image).read().unwrap();
@@ -53,7 +53,7 @@ impl Dune {
             Self::build_image(&image, DEFAULT_BASE_IMAGE)?;
         }
 
-        let docker = Docker::new(container, image);
+        let docker = Docker::new(container, image, host_mount);
         docker.start(true);
 
         let mut result = Dune { docker, http_addr: DEFAULT_HTTP_ADDR.to_string() };
@@ -68,6 +68,10 @@ impl Dune {
 
     pub fn list_all_containers(&self) -> Vec<Value> {
         Docker::list_all_containers()
+    }
+
+    pub fn host_to_container_path(&self, path: &str) -> Result<String> {
+        self.docker.host_to_container_path(path)
     }
 
     pub fn build_image(name: &str, base_image: &str) -> Result<()> {
@@ -440,19 +444,18 @@ impl Dune {
         self.cleos_cmd(&["push", "action", account, action, data, "-p", permission]);
     }
 
-    pub fn deploy_contract(&self, location: &str, account: &str) {
-        debug!("Deploying `{account}` contract (from: {location})");
+    pub fn deploy_contract(&self, container_dir: &str, account: &str) {
+        debug!("Deploying `{account}` contract (from: {container_dir})");
         self.cleos_cmd(&["set", "account", "permission", account, "active", "--add-code"]);
-        self.cleos_cmd(&["set", "contract", account, location]);
+        self.cleos_cmd(&["set", "contract", account, container_dir]);
     }
 
-    pub fn cmake_build(&self, location: &str) {
-        let container_dir = Docker::abs_host_path(location);
+    pub fn cmake_build(&self, container_dir: &str) {
+        debug!("Building cmake project in: {container_dir}");
         let build_dir = format!("{container_dir}/build");
         self.docker.command(&["mkdir", "-p", &build_dir]).run();
-        // TODO: make sure we have colors
         self.color_command(&[
-            "cmake", "-S", &container_dir, "-B", &build_dir,
+            "cmake", "-S", container_dir, "-B", &build_dir,
         ]).run();
         self.color_command(&["cmake", "--build", &build_dir]).run();
     }

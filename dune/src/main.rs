@@ -1,4 +1,4 @@
-use std::{fs, io, process};
+use std::{env, fs, io, process};
 
 use clap::{Parser, Subcommand};
 use color_eyre::eyre::Result;
@@ -193,7 +193,12 @@ fn main() -> Result<()> {
         },
         // all the other commands need a `Dune` instance, get one now and keep matching
         _ => {
-            let mut dune = Dune::new(CONTAINER_NAME.to_string(), IMAGE_NAME.to_string())?;
+            let home = env::var("HOME").expect("$HOME variable should be set");
+            let mut dune = Dune::new(
+                CONTAINER_NAME.to_string(),
+                IMAGE_NAME.to_string(),
+                home,
+            )?;
 
             match cmd {
                 Commands::WalletPassword => {
@@ -251,9 +256,11 @@ fn main() -> Result<()> {
                                            .expect("has default value"));
                 },
                 Commands::DeployContract { location, account } => {
-                    dune.deploy_contract(&Docker::abs_host_path(&location), &account);
+                    let location = dune.host_to_container_path(&location)?;
+                    dune.deploy_contract(&location, &account);
                 },
                 Commands::CmakeBuild { location } => {
+                    let location = dune.host_to_container_path(&location)?;
                     dune.cmake_build(&location);
                 },
                 Commands::Exec { cmd } => {

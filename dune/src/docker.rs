@@ -1,9 +1,10 @@
 use std::fs;
 use std::io::Write;
 
+use color_eyre::{Result, eyre::{eyre, WrapErr}};
 use serde_json::Value;
 use tempfile::NamedTempFile;
-use tracing::{info, debug, trace};
+use tracing::{info, debug, trace, warn};
 
 pub use crate::command::{DockerCommand, DockerCommandJson};
 
@@ -13,6 +14,12 @@ pub struct Docker {
 
     /// the image used to build the container if we haven't one already
     image: String,
+
+    /// host folder that we want to bind mount inside the container
+    /// Ideally we would make this simply "/" but it seems that creates
+    /// issues with recursively mounting the overlay folder inside the container
+    /// so you should pick a path that doesn't containe the docker data dir
+    host_mount: String,
 }
 
 const HOST_MOUNT_PATH: &str = "/host";
@@ -21,8 +28,8 @@ impl Docker {
     // the Docker constructor is pretty barebones and doesn't ensure
     // anything is running. You have to call the `start()` method yourself
     // if you need to ensure the container is running
-    pub fn new(container: String, image: String) -> Docker {
-        Docker { container, image }
+    pub fn new(container: String, image: String, host_mount: String) -> Docker {
+        Docker { container, image, host_mount }
     }
 
     /// Return a `DockerCommand` builder that you can later run.
@@ -73,6 +80,16 @@ impl Docker {
         Self::docker_command_json(&["images"]).run()
     }
 
+    pub fn is_running(container: &str) -> bool {
+        Docker::list_running_containers().into_iter()
+            .any(|c| c["Names"].as_str().unwrap() == container)
+    }
+
+    pub fn container_exists(container: &str) -> bool {
+        Docker::list_all_containers().into_iter()
+            .any(|c| c["Names"].as_str().unwrap() == container)
+    }
+
     /// Start the docker container if needed. Show log output if `log=true`.
     pub fn start(&self, log: bool) {
         let name = &self.container;
@@ -96,6 +113,8 @@ impl Docker {
         // start one from scratch now
 
         if log { info!("Starting container..."); }
+        let src = &self.host_mount;
+        let dest = HOST_MOUNT_PATH;
         Self::docker_command(&[
             "run",
             "-p", "127.0.0.1:8888:8888/tcp",
@@ -103,7 +122,8 @@ impl Docker {
             // "-p", "127.0.0.1:8080:8080/tcp",
             // "-p", "127.0.0.1:3000:3000/tcp",
             // "-p", "127.0.0.1:8000:8000/tcp",
-            "-v", &format!("/:{}", HOST_MOUNT_PATH), "-d",
+            "--mount", &format!("type=bind,source={},target={}", src, dest),
+            "--detach",
             &format!("--name={}", &self.container),
             &self.image,
             "/sbin/my_init",
@@ -115,18 +135,32 @@ impl Docker {
             .find(|c| c["Names"].as_str().unwrap() == name)
     }
 
-    pub fn abs_host_path(path: &str) -> String {
-        let path = fs::canonicalize(path).expect("Given path does not exist...");
+    pub fn host_to_container_path(&self, path: &str) -> Result<String> {
+        let path = fs::canonicalize(path).wrap_err_with(|| {
+            format!("Could not get canonical path for: {}", path)
+        })?;
         let path = path.to_str().expect("Given path is not valid utf-8!...");
-        format!("{}{}", HOST_MOUNT_PATH, path)
+        let path = path.strip_prefix(&self.host_mount).ok_or_else(|| {
+            eyre!("Trying to map host path: \"{}\" in container but it is not part of the mount point: \"{}\"", path, self.host_mount)
+        })?;
+
+        Ok(format!("{}{}", HOST_MOUNT_PATH, path))
     }
 
     pub fn stop(container_name: &str) {
         info!("Stopping docker container `{}`...", container_name);
+        if !Docker::is_running(container_name) {
+            warn!("Container {} is not running", container_name);
+            return;
+        }
         Docker::docker_command(&["container", "stop", container_name]).run();
     }
 
     pub fn destroy(container_name: &str) {
+        if !Docker::container_exists(container_name) {
+            warn!("Container {} does not exist...", container_name);
+            return;
+        }
         Docker::stop(container_name);
         info!("Destroying docker container `{}`...", container_name);
         Docker::docker_command(&["container", "rm", container_name]).run();
