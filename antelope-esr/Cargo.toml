@@ -17,8 +17,15 @@ snafu              = { workspace = true }
 tracing            = { workspace = true }
 tracing-subscriber = { workspace = true }
 
-annotated-error = { path = "../annotated-error" }
+antelope-macros    = { workspace = true }
 antelope-core = { path = "../antelope-core" }
 antelope-abi = { path = "../antelope-abi" }
 flate2 = "1.0"
 flagset = "0.4.5"
+
+[features]
+detailed-error = [
+    "antelope-macros/detailed-error",
+    "antelope-core/detailed-error",
+    "antelope-abi/detailed-error",
+]

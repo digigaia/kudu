@@ -6,7 +6,7 @@ use ripemd::{Digest, Ripemd160};
 use sha2::Sha256;
 use snafu::{ensure, ResultExt, Snafu};
 
-use annotated_error::with_location;
+use antelope_macros::with_location;
 
 #[derive(Eq, PartialEq, Hash, Debug, Copy, Clone)]
 pub enum KeyType {

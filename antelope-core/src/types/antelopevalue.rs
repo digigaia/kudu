@@ -9,7 +9,7 @@ use snafu::{Snafu, IntoError, ResultExt, OptionExt};
 use strum::{Display, EnumDiscriminants, EnumString, VariantNames};
 use tracing::instrument;
 
-use annotated_error::with_location;
+use antelope_macros::with_location;
 
 use crate::{
     config, json, JsonError, JsonValue,

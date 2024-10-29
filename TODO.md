@@ -7,8 +7,15 @@ After splitting workspace into different crates, do the following:
 - check for minimum rust version (I think there is a tool for that)
 - review each file individually
 
+Make sure that every item on this page gets a corresponding entry in the ARCHITECTURE.md
+file once they are implemented.
+
 
 ## API DESIGN
+
+- check feature flags and use them to put [with_location] behind one, and see whether
+  activating/deactivating it gives us some gains in the size of the errors
+  (e.g. `InvalidValue` is quite big right now)
 
 - look at builder pattern / fluent interface for specifiying EncodeOptions in ESR
 eg: settings paragraph in https://github.com/tesselode/kira/releases/tag/v0.9.0
@@ -77,6 +84,8 @@ https://zerotomastery.io/blog/rust-struct-guide/
 
 
 ## MISC
+
+- investigate rust libs found here: <https://onblock.dev/communicating-with-the-wax-blockchain>
 
 - Require Rust 1.80 and use LazyLock/OnceLock from std lib instead of a 3rd-party library
   <https://blog.rust-lang.org/2024/07/25/Rust-1.80.0.html> -

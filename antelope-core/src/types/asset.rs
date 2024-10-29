@@ -5,7 +5,7 @@ use serde::de::{self, Visitor};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use snafu::{ensure, Snafu, OptionExt, ResultExt};
 
-use annotated_error::with_location;
+use antelope_macros::with_location;
 use crate::{InvalidSymbol, Symbol};
 
 

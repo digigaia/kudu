@@ -1,7 +1,7 @@
 [workspace]
 resolver = "2"
 members = [
-    "annotated-error",
+    "antelope-macros",
     "antelope-abi",
     "antelope-core",
     "antelope-esr",
@@ -17,7 +17,7 @@ rust-version = "1.70"
 # repository = ""
 
 [workspace.dependencies]
-annotated-error = { path = "annotated-error" }
+antelope-macros = { path = "antelope-macros" }
 base64 = "0.22.0"
 color-eyre = "0.6.3"
 hex = "0.4.3"

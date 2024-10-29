@@ -3,7 +3,7 @@ use hex::FromHexError;
 use snafu::{Snafu, IntoError};
 use tracing::instrument;
 
-use annotated_error::with_location;
+use antelope_macros::with_location;
 use antelope_core::{
     AntelopeType, AntelopeValue, Asset, InvalidValue, Name,
     PrivateKey, PublicKey, Signature, Symbol, InvalidSymbol,

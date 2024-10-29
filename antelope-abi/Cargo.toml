@@ -17,7 +17,13 @@ strum              = { workspace = true }
 tracing            = { workspace = true }
 tracing-subscriber = { workspace = true }
 
-annotated-error    = { workspace = true }
+antelope-macros    = { workspace = true }
 antelope-core = { path="../antelope-core" }
 bytemuck = "1"
 chrono = { version = "0.4", features = ["serde"] }
+
+[features]
+detailed-error = [
+    "antelope-macros/detailed-error",
+    "antelope-core/detailed-error",
+]

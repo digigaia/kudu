@@ -4,7 +4,7 @@ use serde::de::{self, Visitor};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use snafu::{Snafu, ensure};
 
-use annotated_error::with_location;
+use antelope_macros::with_location;
 
 
 #[with_location]

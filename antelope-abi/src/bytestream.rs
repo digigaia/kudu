@@ -6,7 +6,7 @@ use hex;
 use snafu::{ensure, Snafu};
 use tracing::trace;
 
-use annotated_error::with_location;
+use antelope_macros::with_location;
 
 #[with_location]
 #[derive(Debug, Snafu)]

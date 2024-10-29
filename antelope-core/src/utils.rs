@@ -6,7 +6,7 @@ use num::{Integer, Signed, Unsigned, Float};
 use serde_json::Value as JsonValue;
 use snafu::prelude::*;
 
-use annotated_error::with_location;
+use antelope_macros::with_location;
 
 
 // FIXME: rename this file to something else than utils.rs. Maybe convert.rs? conversion.rs? numeric.rs? mathutils.rs?
@@ -114,7 +114,7 @@ pub enum ConversionError {
     #[snafu(display(r#"cannot convert given variant {value} to type "{typename}""#))]
     IncompatibleVariantTypes {
         typename: &'static str,
-        value: JsonValue
+        value: Box<JsonValue>
     },
 
 }

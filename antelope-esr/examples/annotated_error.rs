@@ -1,4 +1,4 @@
-use annotated_error::with_location;
+use antelope_macros::with_location;
 use color_eyre::Result;
 use snafu::prelude::*;
 

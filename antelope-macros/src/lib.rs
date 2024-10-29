@@ -1,125 +1,26 @@
+mod error;
+
 use proc_macro::TokenStream;
-use proc_macro2::TokenStream as TokenStream2;
-use quote::quote;
+
+#[cfg(feature = "detailed-error")]
 use syn::{
-    parenthesized, parse_macro_input, Attribute, Fields, FieldsNamed, ItemEnum, LitStr, Meta, Variant, Field
+    parse_macro_input, Fields, ItemEnum,
+    visit_mut::VisitMut,
 };
-use syn::visit_mut::{self, VisitMut};
 
+#[cfg(feature = "detailed-error")]
+use quote::quote;
 
-// TODO: use proc_macro_attribute from proc_macro2 (?)
+#[cfg(feature = "detailed-error")]
+use crate::error::{AddLocationField, AddLocationToDisplay, location_field};
+
 // FIXME: print a proper error if we already have a field named `location`
 // FIXME: print a proper error if we don't define a display string
 // FIXME: do not use `node.parse_nested_meta(|meta| {})` on the `snafu` attribute,
 //        as some nested attrs can't be parsed like this, use `parse_args` instead
 
 
-fn location_as_fields_named() -> FieldsNamed {
-    syn::parse_str("{ #[snafu(implicit)] location: snafu::Location }").unwrap()
-}
-
-fn location_field() -> Field {
-    let fs: FieldsNamed = location_as_fields_named();
-    let location_field = &fs.named[0];
-    location_field.clone()
-}
-
-// =============================================================================
-//
-//     Visitor for adding a `location` field to all Enum variants
-//
-// =============================================================================
-
-struct AddLocationField;
-
-impl VisitMut for AddLocationField {
-    fn visit_variant_mut(&mut self, node: &mut Variant) {
-        match &mut node.fields {
-            Fields::Named(ref mut fields) => {
-                fields.named.push(location_field());
-            },
-            Fields::Unit => {
-                node.fields = location_as_fields_named().into()
-            },
-            _ => {
-                panic!("variant '{}' needs to be a struct or unit type to be able to add `location` to it!", &node.ident);
-            }
-
-        }
-    }
-}
-
-// =============================================================================
-//
-//     Visitor for adding the location an error was constructed to the display
-//     string associated with a given variant
-//
-// =============================================================================
-
-struct AddLocationToDisplay;
-
-impl VisitMut for AddLocationToDisplay {
-    fn visit_attribute_mut(&mut self, node: &mut Attribute) {
-
-        // println!("+++ visiting attr: {:#?}", node.path().get_ident().unwrap().to_string());
-
-        // FIXME: this doesn't work if we have more than 1 meta attribute which is `display`
-        // we will drop the others when reconstructing the meta tokens
-
-        if node.path().is_ident("snafu") {
-            let mut disp_str: Option<String> = None;
-
-            node.parse_nested_meta(|meta| {
-                if meta.path.is_ident("display") {
-                    let content;
-                    parenthesized!(content in meta.input);
-                    let lit: LitStr = content.parse()?;
-
-                    disp_str = Some(lit.value());
-
-                    Ok(())
-                }
-                else {
-                    // let msg = format!("unrecognized attr for snafu: `{:?}`", meta.path.get_ident());
-                    // println!("{}", msg);
-                    Ok(())
-                }
-            })
-            .unwrap_or(());
-            // .unwrap_or_else(|e| {
-            //     // println!("cannot parse nested meta on attribute {:?}", node);
-            //     // println!("{:?}", e);
-            // });
-
-            if let Some(disp) = disp_str {
-                // println!("=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=");
-                // println!("found disp str while visiting: {disp}");
-                // println!("NODE = {:#?}", node);
-
-                let new_disp = format!(r#"{disp} (at: {{location}})"#);
-                let new_display_attr = format!(r##"display(r#"{new_disp}"#)"##); // prefer raw strings to escaped
-                // let new_display_attr = format!(r#"display({new_disp:?})"#);   // works too
-
-                match &mut node.meta {
-                    Meta::List(ref mut snafu_display) => {
-                        let new_tokens: TokenStream2 = new_display_attr.parse().unwrap();
-                        // println!("OLD: {:?}", &snafu_display.tokens);
-                        // println!("NEW: {:?}", &new_tokens);
-                        snafu_display.tokens = new_tokens;
-                    },
-                    _ => unreachable!()
-                }
-            }
-
-        }
-
-        // Delegate to the default impl to visit nested expressions.
-        visit_mut::visit_attribute_mut(self, node);
-    }
-}
-
-
-
+#[cfg(feature = "detailed-error")]
 #[proc_macro_attribute]
 pub fn with_location(_input: TokenStream, annotated_item: TokenStream) -> TokenStream {
     let mut error_enum = parse_macro_input!(annotated_item as ItemEnum);
@@ -130,7 +31,15 @@ pub fn with_location(_input: TokenStream, annotated_item: TokenStream) -> TokenS
     quote! { #error_enum }.into()
 }
 
+#[cfg(not(feature = "detailed-error"))]
+#[proc_macro_attribute]
+pub fn with_location(_attr: TokenStream, item: TokenStream) -> TokenStream {
+    item
+}
 
+
+
+#[cfg(feature = "detailed-error")]
 #[proc_macro_attribute]
 pub fn with_location2(_input: TokenStream, annotated_item: TokenStream) -> TokenStream {
 
