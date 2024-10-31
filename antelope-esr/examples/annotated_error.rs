@@ -15,6 +15,11 @@ pub enum MyError {
     InvalidVersion {
         version: u8,
     },
+
+    #[snafu(visibility(pub), display("{message}"))]
+    Whatever {
+        message: String,
+    },
 }
 
 pub fn test_fail() -> Result<()> {
@@ -24,6 +29,7 @@ pub fn test_fail() -> Result<()> {
 fn main() -> Result<()> {
     println!("hello world");
 
+    WhateverSnafu { message: "yep" }.fail()?;
     test_fail()?;
 
     Ok(())

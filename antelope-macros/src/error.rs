@@ -1,11 +1,26 @@
-use proc_macro2::TokenStream as TokenStream2;
+use proc_macro2::{TokenStream, TokenTree, Group};
+use quote::quote;
 use syn::{
-    parenthesized, Attribute, Fields, FieldsNamed, LitStr, Meta, Variant, Field,
+    Attribute, Fields, FieldsNamed, LitStr, Meta, Variant, Field, ItemEnum, parse2,
     visit_mut::{
         VisitMut, visit_attribute_mut,
     }
 };
 
+
+/// control whether we want to have debugging information for the macro when compiling
+const DEBUG: bool = false;
+
+macro_rules! debug {
+    ( $($elem:expr),* ) => { if DEBUG { println!( $($elem),* ); } }
+}
+
+
+// =============================================================================
+//
+//     Visitor for adding a `location` field to all Enum variants
+//
+// =============================================================================
 
 fn location_as_fields_named() -> FieldsNamed {
     syn::parse_str("{ #[snafu(implicit)] location: snafu::Location }").unwrap()
@@ -17,20 +32,16 @@ pub fn location_field() -> Field {
     location_field.clone()
 }
 
-
-
-// =============================================================================
-//
-//     Visitor for adding a `location` field to all Enum variants
-//
-// =============================================================================
-
 pub struct AddLocationField;
 
 impl VisitMut for AddLocationField {
     fn visit_variant_mut(&mut self, node: &mut Variant) {
         match &mut node.fields {
             Fields::Named(ref mut fields) => {
+                if fields.named.iter().any(|f| f.ident.as_ref().unwrap().to_string() == "location") {
+                    panic!("variant '{}' already defines a `location` field, please remove it so it can be added automatically",
+                           &node.ident);
+                }
                 fields.named.push(location_field());
             },
             Fields::Unit => {
@@ -46,8 +57,8 @@ impl VisitMut for AddLocationField {
 
 // =============================================================================
 //
-//     Visitor for adding the location an error was constructed to the display
-//     string associated with a given variant
+//     Visitor for adding the location at which an error was constructed
+//     to the display string associated with a given variant
 //
 // =============================================================================
 
@@ -55,60 +66,101 @@ pub struct AddLocationToDisplay;
 
 impl VisitMut for AddLocationToDisplay {
     fn visit_attribute_mut(&mut self, node: &mut Attribute) {
-
-        // println!("+++ visiting attr: {:#?}", node.path().get_ident().unwrap().to_string());
-
-        // FIXME: this doesn't work if we have more than 1 meta attribute which is `display`
-        // we will drop the others when reconstructing the meta tokens
+        // debug!("+++ visiting attr: {:#?}", node.path().get_ident().unwrap().to_string());
 
         if node.path().is_ident("snafu") {
-            let mut disp_str: Option<String> = None;
-
-            node.parse_nested_meta(|meta| {
-                if meta.path.is_ident("display") {
-                    let content;
-                    parenthesized!(content in meta.input);
-                    let lit: LitStr = content.parse()?;
-
-                    disp_str = Some(lit.value());
-
-                    Ok(())
-                }
-                else {
-                    // let msg = format!("unrecognized attr for snafu: `{:?}`", meta.path.get_ident());
-                    // println!("{}", msg);
-                    Ok(())
-                }
-            })
-            // .unwrap_or(());
-            .unwrap_or_else(|e| {
-                println!("cannot parse nested meta on attribute {:?}", node);
-                println!("{:?}", e);
-            });
-
-            if let Some(disp) = disp_str {
-                // println!("=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=");
-                // println!("found disp str while visiting: {disp}");
-                // println!("NODE = {:#?}", node);
-
-                let new_disp = format!(r#"{disp} (at: {{location}})"#);
-                let new_display_attr = format!(r##"display(r#"{new_disp}"#)"##); // prefer raw strings to escaped
-                // let new_display_attr = format!(r#"display({new_disp:?})"#);   // works too
-
-                match &mut node.meta {
-                    Meta::List(ref mut snafu_display) => {
-                        let new_tokens: TokenStream2 = new_display_attr.parse().unwrap();
-                        // println!("OLD: {:?}", &snafu_display.tokens);
-                        // println!("NEW: {:?}", &new_tokens);
-                        snafu_display.tokens = new_tokens;
-                    },
-                    _ => unreachable!()
-                }
-            }
-
+            visit_snafu_attr(node);
         }
 
         // Delegate to the default impl to visit nested expressions.
         visit_attribute_mut(self, node);
     }
+}
+
+fn update_group_message_with_location(group: &TokenTree) -> TokenTree {
+    let TokenTree::Group(group) = group else {
+        panic!("expected TokenTree::Group, got something else");
+    };
+
+    // parse the display message as a `LitStr` string literal to get its value
+    let lit: LitStr = parse2(group.stream())
+        .expect("display group needs to contain a string literal");
+    let disp = lit.value();
+
+    let new_disp = format!(r#"{disp} (at: {{location}})"#);
+    let quoted = format!(r##"r#"{new_disp}"#"##);
+    // debug!("==> {}", &quoted);
+
+    TokenTree::Group(
+        Group::new(
+            group.delimiter(),
+            quoted.parse().unwrap()
+        )
+    )
+}
+
+fn visit_snafu_attr(node: &mut Attribute) {
+    let node_str: String = quote! { #node }.to_string();
+    debug!("=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=");
+    debug!("found snafu attr on: \"{node_str}\"");
+    // debug!("NODE: {:#?}", node);
+
+    let Meta::List(ref mut snafu_attrs) = &mut node.meta else {
+        panic!("expected a Meta::List instance for the snafu attribute");
+    };
+
+    let old_tokens = &snafu_attrs.tokens;
+    debug!("OLD: {}", quote! { #old_tokens }.to_string());
+    // debug!("OLD: {:#?}", old_tokens);
+
+    // we want to iterate over all the original tokens,
+    // find the one that is about `display`, and change the display
+    // string in the token following that one
+    let mut orig_tokens = snafu_attrs.tokens.clone().into_iter();
+    let mut out: Vec<TokenTree> = vec![];
+
+    loop {
+        match orig_tokens.next() {
+            Some(token_tree) => {
+                match token_tree {
+                    // found the `display` token
+                    TokenTree::Ident(ref i) if i.to_string() == "display" => {
+                        // copy it to the output
+                        out.push(token_tree);
+
+                        // create a replacement token that contains the new
+                        // display string and add it to the output
+                        let old_group = orig_tokens.next().unwrap();
+                        let new_group = update_group_message_with_location(&old_group);
+                        out.push(new_group);
+                    },
+
+                    // other token, just copy it to the output
+                    _ => out.push(token_tree),
+                }
+            },
+            None => break,
+        }
+    }
+
+    let new_tokens = TokenStream::from_iter(out.into_iter());
+    debug!("NEW: {}", quote! { #new_tokens }.to_string());
+    // debug!("NEW: {:#?}", &new_tokens);
+    snafu_attrs.tokens = new_tokens;
+}
+
+
+// =============================================================================
+//
+//     Function adding the location field to an error enum
+//
+// =============================================================================
+
+pub fn add_location_to_error_enum(mut error_enum: ItemEnum) -> TokenStream {
+    // let mut error_enum = parse_macro_input!(annotated_item as ItemEnum);
+
+    AddLocationToDisplay.visit_item_enum_mut(&mut error_enum);
+    AddLocationField.visit_item_enum_mut(&mut error_enum);
+
+    quote! { #error_enum }.into()
 }

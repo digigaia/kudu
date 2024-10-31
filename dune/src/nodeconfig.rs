@@ -80,7 +80,7 @@ impl NodeConfig {
         result
     }
 
-    /// Add a parameter given a line representing '<key> = <value>'
+    /// Add a parameter given a line representing `<key> = <value>`
     pub fn add_param(&mut self, param: &str) -> Result<(), String> {
         let kv: Vec<_> = param.split('=').collect();
         if kv.len() != 2 {
