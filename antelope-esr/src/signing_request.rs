@@ -209,9 +209,7 @@ impl SigningRequest {
     }
 
     pub fn from_uri(uri: &str) -> Result<Self, SigningRequestError> {
-        if !uri.starts_with("esr://") {
-            panic!("not a valid ESR URI");
-        }
+        ensure!(uri.starts_with("esr://"), InvalidURISnafu { uri });
         let payload = &uri[6..];
         warn!("payload: {}", payload);
         Self::decode(payload, None)
@@ -458,6 +456,11 @@ pub enum SigningRequestError {
     InvalidVersion {
         version: u8,
         backtrace: Backtrace,
+    },
+
+    #[snafu(display("not a valid ESR URI: {uri}"))]
+    InvalidURI {
+        uri: String,
     },
 
     #[snafu(display("can not decompress (deflate) payload data"))]

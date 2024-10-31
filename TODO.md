@@ -13,10 +13,6 @@ file once they are implemented.
 
 ## API DESIGN
 
-- check feature flags and use them to put `[with_location]` behind one, and see whether
-  activating/deactivating it gives us some gains in the size of the errors
-  (e.g. `InvalidValue` is quite big right now)
-
 - look at builder pattern / fluent interface for specifiying EncodeOptions in ESR
 eg: settings paragraph in <https://github.com/tesselode/kira/releases/tag/v0.9.0>
 <https://docs.rs/builder-pattern/latest/builder_pattern/>

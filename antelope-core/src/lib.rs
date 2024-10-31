@@ -41,5 +41,5 @@ pub use types::{
     Name, InvalidName,
     Symbol, InvalidSymbol,
     Asset, InvalidAsset,
-    PrivateKey, PublicKey, Signature,
+    PrivateKey, PublicKey, Signature, InvalidCryptoData,
 };

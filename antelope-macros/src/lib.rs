@@ -1,4 +1,10 @@
 //! This module contains macros to be used in the `antelope` crates.
+//!
+//! ## Feature flags
+//!
+//! - `detailed-error`:d activate this to enable the [`macro@with_location`] macro. If
+//!   not enabled, the [`macro@with_location`] macro will be a no-op.
+
 
 use proc_macro::TokenStream;
 
@@ -18,8 +24,10 @@ use crate::error::add_location_to_error_enum;
 /// structs or the unit type (tuple variants are not allowed).
 /// The location field will be automatically populated when using the error selector.
 ///
-/// It will also update the display string (if defined) to also show the location
-/// that has been captured.
+/// This macro will also update the display string (if defined) to also show the
+/// location that has been captured.
+///
+/// Adding the `location` field to an error enum will increase its size by 32 bytes.
 ///
 /// **NOTE:** you cannot use a `whatever` variant in conjunction with this, nor can you
 ///           manually define the `location` field yourself (it will conflict with the

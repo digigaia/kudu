@@ -84,7 +84,7 @@ impl<T: CryptoDataType, const DATA_SIZE: usize> BinarySerializable for CryptoDat
     }
 
     fn decode(stream: &mut ByteStream) -> Result<Self, SerializeError> {
-        let key_type = KeyType::from_index(stream.read_byte()?);
+        let key_type = KeyType::from_index(stream.read_byte()?)?;
         let data = stream.read_bytes(DATA_SIZE)?.try_into().unwrap();
         Ok(Self::new(key_type, data))
     }

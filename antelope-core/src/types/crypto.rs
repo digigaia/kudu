@@ -8,6 +8,26 @@ use snafu::{ensure, ResultExt, Snafu};
 
 use antelope_macros::with_location;
 
+#[with_location]
+#[derive(Debug, Snafu)]
+pub enum InvalidCryptoData {
+    #[snafu(display("invalid key type index: {index}"))]
+    KeyTypeIndex { index: u8 },
+
+    #[snafu(display("not crypto data: {msg}"))]
+    NotCryptoData { msg: String },
+
+    #[snafu(display("{msg}"))]
+    InvalidDataSize { msg: String },
+
+    #[snafu(display("error while decoding base58 data"))]
+    Base58Error { source: bs58::decode::Error },
+
+    #[snafu(display("invalid checksum for crypto data"))]
+    InvalidChecksum,
+}
+
+
 #[derive(Eq, PartialEq, Hash, Debug, Copy, Clone)]
 pub enum KeyType {
     K1,
@@ -16,13 +36,13 @@ pub enum KeyType {
 }
 
 impl KeyType {
-    pub fn from_index(i: u8) -> Self {
-        match i {
+    pub fn from_index(i: u8) -> Result<Self, InvalidCryptoData> {
+        Ok(match i {
             0 => Self::K1,
             1 => Self::R1,
             2 => Self::WebAuthn,
-            _ => panic!("invalid key type index: {}", i),
-        }
+            _ => KeyTypeIndexSnafu { index: i }.fail()?,
+        })
     }
 
     pub fn index(&self) -> u8 {
@@ -40,19 +60,6 @@ impl KeyType {
             Self::WebAuthn => "WA",
         }
     }
-}
-
-#[with_location]
-#[derive(Debug, Snafu)]
-pub enum InvalidCryptoData {
-    #[snafu(display("not crypto data: {msg}"))]
-    NotCryptoData { msg: String },
-
-    #[snafu(display("error while decoding base58 data"))]
-    Base58Error { source: bs58::decode::Error },
-
-    #[snafu(display("invalid checksum for crypto data"))]
-    InvalidChecksum,
 }
 
 pub trait CryptoDataType {
@@ -82,24 +89,24 @@ impl<T: CryptoDataType, const DATA_SIZE: usize> CryptoData<T, DATA_SIZE> {
             // legacy format public key
             let key_type = KeyType::K1;
             let data = string_to_key_data(&s[3..], None)?;
-            Ok(Self { key_type, data: Self::vec_to_data(data), phantom: PhantomData })
+            Ok(Self { key_type, data: Self::vec_to_data(data)?, phantom: PhantomData })
         }
         else if T::PREFIX == "PVT" && !s.contains('_') {
             // legacy private key WIF format
             let key_type = KeyType::K1;
             let data = from_wif(s)?;
-            Ok(Self { key_type, data: Self::vec_to_data(data), phantom: PhantomData })
+            Ok(Self { key_type, data: Self::vec_to_data(data)?, phantom: PhantomData })
 
         }
         else if s.starts_with(&format!("{}_K1_", T::PREFIX)) {
             let key_type = KeyType::K1;
             let data = string_to_key_data(&s[7..], Some(key_type.prefix()))?;
-            Ok(Self { key_type, data: Self::vec_to_data(data), phantom: PhantomData })
+            Ok(Self { key_type, data: Self::vec_to_data(data)?, phantom: PhantomData })
         }
         else if s.starts_with(&format!("{}_R1_", T::PREFIX)) {
             let key_type = KeyType::R1;
             let data = string_to_key_data(&s[7..], Some(key_type.prefix()))?;
-            Ok(Self { key_type, data: Self::vec_to_data(data), phantom: PhantomData })
+            Ok(Self { key_type, data: Self::vec_to_data(data)?, phantom: PhantomData })
             // unimplemented!()
         }
         else if s.starts_with(&format!("{}_WA_", T::PREFIX)) {
@@ -110,16 +117,20 @@ impl<T: CryptoDataType, const DATA_SIZE: usize> CryptoData<T, DATA_SIZE> {
         }
     }
 
-    pub fn vec_to_data(v: Vec<u8>) -> [u8; DATA_SIZE] {
-        v.try_into().unwrap_or_else(|v: Vec<u8>| panic!("wrong size for {}, needs to be {} but is: {}", T::DISPLAY_NAME, DATA_SIZE, v.len()))
+    pub fn vec_to_data(v: Vec<u8>) -> Result<[u8; DATA_SIZE], InvalidCryptoData> {
+        let input_len = v.len();
+        let result = v.try_into();
+        ensure!(result.is_ok(), InvalidDataSizeSnafu {
+            msg: format!("wrong size for {}, needs to be {} but is: {}", T::DISPLAY_NAME, DATA_SIZE, input_len)
+        });
+        Ok(result.unwrap())
     }
-
 }
 
 
 impl<T: CryptoDataType, const DATA_SIZE: usize> fmt::Display for CryptoData<T, DATA_SIZE> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        if self.key_type == KeyType::WebAuthn { panic!("unsupported key type: {:?}", self.key_type); }
+        if self.key_type == KeyType::WebAuthn { unimplemented!("unsupported key type: {:?}", self.key_type); }
         write!(f, "{}_{}", T::PREFIX, key_data_to_string(&self.data,  self.key_type.prefix()))
    }
 }

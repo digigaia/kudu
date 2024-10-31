@@ -5,8 +5,8 @@ use tracing::instrument;
 
 use antelope_macros::with_location;
 use antelope_core::{
-    AntelopeType, AntelopeValue, Asset, InvalidValue, Name,
-    PrivateKey, PublicKey, Signature, Symbol, InvalidSymbol,
+    AntelopeType, AntelopeValue, InvalidValue, Asset, Symbol, InvalidSymbol,
+    Name, PrivateKey, PublicKey, Signature, InvalidCryptoData,
     impl_auto_error_conversion,
 };
 
@@ -33,6 +33,9 @@ pub enum SerializeError {
     #[snafu(display("cannot decode hex data"))]
     HexDecodeError { source: FromHexError },
 
+    #[snafu(display("invalid crypto data"))]
+    InvalidCryptoData { source: InvalidCryptoData },
+
     #[snafu(display("{msg}"))]
     InvalidData { msg: String },  // acts as a generic error type with a given message
 }
@@ -41,6 +44,7 @@ impl_auto_error_conversion!(StreamError, SerializeError, StreamSnafu);
 impl_auto_error_conversion!(InvalidValue, SerializeError, InvalidValueSnafu);
 impl_auto_error_conversion!(InvalidSymbol, SerializeError, InvalidSymbolSnafu);
 impl_auto_error_conversion!(FromHexError, SerializeError, HexDecodeSnafu);
+impl_auto_error_conversion!(InvalidCryptoData, SerializeError, InvalidCryptoDataSnafu);
 
 // FIXME: from_bin should take &str instead of AntelopeType, and we might need to register an ABI provider
 pub trait ABISerializable {
