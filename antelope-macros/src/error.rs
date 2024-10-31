@@ -12,7 +12,7 @@ use syn::{
 const DEBUG: bool = false;
 
 macro_rules! debug {
-    ( $($elem:expr),* ) => { if DEBUG { println!( $($elem),* ); } }
+    ( $($elem:expr),* ) => { if DEBUG { eprintln!( $($elem),* ); } }
 }
 
 
@@ -135,6 +135,13 @@ fn visit_snafu_attr(node: &mut Attribute) {
                         out.push(new_group);
                     },
 
+                    // found the `display` token
+                    TokenTree::Ident(ref i) if i.to_string() == "whatever" => {
+                        panic!(concat!(r#"found `whatever` attribute on "{}" which is "#,
+                                       r#"incompatible with adding a `location` field"#),
+                               node_str);
+                    },
+
                     // other token, just copy it to the output
                     _ => out.push(token_tree),
                 }
@@ -159,8 +166,8 @@ fn visit_snafu_attr(node: &mut Attribute) {
 pub fn add_location_to_error_enum(mut error_enum: ItemEnum) -> TokenStream {
     // let mut error_enum = parse_macro_input!(annotated_item as ItemEnum);
 
-    AddLocationToDisplay.visit_item_enum_mut(&mut error_enum);
     AddLocationField.visit_item_enum_mut(&mut error_enum);
+    AddLocationToDisplay.visit_item_enum_mut(&mut error_enum);
 
     quote! { #error_enum }.into()
 }
