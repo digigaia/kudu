@@ -1,47 +1,129 @@
 use std::str::from_utf8;
 
 use antelope_core::{
-    types::crypto::{CryptoData, CryptoDataType, KeyType},
-    Asset, Name, Symbol,
-    types::antelopevalue::{InvalidDataSnafu, Utf8Snafu},
+    Asset, Name, Symbol, InvalidSymbol, InvalidValue, impl_auto_error_conversion,
+    types::crypto::{CryptoData, CryptoDataType, KeyType, InvalidCryptoData},
+    types::antelopevalue::Utf8Snafu,
 };
-use bytemuck::pod_read_unaligned;
-use snafu::{ensure, ResultExt};
+use bytemuck::{cast_ref, pod_read_unaligned};
+use hex::FromHexError;
+use snafu::{ensure, Snafu, IntoError, ResultExt};
 
-use crate::{ByteStream, abiserializable::SerializeError};
+use antelope_macros::with_location;
+use crate::{ByteStream, StreamError};
 
 
+#[with_location]
+#[derive(Debug, Snafu)]
+#[snafu(visibility(pub))]
+pub enum SerializeError {
+    #[snafu(display("stream error"))]
+    StreamError { source: StreamError },
+
+    #[snafu(display("invalid value"))]
+    InvalidValue { source: InvalidValue },
+
+    #[snafu(display("invalid symbol"))]
+    InvalidSymbol { source: InvalidSymbol },
+
+    #[snafu(display("cannot decode hex data"))]
+    HexDecodeError { source: FromHexError },
+
+    #[snafu(display("invalid crypto data"))]
+    InvalidCryptoData { source: InvalidCryptoData },
+
+    #[snafu(display("{msg}"))]
+    InvalidData { msg: String },  // acts as a generic error type with a given message
+}
+
+impl_auto_error_conversion!(StreamError, SerializeError, StreamSnafu);
+impl_auto_error_conversion!(InvalidValue, SerializeError, InvalidValueSnafu);
+impl_auto_error_conversion!(InvalidSymbol, SerializeError, InvalidSymbolSnafu);
+impl_auto_error_conversion!(FromHexError, SerializeError, HexDecodeSnafu);
+impl_auto_error_conversion!(InvalidCryptoData, SerializeError, InvalidCryptoDataSnafu);
+
+
+/// Define methods required to (de)serialize a struct to a [`ByteStream`]
 pub trait BinarySerializable {
     fn encode(&self, stream: &mut ByteStream);
     fn decode(stream: &mut ByteStream) -> Result<Self, SerializeError>
     where
-        Self: Sized; // FIXME: this should be a different Error type
+        Self: Sized;
 }
 
 
-// TODO: implement for other int/uint types
+// -----------------------------------------------------------------------------
+//     Serialization of ints and native Rust types
+// -----------------------------------------------------------------------------
 
-impl BinarySerializable for i64 {
+impl BinarySerializable for bool {
     fn encode(&self, stream: &mut ByteStream) {
-        stream.write_i64(*self)
+        stream.write_byte(match *self {
+            true => 1u8,
+            false => 0u8,
+        })
     }
     fn decode(stream: &mut ByteStream) -> Result<Self, SerializeError> {
-        Ok(pod_read_unaligned(stream.read_bytes(8)?))
+        match stream.read_byte()? {
+            1 => Ok(true),
+            0 => Ok(false),
+            _ => InvalidDataSnafu { msg: "cannot parse bool from stream".to_owned() }.fail(),
+        }
     }
 }
 
-impl BinarySerializable for u64 {
-    fn encode(&self, stream: &mut ByteStream) {
-        stream.write_u64(*self)
-    }
-    fn decode(stream: &mut ByteStream) -> Result<Self, SerializeError> {
-        Ok(pod_read_unaligned(stream.read_bytes(8)?))
+macro_rules! impl_pod_serialization {
+    ($typ:ty, $size:literal) => {
+        impl BinarySerializable for $typ {
+            fn encode(&self, stream: &mut ByteStream) {
+                stream.write_bytes(cast_ref::<$typ, [u8; $size]>(self))
+            }
+            fn decode(stream: &mut ByteStream) -> Result<Self, SerializeError> {
+                Ok(pod_read_unaligned(stream.read_bytes($size)?))
+            }
+        }
     }
 }
+
+impl BinarySerializable for i8 {
+    fn encode(&self, stream: &mut ByteStream) {
+        stream.write_byte(*self as u8)
+    }
+    fn decode(stream: &mut ByteStream) -> Result<Self, SerializeError> {
+        Ok(stream.read_byte()? as i8)
+    }
+}
+
+impl_pod_serialization!(i16, 2);
+impl_pod_serialization!(i32, 4);
+impl_pod_serialization!(i64, 8);
+impl_pod_serialization!(i128, 16);
+
+impl BinarySerializable for u8 {
+    fn encode(&self, stream: &mut ByteStream) {
+        stream.write_byte(*self)
+    }
+    fn decode(stream: &mut ByteStream) -> Result<Self, SerializeError> {
+        Ok(stream.read_byte()?)
+    }
+}
+
+impl_pod_serialization!(u16, 2);
+impl_pod_serialization!(u32, 4);
+impl_pod_serialization!(u64, 8);
+impl_pod_serialization!(u128, 16);
+
+impl_pod_serialization!(f32, 4);
+impl_pod_serialization!(f64, 8);
+
+
+// -----------------------------------------------------------------------------
+//     Serialization of Antelope types
+// -----------------------------------------------------------------------------
 
 impl BinarySerializable for Name {
     fn encode(&self, stream: &mut ByteStream) {
-        stream.write_u64(self.as_u64());
+        self.as_u64().encode(stream)
     }
 
     fn decode(stream: &mut ByteStream) -> Result<Self, SerializeError> {
@@ -50,10 +132,9 @@ impl BinarySerializable for Name {
     }
 }
 
-
 impl BinarySerializable for Symbol {
     fn encode(&self, stream: &mut ByteStream) {
-        stream.write_u64(self.as_u64());
+        self.as_u64().encode(stream)
     }
 
     fn decode(stream: &mut ByteStream) -> Result<Self, SerializeError> {
@@ -61,7 +142,6 @@ impl BinarySerializable for Symbol {
         Ok(Symbol::from_u64(n)?)
     }
 }
-
 
 impl BinarySerializable for Asset {
     fn encode(&self, stream: &mut ByteStream) {
@@ -76,7 +156,6 @@ impl BinarySerializable for Asset {
     }
 }
 
-
 impl<T: CryptoDataType, const DATA_SIZE: usize> BinarySerializable for CryptoData<T, DATA_SIZE> {
     fn encode(&self, stream: &mut ByteStream) {
         stream.write_byte(self.key_type().index());
@@ -90,6 +169,10 @@ impl<T: CryptoDataType, const DATA_SIZE: usize> BinarySerializable for CryptoDat
     }
 }
 
+
+// -----------------------------------------------------------------------------
+//     util functions for varints and reading/writing str/bytes
+// -----------------------------------------------------------------------------
 
 pub fn write_var_u32(stream: &mut ByteStream, n: u32) {
     let mut n = n;

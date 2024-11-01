@@ -1,6 +1,10 @@
 # ARCHITECTURE
 
-TODO
+TODO!
+
+- each `Antelope` type will have its own Rust struct definition
+- these structs implement the `serialize`/`deserialize` traits from `serde`,
+  this allows to (de)serialize them to JSON at least
 
 # DESIGN DECISIONS
 
@@ -65,6 +69,15 @@ ABIProviderTrait or something similar.
 
 
 # STYLE
+
+## Import order
+
+`use` directives go at the top of the file, in 3 groups (separated by a blank line):
+
+- `std` imports
+- other 3rd-party crates
+- our own crate imports
+
 
 ## TODO: DECIDE: use `hex::encode_upper()` instead of `hex::encode()`
 

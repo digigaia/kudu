@@ -13,9 +13,8 @@ use serde::{Serialize, Serializer, ser::SerializeTuple, ser::SerializeStruct};
 use antelope_macros::with_location;
 use antelope_core::{types::antelopevalue::hex_to_boxed_array, JsonValue, Name, json};
 use antelope_abi::{
-    ByteStream,
+    ByteStream, SerializeError,
     abidefinition::TypeNameRef as T,
-    abiserializable::SerializeError,
     provider::{get_signing_request_abi, ABIProvider, InvalidABI},
 };
 

@@ -17,8 +17,8 @@ use tracing::{debug, warn, instrument};
 use crate::{
     ByteStream, ABIDefinition,
     abidefinition::{TypeName, TypeNameRef, Struct, Variant},
-    abiserializable::{ABISerializable, SerializeError},
-    binaryserializable::write_var_u32,
+    abiserializable::ABISerializable,
+    binaryserializable::{write_var_u32, SerializeError},
 };
 
 // TODO: make sure that we can (de)serialize an ABI (ABIDefinition?) itself (eg, see: https://github.com/wharfkit/antelope/blob/master/src/chain/abi.ts, which implements ABISerializableObject)

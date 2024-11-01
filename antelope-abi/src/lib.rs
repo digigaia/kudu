@@ -21,4 +21,5 @@ pub mod typenameref;
 pub use abi::ABI;
 pub use abidefinition::ABIDefinition;
 pub use bytestream::{ByteStream, StreamError};
+pub use binaryserializable::{BinarySerializable, SerializeError};
 pub use provider::ABIProvider;

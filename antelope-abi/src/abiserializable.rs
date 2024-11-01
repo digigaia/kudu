@@ -1,50 +1,19 @@
-use bytemuck::{cast_ref, pod_read_unaligned};
-use hex::FromHexError;
-use snafu::{Snafu, IntoError};
 use tracing::instrument;
 
-use antelope_macros::with_location;
 use antelope_core::{
-    AntelopeType, AntelopeValue, InvalidValue, Asset, Symbol, InvalidSymbol,
-    Name, PrivateKey, PublicKey, Signature, InvalidCryptoData,
-    impl_auto_error_conversion,
+    AntelopeType, AntelopeValue, Asset, Symbol,
+    Name, PrivateKey, PublicKey, Signature,
+    // impl_auto_error_conversion,
 };
 
 use crate::{
     binaryserializable::{
-        read_bytes, read_str, read_var_i32, read_var_u32, write_var_i32, write_var_u32, BinarySerializable,
+        read_bytes, read_str, read_var_i32, read_var_u32, write_var_i32, write_var_u32,
+        BinarySerializable, InvalidDataSnafu
     },
-    ByteStream, StreamError,
+    ByteStream, SerializeError,
 };
 
-#[with_location]
-#[derive(Debug, Snafu)]
-#[snafu(visibility(pub))]
-pub enum SerializeError {
-    #[snafu(display("stream error"))]
-    StreamError { source: StreamError },
-
-    #[snafu(display("invalid value"))]
-    InvalidValue { source: InvalidValue },
-
-    #[snafu(display("invalid symbol"))]
-    InvalidSymbol { source: InvalidSymbol },
-
-    #[snafu(display("cannot decode hex data"))]
-    HexDecodeError { source: FromHexError },
-
-    #[snafu(display("invalid crypto data"))]
-    InvalidCryptoData { source: InvalidCryptoData },
-
-    #[snafu(display("{msg}"))]
-    InvalidData { msg: String },  // acts as a generic error type with a given message
-}
-
-impl_auto_error_conversion!(StreamError, SerializeError, StreamSnafu);
-impl_auto_error_conversion!(InvalidValue, SerializeError, InvalidValueSnafu);
-impl_auto_error_conversion!(InvalidSymbol, SerializeError, InvalidSymbolSnafu);
-impl_auto_error_conversion!(FromHexError, SerializeError, HexDecodeSnafu);
-impl_auto_error_conversion!(InvalidCryptoData, SerializeError, InvalidCryptoDataSnafu);
 
 // FIXME: from_bin should take &str instead of AntelopeType, and we might need to register an ABI provider
 pub trait ABISerializable {
@@ -62,24 +31,21 @@ pub trait ABISerializable {
 impl ABISerializable for AntelopeValue {
     fn to_bin(&self, stream: &mut ByteStream) {
         match self {
-            Self::Bool(b) => stream.write_byte(match b {
-                true => 1u8,
-                false => 0u8,
-            }),
-            Self::Int8(n) => stream.write_byte(*n as u8), // FIXME: check that this is correct
-            Self::Int16(n) => stream.write_bytes(cast_ref::<i16, [u8; 2]>(n)),
-            Self::Int32(n) => stream.write_bytes(cast_ref::<i32, [u8; 4]>(n)),
-            Self::Int64(n) => stream.write_bytes(cast_ref::<i64, [u8; 8]>(n)),
-            Self::Int128(n) => stream.write_bytes(cast_ref::<i128, [u8; 16]>(n)),
-            Self::Uint8(n) => stream.write_byte(*n),
-            Self::Uint16(n) => stream.write_bytes(cast_ref::<u16, [u8; 2]>(n)),
-            Self::Uint32(n) => stream.write_bytes(cast_ref::<u32, [u8; 4]>(n)),
-            Self::Uint64(n) => stream.write_bytes(cast_ref::<u64, [u8; 8]>(n)),
-            Self::Uint128(n) => stream.write_bytes(cast_ref::<u128, [u8; 16]>(n)),
+            Self::Bool(b) => b.encode(stream),
+            Self::Int8(n) => n.encode(stream),
+            Self::Int16(n) => n.encode(stream),
+            Self::Int32(n) => n.encode(stream),
+            Self::Int64(n) => n.encode(stream),
+            Self::Int128(n) => n.encode(stream),
+            Self::Uint8(n) => n.encode(stream),
+            Self::Uint16(n) => n.encode(stream),
+            Self::Uint32(n) => n.encode(stream),
+            Self::Uint64(n) => n.encode(stream),
+            Self::Uint128(n) => n.encode(stream),
             Self::VarInt32(n) => write_var_i32(stream, *n),
             Self::VarUint32(n) => write_var_u32(stream, *n),
-            Self::Float32(x) => stream.write_bytes(cast_ref::<f32, [u8; 4]>(x)),
-            Self::Float64(x) => stream.write_bytes(cast_ref::<f64, [u8; 8]>(x)),
+            Self::Float32(x) => x.encode(stream),
+            Self::Float64(x) => x.encode(stream),
             Self::Bytes(b) => {
                 write_var_u32(stream, b.len() as u32);
                 stream.write_bytes(&b[..]);
@@ -88,9 +54,9 @@ impl ABISerializable for AntelopeValue {
                 write_var_u32(stream, s.len() as u32);
                 stream.write_bytes(s.as_bytes());
             },
-            Self::TimePoint(t) => stream.write_bytes(cast_ref::<i64, [u8; 8]>(t)),
-            Self::TimePointSec(t) => stream.write_bytes(cast_ref::<u32, [u8; 4]>(t)),
-            Self::BlockTimestampType(t) => stream.write_bytes(cast_ref::<u32, [u8; 4]>(t)),
+            Self::TimePoint(t) => t.encode(stream),
+            Self::TimePointSec(t) => t.encode(stream),
+            Self::BlockTimestampType(t) => t.encode(stream),
             Self::Checksum160(c) => stream.write_bytes(&c[..]),
             Self::Checksum256(c) => stream.write_bytes(&c[..]),
             Self::Checksum512(c) => stream.write_bytes(&c[..]),
@@ -99,7 +65,7 @@ impl ABISerializable for AntelopeValue {
             Self::Signature(sig) => sig.encode(stream),
             Self::Name(name) => name.encode(stream),
             Self::Symbol(sym) => sym.encode(stream),
-            Self::SymbolCode(sym) => stream.write_bytes(cast_ref::<u64, [u8; 8]>(sym)),
+            Self::SymbolCode(sym) => sym.encode(stream),
             Self::Asset(asset) => asset.encode(stream),
             Self::ExtendedAsset(ea) => {
                 let (ref quantity, ref contract) = **ea;
@@ -119,25 +85,25 @@ impl ABISerializable for AntelopeValue {
                     return InvalidDataSnafu { msg: "cannot parse bool from stream".to_owned() }.fail();
                 },
             },
-            AntelopeType::Int8 => Self::Int8(stream.read_byte()? as i8),
-            AntelopeType::Int16 => Self::Int16(pod_read_unaligned(stream.read_bytes(2)?)),
-            AntelopeType::Int32 => Self::Int32(pod_read_unaligned(stream.read_bytes(4)?)),
-            AntelopeType::Int64 => Self::Int64(pod_read_unaligned(stream.read_bytes(8)?)),
-            AntelopeType::Int128 => Self::Int128(pod_read_unaligned(stream.read_bytes(16)?)),
-            AntelopeType::Uint8 => Self::Uint8(stream.read_byte()?),
-            AntelopeType::Uint16 => Self::Uint16(pod_read_unaligned(stream.read_bytes(2)?)),
-            AntelopeType::Uint32 => Self::Uint32(pod_read_unaligned(stream.read_bytes(4)?)),
-            AntelopeType::Uint64 => Self::Uint64(pod_read_unaligned(stream.read_bytes(8)?)),
-            AntelopeType::Uint128 => Self::Uint128(pod_read_unaligned(stream.read_bytes(16)?)),
+            AntelopeType::Int8 => Self::Int8(i8::decode(stream)?),
+            AntelopeType::Int16 => Self::Int16(i16::decode(stream)?),
+            AntelopeType::Int32 => Self::Int32(i32::decode(stream)?),
+            AntelopeType::Int64 => Self::Int64(i64::decode(stream)?),
+            AntelopeType::Int128 => Self::Int128(i128::decode(stream)?),
+            AntelopeType::Uint8 => Self::Uint8(u8::decode(stream)?),
+            AntelopeType::Uint16 => Self::Uint16(u16::decode(stream)?),
+            AntelopeType::Uint32 => Self::Uint32(u32::decode(stream)?),
+            AntelopeType::Uint64 => Self::Uint64(u64::decode(stream)?),
+            AntelopeType::Uint128 => Self::Uint128(u128::decode(stream)?),
             AntelopeType::VarInt32 => Self::VarInt32(read_var_i32(stream)?),
             AntelopeType::VarUint32 => Self::VarUint32(read_var_u32(stream)?),
-            AntelopeType::Float32 => Self::Float32(pod_read_unaligned(stream.read_bytes(4)?)),
-            AntelopeType::Float64 => Self::Float64(pod_read_unaligned(stream.read_bytes(8)?)),
+            AntelopeType::Float32 => Self::Float32(f32::decode(stream)?),
+            AntelopeType::Float64 => Self::Float64(f64::decode(stream)?),
             AntelopeType::Bytes => Self::Bytes(read_bytes(stream)?),
             AntelopeType::String => Self::String(read_str(stream)?.to_owned()),
-            AntelopeType::TimePoint => Self::TimePoint(pod_read_unaligned(stream.read_bytes(8)?)),
-            AntelopeType::TimePointSec => Self::TimePointSec(pod_read_unaligned(stream.read_bytes(4)?)),
-            AntelopeType::BlockTimestampType => Self::BlockTimestampType(pod_read_unaligned(stream.read_bytes(4)?)),
+            AntelopeType::TimePoint => Self::TimePoint(i64::decode(stream)?),
+            AntelopeType::TimePointSec => Self::TimePointSec(u32::decode(stream)?),
+            AntelopeType::BlockTimestampType => Self::BlockTimestampType(u32::decode(stream)?),
             AntelopeType::Checksum160 => Self::Checksum160(Box::new(stream.read_bytes(20)?.try_into().unwrap())),
             AntelopeType::Checksum256 => Self::Checksum256(Box::new(stream.read_bytes(32)?.try_into().unwrap())),
             AntelopeType::Checksum512 => Self::Checksum512(Box::new(stream.read_bytes(64)?.try_into().unwrap())),
@@ -146,7 +112,7 @@ impl ABISerializable for AntelopeValue {
             AntelopeType::Signature => Self::Signature(Box::new(Signature::decode(stream)?)),
             AntelopeType::Name => Self::Name(Name::decode(stream)?),
             AntelopeType::Symbol => Self::Symbol(Symbol::decode(stream)?),
-            AntelopeType::SymbolCode => Self::SymbolCode(pod_read_unaligned(stream.read_bytes(8)?)),
+            AntelopeType::SymbolCode => Self::SymbolCode(u64::decode(stream)?),
             AntelopeType::Asset => Self::Asset(Asset::decode(stream)?),
             AntelopeType::ExtendedAsset => {
                 Self::ExtendedAsset(Box::new((Asset::decode(stream)?, Name::decode(stream)?)))

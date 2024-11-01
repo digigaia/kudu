@@ -9,8 +9,9 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 use snafu::OptionExt;
 
-use crate::abiserializable::{ABISerializable, SerializeError, InvalidDataSnafu};
-use crate::{ABI, ByteStream};
+use crate::abiserializable::ABISerializable;
+use crate::{ABI, ByteStream, SerializeError};
+use crate::binaryserializable::InvalidDataSnafu; // FIXME: check this is correct or optimal
 
 pub use crate::typenameref::TypeNameRef;
 
