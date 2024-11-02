@@ -1,9 +1,8 @@
-use std::str::from_utf8;
+use std::str::{from_utf8, Utf8Error};
 
 use antelope_core::{
     Asset, Name, Symbol, InvalidSymbol, InvalidValue, impl_auto_error_conversion,
     types::crypto::{CryptoData, CryptoDataType, KeyType, InvalidCryptoData},
-    types::antelopevalue::Utf8Snafu,
 };
 use bytemuck::{cast_ref, pod_read_unaligned};
 use hex::FromHexError;
@@ -15,7 +14,6 @@ use crate::{ByteStream, StreamError};
 
 #[with_location]
 #[derive(Debug, Snafu)]
-#[snafu(visibility(pub))]
 pub enum SerializeError {
     #[snafu(display("stream error"))]
     StreamError { source: StreamError },
@@ -28,6 +26,9 @@ pub enum SerializeError {
 
     #[snafu(display("cannot decode hex data"))]
     HexDecodeError { source: FromHexError },
+
+    #[snafu(display("cannot decode bytes as utf-8"))]
+    Utf8Error { source: Utf8Error },
 
     #[snafu(display("invalid crypto data"))]
     InvalidCryptoData { source: InvalidCryptoData },
@@ -222,5 +223,5 @@ pub fn read_bytes(stream: &mut ByteStream) -> Result<Vec<u8>, SerializeError> {
 
 pub fn read_str(stream: &mut ByteStream) -> Result<&str, SerializeError> {
     let len = read_var_u32(stream)? as usize;
-    Ok(from_utf8(stream.read_bytes(len)?).context(Utf8Snafu)?)
+    from_utf8(stream.read_bytes(len)?).context(Utf8Snafu)
 }

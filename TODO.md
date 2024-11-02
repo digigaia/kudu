@@ -23,22 +23,11 @@ eg: settings paragraph in <https://github.com/tesselode/kira/releases/tag/v0.9.0
 - try defining the `ABISerializable` trait and implement it for all types, then replace the `AntelopeValue` struct with just the implementation of the base types
   -> could something like this help? <https://www.reddit.com/r/rust/comments/1d3b356/my_new_favorite_way_to_represent_asts_or_any/>
 
-- rename encode/decode methods everywhere to be more specific, such as `bin_to_json`/`json_to_bin`, etc. (esp. in tests)
-
 - check <https://rust-lang.github.io/api-guidelines/checklist.html>
 
 ### Error Handling
 
-- better error handling when constructing types. We should remove `assert`s and `panic` and use proper error types
-
-- `BinarySerializable` / `ABISerializable` need to use `StreamError` instead of `InvalidValue`
-
-- it seems that `binaryserializable::SerializeError` might be overused, check that all error
-  definitions and usages are OK
-
-- add `#[with_location]` to all error types derived with Snafu
-  with_location doesn't currently work with AntelopeValue error (seemingly because of the visibility attr?)
-- define specific error to abi.rs, do not reuse InvalidValue for it
+- define specific error to abi.rs, do not reuse InvalidValue for it (use the same for abidef too?)
 
 ### AntelopeValue
 

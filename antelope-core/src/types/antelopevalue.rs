@@ -266,7 +266,7 @@ impl From<AntelopeValue> for bool {
     fn from(n: AntelopeValue) -> bool {
         match n {
             AntelopeValue::Bool(b) => b,
-            _ => todo!(),
+            _ => unimplemented!(),
         }
     }
 }
@@ -387,7 +387,6 @@ mod tests {
 
 #[with_location]
 #[derive(Debug, Snafu)]
-#[snafu(visibility(pub))]   // FIXME: remove this visibility attr
 pub enum InvalidValue {
     #[snafu(display(r#"cannot convert given variant {value} to Antelope type "{typename}""#))]
     IncompatibleVariantTypes {

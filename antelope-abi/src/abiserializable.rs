@@ -3,15 +3,13 @@ use tracing::instrument;
 use antelope_core::{
     AntelopeType, AntelopeValue, Asset, Symbol,
     Name, PrivateKey, PublicKey, Signature,
-    // impl_auto_error_conversion,
 };
 
 use crate::{
     binaryserializable::{
         read_bytes, read_str, read_var_i32, read_var_u32, write_var_i32, write_var_u32,
-        BinarySerializable, InvalidDataSnafu
     },
-    ByteStream, SerializeError,
+    ByteStream, BinarySerializable, SerializeError,
 };
 
 
@@ -78,13 +76,7 @@ impl ABISerializable for AntelopeValue {
     #[instrument(skip(stream))]
     fn from_bin(typename: AntelopeType, stream: &mut ByteStream) -> Result<Self, SerializeError> {
         Ok(match typename {
-            AntelopeType::Bool => match stream.read_byte()? {
-                1 => Self::Bool(true),
-                0 => Self::Bool(false),
-                _ => {
-                    return InvalidDataSnafu { msg: "cannot parse bool from stream".to_owned() }.fail();
-                },
-            },
+            AntelopeType::Bool => Self::Bool(bool::decode(stream)?),
             AntelopeType::Int8 => Self::Int8(i8::decode(stream)?),
             AntelopeType::Int16 => Self::Int16(i16::decode(stream)?),
             AntelopeType::Int32 => Self::Int32(i32::decode(stream)?),

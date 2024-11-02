@@ -2,7 +2,6 @@ use std::collections::HashMap;
 
 use antelope_core::{
     AntelopeType, AntelopeValue, InvalidValue, Name,
-    types::antelopevalue::{IncompatibleVariantTypesSnafu, InvalidDataSnafu},
 };
 use serde_json::{
     json,
@@ -144,16 +143,16 @@ impl ABI {
 
         debug!(rtype=rtype.0, ftype=ftype.0);
 
-        let incompatible_types = || IncompatibleVariantTypesSnafu {
+        let incompatible_types = InvalidValue::IncompatibleVariantTypes {
             typename: rtype.0.to_owned(),
             value: object.clone()
-        }.build();
+        };
 
         if AntelopeValue::VARIANTS.contains(&ftype.0) {
             // if our fundamental type is a builtin type, we can serialize it directly
             // to the stream
             if rtype.is_array() {
-                let a = object.as_array().ok_or_else(incompatible_types)?;
+                let a = object.as_array().ok_or(incompatible_types)?;
                 AntelopeValue::VarUint32(a.len() as u32).to_bin(ds);
                 for v in a {
                     AntelopeValue::from_variant(ftype.0.try_into()?, v)?.to_bin(ds);
@@ -176,12 +175,7 @@ impl ABI {
             // not a builtin type, we have to recurse down
 
             if rtype.is_array() {
-                let Some(a) = object.as_array()
-                else {
-                    return InvalidDataSnafu {
-                        msg: "JSON object cannot be converted to array".to_owned(),
-                    }.fail();
-                };
+                let a = object.as_array().ok_or(incompatible_types)?;
                 write_var_u32(ds, a.len() as u32);
                 for v in a {
                     self.encode_variant(ds, ftype, v)?;
