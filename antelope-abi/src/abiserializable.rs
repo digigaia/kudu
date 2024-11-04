@@ -3,11 +3,13 @@ use tracing::instrument;
 use antelope_core::{
     AntelopeType, AntelopeValue, Asset, Symbol,
     Name, PrivateKey, PublicKey, Signature,
+    types::builtin,
 };
+
 
 use crate::{
     binaryserializable::{
-        read_bytes, read_str, read_var_i32, read_var_u32, write_var_i32, write_var_u32,
+        read_var_i32, read_var_u32, write_var_i32, write_var_u32,
     },
     ByteStream, BinarySerializable, SerializeError,
 };
@@ -25,6 +27,15 @@ pub trait ABISerializable {
         Self: Sized;
 }
 
+// T is Target type (eg: int32, varint32, name, etc.)
+pub trait ABISerialize<T = Self> {
+    fn to_bin(&self, _stream: &mut ByteStream);
+    fn from_bin(_stream: &mut ByteStream) -> Result<Self, SerializeError>
+    where
+        Self: Sized;
+}
+
+include!("abiserialize_builtin.rs");
 
 impl ABISerializable for AntelopeValue {
     fn to_bin(&self, stream: &mut ByteStream) {
@@ -40,18 +51,12 @@ impl ABISerializable for AntelopeValue {
             Self::Uint32(n) => n.encode(stream),
             Self::Uint64(n) => n.encode(stream),
             Self::Uint128(n) => n.encode(stream),
-            Self::VarInt32(n) => write_var_i32(stream, *n),
-            Self::VarUint32(n) => write_var_u32(stream, *n),
+            Self::VarInt32(n) => builtin::VarInt32(*n).encode(stream),
+            Self::VarUint32(n) => builtin::VarUint32(*n).encode(stream),
             Self::Float32(x) => x.encode(stream),
             Self::Float64(x) => x.encode(stream),
-            Self::Bytes(b) => {
-                write_var_u32(stream, b.len() as u32);
-                stream.write_bytes(&b[..]);
-            },
-            Self::String(s) => {
-                write_var_u32(stream, s.len() as u32);
-                stream.write_bytes(s.as_bytes());
-            },
+            Self::Bytes(b) => b.encode(stream),
+            Self::String(s) => s.encode(stream),
             Self::TimePoint(t) => t.encode(stream),
             Self::TimePointSec(t) => t.encode(stream),
             Self::BlockTimestampType(t) => t.encode(stream),
@@ -91,14 +96,14 @@ impl ABISerializable for AntelopeValue {
             AntelopeType::VarUint32 => Self::VarUint32(read_var_u32(stream)?),
             AntelopeType::Float32 => Self::Float32(f32::decode(stream)?),
             AntelopeType::Float64 => Self::Float64(f64::decode(stream)?),
-            AntelopeType::Bytes => Self::Bytes(read_bytes(stream)?),
-            AntelopeType::String => Self::String(read_str(stream)?.to_owned()),
+            AntelopeType::Bytes => Self::Bytes(builtin::Bytes::decode(stream)?),
+            AntelopeType::String => Self::String(String::decode(stream)?),
             AntelopeType::TimePoint => Self::TimePoint(i64::decode(stream)?),
             AntelopeType::TimePointSec => Self::TimePointSec(u32::decode(stream)?),
             AntelopeType::BlockTimestampType => Self::BlockTimestampType(u32::decode(stream)?),
-            AntelopeType::Checksum160 => Self::Checksum160(Box::new(stream.read_bytes(20)?.try_into().unwrap())),
-            AntelopeType::Checksum256 => Self::Checksum256(Box::new(stream.read_bytes(32)?.try_into().unwrap())),
-            AntelopeType::Checksum512 => Self::Checksum512(Box::new(stream.read_bytes(64)?.try_into().unwrap())),
+            AntelopeType::Checksum160 => Self::Checksum160(builtin::Checksum160::decode(stream)?),
+            AntelopeType::Checksum256 => Self::Checksum256(builtin::Checksum256::decode(stream)?),
+            AntelopeType::Checksum512 => Self::Checksum512(builtin::Checksum512::decode(stream)?),
             AntelopeType::PublicKey => Self::PublicKey(Box::new(PublicKey::decode(stream)?)),
             AntelopeType::PrivateKey => Self::PrivateKey(Box::new(PrivateKey::decode(stream)?)),
             AntelopeType::Signature => Self::Signature(Box::new(Signature::decode(stream)?)),

@@ -23,7 +23,7 @@ use crate::types::{
     PublicKey, PrivateKey, Signature, InvalidCryptoData,
 };
 
-use crate::utils::{
+use crate::convert::{
     variant_to_int, variant_to_uint, variant_to_float, variant_to_str,
     str_to_int, str_to_float,
     ConversionError

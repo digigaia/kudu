@@ -1,14 +1,13 @@
 use std::sync::OnceLock;
 
 use antelope_core::{
-    JsonValue,
-    AntelopeType, AntelopeValue, InvalidValue,
+    JsonValue, InvalidValue,
     ActionName, TableName,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
-use crate::abiserializable::ABISerializable;
+use crate::binaryserializable::BinarySerializable;
 use crate::{ABI, ByteStream, SerializeError};
 
 pub use crate::typenameref::TypeNameRef;
@@ -19,10 +18,9 @@ use TypeNameRef as T;
 //             https://docs.eosnetwork.com/docs/latest/advanced-topics/understanding-ABI-files/
 
 // C++ reference implementation is at:
-// https://github.com/AntelopeIO/leap/blob/main/libraries/chain/include/eosio/chain/abi_def.hpp
-
+// https://github.com/AntelopeIO/spring/blob/main/libraries/chain/include/eosio/chain/abi_def.hpp
 // see also builtin types:
-// https://github.com/AntelopeIO/leap/blob/main/libraries/chain/abi_serializer.cpp#L89-L130
+// https://github.com/AntelopeIO/spring/blob/main/libraries/chain/abi_serializer.cpp#L90-L131
 
 
 
@@ -132,12 +130,11 @@ impl ABIDefinition {
     }
 
     pub fn from_bin(data: &mut ByteStream) -> Result<Self, SerializeError> {
-        let version = AntelopeValue::from_bin(AntelopeType::String, data)?.to_variant();
-        let version_str = version.as_str().unwrap(); // cannot fail
+        let version = String::decode(data)?;
 
-        if !version_str.starts_with("eosio::abi/1.") {
+        if !version.starts_with("eosio::abi/1.") {
             Err(InvalidValue::InvalidData {
-                msg: format!(r#"unsupported ABI version: "{}""#, version_str)
+                msg: format!(r#"unsupported ABI version: "{}""#, version)
             })?;
         }
 

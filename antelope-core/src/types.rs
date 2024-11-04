@@ -1,6 +1,7 @@
 pub mod action;
 pub mod antelopevalue;
 pub mod asset;
+pub mod builtin;
 pub mod crypto;
 pub mod name;
 pub mod symbol;

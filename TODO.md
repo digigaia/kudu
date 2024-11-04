@@ -21,7 +21,10 @@ eg: settings paragraph in <https://github.com/tesselode/kira/releases/tag/v0.9.0
 - clean abi.rs
 
 - try defining the `ABISerializable` trait and implement it for all types, then replace the `AntelopeValue` struct with just the implementation of the base types
-  -> could something like this help? <https://www.reddit.com/r/rust/comments/1d3b356/my_new_favorite_way_to_represent_asts_or_any/>
+
+  Rust native types that map directly to an Antelope type would be synonym (ie: type Antelope::i32 = i32, etc.) with `From` trait defined between them
+  Non-native types such as `varint32` need to have a thin wrapper struct around a rust native type
+  Also implement more complex types in the same way: `Action`, `Transaction`, etc.
 
 - check <https://rust-lang.github.io/api-guidelines/checklist.html>
 

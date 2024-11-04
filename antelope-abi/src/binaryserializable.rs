@@ -3,6 +3,7 @@ use std::str::{from_utf8, Utf8Error};
 use antelope_core::{
     Asset, Name, Symbol, InvalidSymbol, InvalidValue, impl_auto_error_conversion,
     types::crypto::{CryptoData, CryptoDataType, KeyType, InvalidCryptoData},
+    types::builtin,
 };
 use bytemuck::{cast_ref, pod_read_unaligned};
 use hex::FromHexError;
@@ -52,6 +53,51 @@ pub trait BinarySerializable {
         Self: Sized;
 }
 
+// FIXME! Derive `BinarySerializable` for all builtin types
+
+// -----------------------------------------------------------------------------
+//     Boilerplate macros
+// -----------------------------------------------------------------------------
+
+macro_rules! impl_pod_serialization {
+    ($typ:ty, $size:literal) => {
+        impl BinarySerializable for $typ {
+            fn encode(&self, stream: &mut ByteStream) {
+                stream.write_bytes(cast_ref::<$typ, [u8; $size]>(self))
+            }
+            fn decode(stream: &mut ByteStream) -> Result<Self, SerializeError> {
+                Ok(pod_read_unaligned(stream.read_bytes($size)?))
+            }
+        }
+    }
+}
+
+macro_rules! impl_wrapped_serialization {
+    ($typ:ty, $inner:ty) => {
+        impl BinarySerializable for $typ {
+            fn encode(&self, stream: &mut ByteStream) {
+                self.0.encode(stream)
+            }
+            fn decode(stream: &mut ByteStream) -> Result<Self, SerializeError> {
+                Ok(<$typ>::from(<$inner>::decode(stream)?))
+            }
+        }
+    }
+}
+
+macro_rules! impl_array_serialization {
+    ($typ:ty, $size:literal) => {
+        impl BinarySerializable for $typ {
+            fn encode(&self, stream: &mut ByteStream) {
+                stream.write_bytes(&self[..])
+            }
+            fn decode(stream: &mut ByteStream) -> Result<Self, SerializeError> {
+                Ok(Box::new(stream.read_bytes($size)?.try_into().unwrap()))
+            }
+        }
+    }
+}
+
 
 // -----------------------------------------------------------------------------
 //     Serialization of ints and native Rust types
@@ -69,19 +115,6 @@ impl BinarySerializable for bool {
             1 => Ok(true),
             0 => Ok(false),
             _ => InvalidDataSnafu { msg: "cannot parse bool from stream".to_owned() }.fail(),
-        }
-    }
-}
-
-macro_rules! impl_pod_serialization {
-    ($typ:ty, $size:literal) => {
-        impl BinarySerializable for $typ {
-            fn encode(&self, stream: &mut ByteStream) {
-                stream.write_bytes(cast_ref::<$typ, [u8; $size]>(self))
-            }
-            fn decode(stream: &mut ByteStream) -> Result<Self, SerializeError> {
-                Ok(pod_read_unaligned(stream.read_bytes($size)?))
-            }
         }
     }
 }
@@ -117,6 +150,66 @@ impl_pod_serialization!(u128, 16);
 impl_pod_serialization!(f32, 4);
 impl_pod_serialization!(f64, 8);
 
+
+impl BinarySerializable for builtin::VarInt32 {
+    fn encode(&self, stream: &mut ByteStream) {
+        write_var_i32(stream, self.0)
+    }
+    fn decode(stream: &mut ByteStream) -> Result<Self, SerializeError> {
+        Ok(Self(read_var_i32(stream)?))
+    }
+}
+
+impl BinarySerializable for builtin::VarUint32 {
+    fn encode(&self, stream: &mut ByteStream) {
+        write_var_u32(stream, self.0)
+    }
+    fn decode(stream: &mut ByteStream) -> Result<Self, SerializeError> {
+        Ok(Self(read_var_u32(stream)?))
+    }
+}
+
+// -----------------------------------------------------------------------------
+//     Serialization of string types
+// -----------------------------------------------------------------------------
+
+impl BinarySerializable for builtin::Bytes {
+    fn encode(&self, stream: &mut ByteStream) {
+        write_var_u32(stream, self.len() as u32);
+        stream.write_bytes(&self[..]);
+    }
+    fn decode(stream: &mut ByteStream) -> Result<Self, SerializeError> {
+        let len = read_var_u32(stream)? as usize;
+        Ok(Vec::from(stream.read_bytes(len)?))
+    }
+}
+impl BinarySerializable for builtin::String {
+    fn encode(&self, stream: &mut ByteStream) {
+        write_var_u32(stream, self.len() as u32);
+        stream.write_bytes(self.as_bytes());
+    }
+    fn decode(stream: &mut ByteStream) -> Result<Self, SerializeError> {
+        let len = read_var_u32(stream)? as usize;
+        from_utf8(stream.read_bytes(len)?).context(Utf8Snafu).map(|s| s.to_owned())
+    }
+}
+
+
+// -----------------------------------------------------------------------------
+//     Serialization of time types
+// -----------------------------------------------------------------------------
+
+impl_wrapped_serialization!(builtin::TimePoint, i64);
+impl_wrapped_serialization!(builtin::TimePointSec, u32);
+impl_wrapped_serialization!(builtin::BlockTimestampType, u32);
+
+// -----------------------------------------------------------------------------
+//     Serialization of checksum types
+// -----------------------------------------------------------------------------
+
+impl_array_serialization!(builtin::Checksum160, 20);
+impl_array_serialization!(builtin::Checksum256, 32);
+impl_array_serialization!(builtin::Checksum512, 64);
 
 // -----------------------------------------------------------------------------
 //     Serialization of Antelope types
@@ -157,6 +250,19 @@ impl BinarySerializable for Asset {
     }
 }
 
+impl BinarySerializable for builtin::ExtendedAsset {
+    fn encode(&self, stream: &mut ByteStream) {
+        self.0.encode(stream);
+        self.1.encode(stream);
+    }
+
+    fn decode(stream: &mut ByteStream) -> Result<Self, SerializeError> {
+        let asset = Asset::decode(stream)?;
+        let name = Name::decode(stream)?;
+        Ok((asset, name))
+    }
+}
+
 impl<T: CryptoDataType, const DATA_SIZE: usize> BinarySerializable for CryptoData<T, DATA_SIZE> {
     fn encode(&self, stream: &mut ByteStream) {
         stream.write_byte(self.key_type().index());
@@ -174,6 +280,8 @@ impl<T: CryptoDataType, const DATA_SIZE: usize> BinarySerializable for CryptoDat
 // -----------------------------------------------------------------------------
 //     util functions for varints and reading/writing str/bytes
 // -----------------------------------------------------------------------------
+
+// TODO: remove pub visibility on those functions?
 
 pub fn write_var_u32(stream: &mut ByteStream, n: u32) {
     let mut n = n;
@@ -214,14 +322,4 @@ pub fn read_var_i32(stream: &mut ByteStream) -> Result<i32, SerializeError> {
         0 => n >> 1,
         _ => ((!n) >> 1) | 0x8000_0000,
     } as i32)
-}
-
-pub fn read_bytes(stream: &mut ByteStream) -> Result<Vec<u8>, SerializeError> {
-    let len = read_var_u32(stream)? as usize;
-    Ok(Vec::from(stream.read_bytes(len)?))
-}
-
-pub fn read_str(stream: &mut ByteStream) -> Result<&str, SerializeError> {
-    let len = read_var_u32(stream)? as usize;
-    from_utf8(stream.read_bytes(len)?).context(Utf8Snafu)
 }
