@@ -20,11 +20,26 @@ eg: settings paragraph in <https://github.com/tesselode/kira/releases/tag/v0.9.0
 
 - clean abi.rs
 
+- rename errors from `InvalidName` -> `NameError`, so the associated snafu will
+  be `NameSnafu` instead of `InvalidNameSnafu`
+
 - try defining the `ABISerializable` trait and implement it for all types, then replace the `AntelopeValue` struct with just the implementation of the base types
+  (note: we might still need AntelopeValue, maybe rename it to AntelopeVariant)
 
   Rust native types that map directly to an Antelope type would be synonym (ie: type Antelope::i32 = i32, etc.) with `From` trait defined between them
   Non-native types such as `varint32` need to have a thin wrapper struct around a rust native type
   Also implement more complex types in the same way: `Action`, `Transaction`, etc.
+
+  for ESR: <https://github.com/AntelopeIO/spring/blob/main/libraries/chain/include/eosio/chain/transaction.hpp#L53>
+  ```
+  pub struct TransactionHeader {
+      expiration: builtin::TimePointSec,
+      ref_block_num: u16,
+      ref_block_prefix: u32,
+      max_net_usage_words: usize, // FIXME: check this type
+      // etc...
+  }
+  ```
 
 - check <https://rust-lang.github.io/api-guidelines/checklist.html>
 

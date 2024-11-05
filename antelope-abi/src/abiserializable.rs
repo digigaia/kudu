@@ -70,11 +70,7 @@ impl ABISerializable for AntelopeValue {
             Self::Symbol(sym) => sym.encode(stream),
             Self::SymbolCode(sym) => sym.encode(stream),
             Self::Asset(asset) => asset.encode(stream),
-            Self::ExtendedAsset(ea) => {
-                let (ref quantity, ref contract) = **ea;
-                quantity.encode(stream);
-                contract.encode(stream);
-            },
+            Self::ExtendedAsset(ea) => ea.encode(stream),
         }
     }
 
@@ -98,9 +94,9 @@ impl ABISerializable for AntelopeValue {
             AntelopeType::Float64 => Self::Float64(f64::decode(stream)?),
             AntelopeType::Bytes => Self::Bytes(builtin::Bytes::decode(stream)?),
             AntelopeType::String => Self::String(String::decode(stream)?),
-            AntelopeType::TimePoint => Self::TimePoint(i64::decode(stream)?),
-            AntelopeType::TimePointSec => Self::TimePointSec(u32::decode(stream)?),
-            AntelopeType::BlockTimestampType => Self::BlockTimestampType(u32::decode(stream)?),
+            AntelopeType::TimePoint => Self::TimePoint(builtin::TimePoint::decode(stream)?),
+            AntelopeType::TimePointSec => Self::TimePointSec(builtin::TimePointSec::decode(stream)?),
+            AntelopeType::BlockTimestampType => Self::BlockTimestampType(builtin::BlockTimestampType::decode(stream)?),
             AntelopeType::Checksum160 => Self::Checksum160(builtin::Checksum160::decode(stream)?),
             AntelopeType::Checksum256 => Self::Checksum256(builtin::Checksum256::decode(stream)?),
             AntelopeType::Checksum512 => Self::Checksum512(builtin::Checksum512::decode(stream)?),
@@ -109,7 +105,7 @@ impl ABISerializable for AntelopeValue {
             AntelopeType::Signature => Self::Signature(Box::new(Signature::decode(stream)?)),
             AntelopeType::Name => Self::Name(Name::decode(stream)?),
             AntelopeType::Symbol => Self::Symbol(Symbol::decode(stream)?),
-            AntelopeType::SymbolCode => Self::SymbolCode(u64::decode(stream)?),
+            AntelopeType::SymbolCode => Self::SymbolCode(builtin::SymbolCode::decode(stream)?),
             AntelopeType::Asset => Self::Asset(Asset::decode(stream)?),
             AntelopeType::ExtendedAsset => {
                 Self::ExtendedAsset(Box::new((Asset::decode(stream)?, Name::decode(stream)?)))

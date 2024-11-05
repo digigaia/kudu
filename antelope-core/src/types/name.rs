@@ -56,6 +56,19 @@ impl Name {
     }
 }
 
+impl TryFrom<&str> for Name {
+    type Error = InvalidName;
+
+    fn try_from(s: &str) -> Result<Name, InvalidName> {
+        Name::from_str(s)
+    }
+}
+
+impl From<u64> for Name {
+    fn from(n: u64) -> Name {
+        Name::from_u64(n)
+    }
+}
 
 impl Serialize for Name {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>

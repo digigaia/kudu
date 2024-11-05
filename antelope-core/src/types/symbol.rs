@@ -96,7 +96,23 @@ impl Symbol {
 
 // see ref implementation in AntelopeIO/leap/libraries/chain/symbol.{hpp,cpp}
 
-pub fn string_to_symbol_code(s: &[u8]) -> Result<u64, InvalidSymbol> {
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub struct SymbolCode(u64);
+
+impl SymbolCode {
+    pub fn from_u64(n: u64) -> SymbolCode {
+        SymbolCode(n)
+    }
+    pub fn as_u64(&self) -> u64 { self.0 }
+
+
+    pub fn from_bytes(s: &[u8]) -> Result<SymbolCode, InvalidSymbol> {
+        string_to_symbol_code(s).map(SymbolCode)
+    }
+}
+
+// FIXME: inline these into `SymbolCode` methods
+fn string_to_symbol_code(s: &[u8]) -> Result<u64, InvalidSymbol> {
     let mut result: u64 = 0;
     ensure!(!s.is_empty(), EmptySnafu);
 
@@ -110,7 +126,7 @@ pub fn string_to_symbol_code(s: &[u8]) -> Result<u64, InvalidSymbol> {
     Ok(result)
 }
 
-pub fn symbol_code_to_string(value: u64) -> String {
+fn symbol_code_to_string(value: u64) -> String {
     let mut v: u64 = value;
     let mut result = String::with_capacity(7);
     while v != 0 {
@@ -135,6 +151,12 @@ fn is_valid_symbol_name(name: &str) -> bool {
 // -----------------------------------------------------------------------------
 //     `Display` implementation
 // -----------------------------------------------------------------------------
+
+impl fmt::Display for SymbolCode {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", symbol_code_to_string(self.0))
+    }
+}
 
 impl fmt::Display for Symbol {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

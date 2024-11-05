@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use antelope_core::{
     AntelopeType, AntelopeValue, InvalidValue, Name,
+    types::builtin,
 };
 use serde_json::{
     json,
@@ -17,7 +18,7 @@ use crate::{
     ByteStream, ABIDefinition,
     abidefinition::{TypeName, TypeNameRef, Struct, Variant},
     abiserializable::ABISerializable,
-    binaryserializable::{write_var_u32, SerializeError},
+    binaryserializable::{SerializeError, BinarySerializable},
 };
 
 // TODO: make sure that we can (de)serialize an ABI (ABIDefinition?) itself (eg, see: https://github.com/wharfkit/antelope/blob/master/src/chain/abi.ts, which implements ABISerializableObject)
@@ -143,40 +144,42 @@ impl ABI {
 
         debug!(rtype=rtype.0, ftype=ftype.0);
 
-        let incompatible_types = InvalidValue::IncompatibleVariantTypes {
+        // use a closure to avoid cloning and copying if no error occurs
+        let incompatible_types = || { InvalidValue::IncompatibleVariantTypes {
             typename: rtype.0.to_owned(),
             value: object.clone()
-        };
+        }};
 
         if AntelopeValue::VARIANTS.contains(&ftype.0) {
             // if our fundamental type is a builtin type, we can serialize it directly
             // to the stream
+            let inner_type: AntelopeType = ftype.try_into()?;
             if rtype.is_array() {
-                let a = object.as_array().ok_or(incompatible_types)?;
-                AntelopeValue::VarUint32(a.len() as u32).to_bin(ds);
+                let a = object.as_array().ok_or_else(incompatible_types)?;
+                builtin::VarUint32::from(a.len()).encode(ds);
                 for v in a {
-                    AntelopeValue::from_variant(ftype.0.try_into()?, v)?.to_bin(ds);
+                    AntelopeValue::from_json(inner_type, v)?.to_bin(ds);
                 }
             }
             else if rtype.is_optional() {
                 match !object.is_null() {
                     true => {
-                        AntelopeValue::Bool(true).to_bin(ds);
-                        AntelopeValue::from_variant(ftype.0.try_into()?, object)?.to_bin(ds);
+                        true.encode(ds);
+                        AntelopeValue::from_json(inner_type, object)?.to_bin(ds);
                     },
-                    false => AntelopeValue::Bool(false).to_bin(ds),
+                    false => false.encode(ds),
                 }
             }
             else {
-                AntelopeValue::from_variant(ftype.0.try_into()?, object)?.to_bin(ds);
+                AntelopeValue::from_json(inner_type, object)?.to_bin(ds);
             }
         }
         else {
             // not a builtin type, we have to recurse down
 
             if rtype.is_array() {
-                let a = object.as_array().ok_or(incompatible_types)?;
-                write_var_u32(ds, a.len() as u32);
+                let a = object.as_array().ok_or_else(incompatible_types)?;
+                builtin::VarUint32::from(a.len()).encode(ds);
                 for v in a {
                     self.encode_variant(ds, ftype, v)?;
                 }
@@ -184,14 +187,15 @@ impl ABI {
             else if rtype.is_optional() {
                 match !object.is_null() {
                     true => {
-                        AntelopeValue::Bool(true).to_bin(ds);
+                        true.encode(ds);
                         self.encode_variant(ds, ftype, object)?;
                     },
-                    false => AntelopeValue::Bool(false).to_bin(ds),
+                    false => false.encode(ds),
                 }
             }
             else if let Some(variant_def) = self.variants.get(rtype.0) {
                 debug!("serializing type {:?} with variant: {:?}", rtype.0, object);
+                // FIXME: replace with `ensure!`
                 assert!(object.is_array() && object.as_array().unwrap().len() == 2,
                         "expected input to be an array of 2 elements while processing variant: {}",
                         &object);
@@ -199,7 +203,7 @@ impl ABI {
                         object[0]);
                 let variant_type = TypeNameRef(object[0].as_str().unwrap());
                 if let Some(vpos) = variant_def.types.iter().position(|v| v == variant_type.0) {
-                    write_var_u32(ds, vpos as u32);
+                    builtin::VarUint32::from(vpos).encode(ds);
                     self.encode_variant(ds, variant_type, &object[1])?;
                 }
                 else {
@@ -253,19 +257,19 @@ impl ABI {
                 debug!(r#"reading array of {item_count} elements of type "{ftype}""#);
                 let mut a = Vec::with_capacity(item_count);
                 for _ in 0..item_count {
-                    a.push(AntelopeValue::from_bin(type_, ds)?.to_variant());
+                    a.push(AntelopeValue::from_bin(type_, ds)?.to_json());
                 }
                 JsonValue::Array(a)
             }
             else if rtype.is_optional() {
                 let non_null: bool = AntelopeValue::from_bin(AntelopeType::Bool, ds)?.into();
                 match non_null {
-                    true => AntelopeValue::from_bin(type_, ds)?.to_variant(),
+                    true => AntelopeValue::from_bin(type_, ds)?.to_json(),
                     false => JsonValue::Null,
                 }
             }
             else {
-                AntelopeValue::from_bin(type_, ds)?.to_variant()
+                AntelopeValue::from_bin(type_, ds)?.to_json()
             }
         }
         else {
@@ -309,37 +313,9 @@ impl ABI {
     }
 
 
-    /*
-    #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct Field {
-    pub name: FieldName,
-    #[serde(rename = "type")]
-    pub type_: TypeName, // TODO: should map into a struct defined within the ABI?
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct Struct {
-    pub name: TypeName,
-    #[serde(default)]
-    pub base: TypeName, // TODO: should map into a struct defined within the ABI
-    pub fields: Vec<Field>,
-}
-     */
-
     fn decode_struct(&self, ds: &mut ByteStream, struct_def: &Struct) -> Result<JsonValue, SerializeError> {
-        // let mut result: Map<String, JsonValue> = Map::new();
-        // result.insert("name".to_owned(), json!(struct_def.name));
-        // result.insert("base".to_owned(), json!(struct_def.base));
-        // result.insert("fields".to_owned(), JsonValue::Array(vec![]));
-
         debug!(r#"reading struct with name "{}" and base "{}""#, struct_def.name, struct_def.base);
 
-        // let mut result = json!({
-        //     "name": struct_def.name,
-        //     "base": struct_def.base,
-        //     "fields": []
-        // });
-        // let mut result = json!({});
         let mut result: JsonMap<String, JsonValue> = JsonMap::new();
 
         if !struct_def.base.is_empty() {
@@ -362,10 +338,6 @@ pub struct Struct {
             let value = self.decode_variant(ds, type_)?;
             debug!(r#"decoded field "{name}" with type "{type_}": {value}"#);
             result.insert(name.to_string(), value);
-            // array(&mut result, "fields").push(json!({
-            //     "name": name,
-            //     "type": value
-            // }));
         }
 
         debug!("fully decoded `{}` struct: {:#?}", struct_def.name, result);

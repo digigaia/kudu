@@ -3,7 +3,7 @@ use std::convert::From;
 
 use std::str::{ParseBoolError, Utf8Error};
 
-use chrono::{DateTime, NaiveDateTime, ParseError as ChronoParseError, TimeZone, Utc};
+use chrono::ParseError as ChronoParseError;
 use hex::FromHexError;
 use snafu::{Snafu, IntoError, ResultExt, OptionExt};
 use strum::{Display, EnumDiscriminants, EnumString, VariantNames};
@@ -12,14 +12,15 @@ use tracing::instrument;
 use antelope_macros::with_location;
 
 use crate::{
-    config, json, JsonError, JsonValue,
+    json, JsonError, JsonValue,
     impl_auto_error_conversion,
 };
 
 use crate::types::{
+    builtin,
     Asset, InvalidAsset,
     Name, InvalidName,
-    Symbol, InvalidSymbol, string_to_symbol_code, symbol_code_to_string,
+    Symbol, SymbolCode, InvalidSymbol,
     PublicKey, PrivateKey, Signature, InvalidCryptoData,
 };
 
@@ -29,7 +30,6 @@ use crate::convert::{
     ConversionError
 };
 
-const DATE_FORMAT: &str = "%Y-%m-%dT%H:%M:%S%.3f";
 
 // see full list in: https://github.com/AntelopeIO/leap/blob/main/libraries/chain/abi_serializer.cpp#L89
 #[derive(Debug, EnumDiscriminants, VariantNames, Clone, PartialEq)]
@@ -63,12 +63,12 @@ pub enum AntelopeValue {
     Float64(f64),
     // Float128(??),
 
-    Bytes(Vec<u8>),
+    Bytes(builtin::Bytes),
     String(String),
 
-    TimePoint(i64),
-    TimePointSec(u32),
-    BlockTimestampType(u32),
+    TimePoint(builtin::TimePoint),
+    TimePointSec(builtin::TimePointSec),
+    BlockTimestampType(builtin::BlockTimestampType),
 
     Checksum160(Box<[u8; 20]>),
     Checksum256(Box<[u8; 32]>),
@@ -79,7 +79,7 @@ pub enum AntelopeValue {
     Signature(Box<Signature>),
 
     Name(Name),
-    SymbolCode(u64),
+    SymbolCode(builtin::SymbolCode),
     Symbol(Symbol),
     Asset(Asset),
     ExtendedAsset(Box<(Asset, Name)>),
@@ -113,9 +113,9 @@ impl AntelopeValue {
             AntelopeType::Float64 => Self::Float64(str_to_float(repr)?),
             AntelopeType::Bytes => Self::Bytes(hex::decode(repr).context(FromHexSnafu)?),
             AntelopeType::String => Self::String(repr.to_owned()),
-            AntelopeType::TimePoint => Self::TimePoint(parse_date(repr)?.timestamp_micros()),
-            AntelopeType::TimePointSec => Self::TimePointSec(parse_date(repr)?.timestamp() as u32),
-            AntelopeType::BlockTimestampType => Self::BlockTimestampType(timestamp_to_block_slot(&parse_date(repr)?)),
+            AntelopeType::TimePoint => Self::TimePoint(builtin::TimePoint::from_str(repr)?),
+            AntelopeType::TimePointSec => Self::TimePointSec(builtin::TimePointSec::from_str(repr)?),
+            AntelopeType::BlockTimestampType => Self::BlockTimestampType(builtin::BlockTimestampType::from_str(repr)?),
             AntelopeType::Checksum160 => Self::Checksum160(hex_to_boxed_array(repr).context(FromHexSnafu)?),
             AntelopeType::Checksum256 => Self::Checksum256(hex_to_boxed_array(repr).context(FromHexSnafu)?),
             AntelopeType::Checksum512 => Self::Checksum512(hex_to_boxed_array(repr).context(FromHexSnafu)?),
@@ -123,15 +123,15 @@ impl AntelopeValue {
             AntelopeType::PrivateKey => Self::PrivateKey(Box::new(PrivateKey::from_str(repr).context(CryptoDataSnafu)?)),
             AntelopeType::Signature => Self::Signature(Box::new(Signature::from_str(repr).context(CryptoDataSnafu)?)),
             AntelopeType::Name => Self::Name(Name::from_str(repr).context(NameSnafu)?),
-            AntelopeType::SymbolCode => Self::SymbolCode(string_to_symbol_code(repr.as_bytes()).context(SymbolSnafu)?),
+            AntelopeType::SymbolCode => Self::SymbolCode(SymbolCode::from_bytes(repr.as_bytes()).context(SymbolSnafu)?),
             AntelopeType::Symbol => Self::Symbol(Symbol::from_str(repr).context(SymbolSnafu)?),
             AntelopeType::Asset => Self::Asset(Asset::from_str(repr).context(AssetSnafu { repr })?),
-            AntelopeType::ExtendedAsset => Self::from_variant(typename, &serde_json::from_str(repr).context(JsonParseSnafu)?)?,
+            AntelopeType::ExtendedAsset => Self::from_json(typename, &serde_json::from_str(repr).context(JsonParseSnafu)?)?,
             // _ => { return Err(InvalidValue::InvalidType(typename.to_string())); },
         })
     }
 
-    pub fn to_variant(&self) -> JsonValue {
+    pub fn to_json(&self) -> JsonValue {
         match self {
             Self::Bool(b) => json!(b),
             Self::Int8(n) => json!(n),
@@ -150,20 +150,9 @@ impl AntelopeValue {
             Self::Float64(x) => json!(x),
             Self::Bytes(b) => json!(hex::encode_upper(b)),
             Self::String(s) => json!(s),
-            Self::TimePoint(t) => {
-                let dt = Utc.timestamp_micros(*t).unwrap();
-                json!(format!("{}", dt.format(DATE_FORMAT)))
-            },
-            Self::TimePointSec(t) => {
-                let dt = Utc.timestamp_micros(*t as i64 * 1_000_000).unwrap();
-                json!(format!("{}", dt.format(DATE_FORMAT)))
-            },
-            Self::BlockTimestampType(t) => {
-                let dt = Utc.timestamp_micros(
-                    ((*t as i64 * config::BLOCK_INTERVAL_MS as i64) + config::BLOCK_TIMESTAMP_EPOCH as i64) * 1000
-                ).unwrap();
-                json!(format!("{}", dt.format(DATE_FORMAT)))
-            }
+            Self::TimePoint(t) => t.to_json(),
+            Self::TimePointSec(t) => t.to_json(),
+            Self::BlockTimestampType(t) => t.to_json(),
             Self::Checksum160(c) => json!(hex::encode_upper(&c[..])),
             Self::Checksum256(c) => json!(hex::encode_upper(&c[..])),
             Self::Checksum512(c) => json!(hex::encode_upper(&c[..])),
@@ -171,7 +160,7 @@ impl AntelopeValue {
             Self::PrivateKey(sig) => json!(sig.to_string()),
             Self::Signature(sig) => json!(sig.to_string()),
             Self::Name(name) => json!(name.to_string()),
-            Self::SymbolCode(sym) => json!(symbol_code_to_string(*sym)),
+            Self::SymbolCode(sym) => json!(sym.to_string()),
             Self::Symbol(sym) => json!(sym.to_string()),
             Self::Asset(asset) => json!(asset.to_string()),
             Self::ExtendedAsset(ea) => {
@@ -185,7 +174,7 @@ impl AntelopeValue {
     }
 
     #[instrument]
-    pub fn from_variant(typename: AntelopeType, v: &JsonValue) -> Result<Self, InvalidValue> {
+    pub fn from_json(typename: AntelopeType, v: &JsonValue) -> Result<Self, InvalidValue> {
         let incompatible_types = || {
             IncompatibleVariantTypesSnafu { typename, value: v.clone() }
         };
@@ -211,16 +200,16 @@ impl AntelopeValue {
             ).context(FromHexSnafu)?),
             AntelopeType::String => Self::String(v.as_str().with_context(incompatible_types)?.to_owned()),
             AntelopeType::TimePoint => {
-                let dt = parse_date(v.as_str().with_context(incompatible_types)?)?;
-                Self::TimePoint(dt.timestamp_micros())
+                let repr = v.as_str().with_context(incompatible_types)?;
+                Self::TimePoint(builtin::TimePoint::from_str(repr)?)
             },
             AntelopeType::TimePointSec => {
-                let dt = parse_date(v.as_str().with_context(incompatible_types)?)?;
-                Self::TimePointSec(dt.timestamp() as u32)
+                let repr = v.as_str().with_context(incompatible_types)?;
+                Self::TimePointSec(builtin::TimePointSec::from_str(repr)?)
             },
             AntelopeType::BlockTimestampType => {
-                let dt = parse_date(v.as_str().with_context(incompatible_types)?)?;
-                Self::BlockTimestampType(timestamp_to_block_slot(&dt))
+                let repr = v.as_str().with_context(incompatible_types)?;
+                Self::BlockTimestampType(builtin::BlockTimestampType::from_str(repr)?)
             },
             AntelopeType::Checksum160 => {
                 Self::Checksum160(hex_to_boxed_array(v.as_str().with_context(incompatible_types)?)
@@ -251,13 +240,6 @@ impl AntelopeValue {
             },
         })
     }
-}
-
-
-fn timestamp_to_block_slot(dt: &DateTime<Utc>) -> u32 {
-    let ms_since_epoch = (dt.timestamp_micros() / 1000) as u64 - config::BLOCK_TIMESTAMP_EPOCH;
-    let result = ms_since_epoch / (config::BLOCK_INTERVAL_MS as u64);
-    result as u32
 }
 
 
@@ -343,12 +325,6 @@ impl TryFrom<AntelopeValue> for String {
 
 
 
-/// return a date in microseconds, timezone is UTC by default
-/// (we don't use naive datetimes)
-fn parse_date(s: &str) -> Result<DateTime<Utc>, InvalidValue> {
-    Ok(NaiveDateTime::parse_from_str(s, DATE_FORMAT).context(DateTimeParseSnafu)?.and_utc())
-}
-
 pub fn hex_to_boxed_array<const N: usize>(s: &str) -> Result<Box<[u8; N]>, FromHexError> {
     let mut result = [0_u8; N];
     hex::decode_to_slice(s, &mut result)?;
@@ -366,7 +342,7 @@ mod tests {
     #[test]
     fn test_conversion() -> Result<(), Report> {
         let n = json!(23);
-        let n = AntelopeValue::from_variant(AntelopeType::Int8, &n)?;
+        let n = AntelopeValue::from_json(AntelopeType::Int8, &n)?;
         println!("n = {n:?}");
 
         Ok(())
@@ -442,3 +418,4 @@ impl_auto_error_conversion!(FromHexError, InvalidValue, FromHexSnafu);
 impl_auto_error_conversion!(strum::ParseError, InvalidValue, TypenameParseSnafu);
 impl_auto_error_conversion!(JsonError, InvalidValue, JsonParseSnafu);
 impl_auto_error_conversion!(Utf8Error, InvalidValue, Utf8Snafu);
+impl_auto_error_conversion!(ChronoParseError, InvalidValue, DateTimeParseSnafu);

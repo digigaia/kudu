@@ -39,7 +39,7 @@ pub use types::{
     AntelopeType,
     AntelopeValue, InvalidValue,
     Name, InvalidName,
-    Symbol, InvalidSymbol,
+    Symbol, SymbolCode, InvalidSymbol,
     Asset, InvalidAsset,
     PrivateKey, PublicKey, Signature, InvalidCryptoData,
 };

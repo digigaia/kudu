@@ -11,7 +11,7 @@ pub use antelopevalue::{AntelopeType, AntelopeValue, InvalidValue};
 pub use asset::{Asset, InvalidAsset};
 pub use crypto::{InvalidCryptoData, PrivateKey, PublicKey, Signature};
 pub use name::{InvalidName, Name};
-pub use symbol::{string_to_symbol_code, symbol_code_to_string, InvalidSymbol, Symbol};
+pub use symbol::{InvalidSymbol, Symbol, SymbolCode};
 
 // from https://github.com/AntelopeIO/leap/blob/main/libraries/chain/include/eosio/chain/types.hpp#L119-L123
 pub type ActionName = Name;

@@ -1,7 +1,7 @@
 use std::str::{from_utf8, Utf8Error};
 
 use antelope_core::{
-    Asset, Name, Symbol, InvalidSymbol, InvalidValue, impl_auto_error_conversion,
+    Asset, Name, Symbol, SymbolCode, InvalidSymbol, InvalidValue, impl_auto_error_conversion,
     types::crypto::{CryptoData, CryptoDataType, KeyType, InvalidCryptoData},
     types::builtin,
 };
@@ -234,6 +234,17 @@ impl BinarySerializable for Symbol {
     fn decode(stream: &mut ByteStream) -> Result<Self, SerializeError> {
         let n = u64::decode(stream)?;
         Ok(Symbol::from_u64(n)?)
+    }
+}
+
+impl BinarySerializable for SymbolCode {
+    fn encode(&self, stream: &mut ByteStream) {
+        self.as_u64().encode(stream)
+    }
+
+    fn decode(stream: &mut ByteStream) -> Result<Self, SerializeError> {
+        let n = u64::decode(stream)?;
+        Ok(SymbolCode::from_u64(n))
     }
 }
 
