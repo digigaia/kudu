@@ -1,9 +1,9 @@
 use std::str::{from_utf8, Utf8Error};
 
 use antelope_core::{
-    Asset, Name, Symbol, SymbolCode, InvalidSymbol, InvalidValue, impl_auto_error_conversion,
-    types::crypto::{CryptoData, CryptoDataType, KeyType, InvalidCryptoData},
-    types::builtin,
+    types::*,
+    crypto::{CryptoData, CryptoDataType, KeyType},
+    impl_auto_error_conversion,
 };
 use bytemuck::{cast_ref, pod_read_unaligned};
 use hex::FromHexError;
@@ -76,7 +76,7 @@ macro_rules! impl_wrapped_serialization {
     ($typ:ty, $inner:ty) => {
         impl BinarySerializable for $typ {
             fn encode(&self, stream: &mut ByteStream) {
-                self.0.encode(stream)
+                <$inner>::from(*self).encode(stream)
             }
             fn decode(stream: &mut ByteStream) -> Result<Self, SerializeError> {
                 Ok(<$typ>::from(<$inner>::decode(stream)?))
@@ -92,7 +92,7 @@ macro_rules! impl_array_serialization {
                 stream.write_bytes(&self[..])
             }
             fn decode(stream: &mut ByteStream) -> Result<Self, SerializeError> {
-                Ok(Box::new(stream.read_bytes($size)?.try_into().unwrap()))
+                Ok(stream.read_bytes($size)?.try_into().unwrap())
             }
         }
     }
@@ -151,21 +151,21 @@ impl_pod_serialization!(f32, 4);
 impl_pod_serialization!(f64, 8);
 
 
-impl BinarySerializable for builtin::VarInt32 {
+impl BinarySerializable for VarInt32 {
     fn encode(&self, stream: &mut ByteStream) {
-        write_var_i32(stream, self.0)
+        write_var_i32(stream, i32::from(*self))
     }
     fn decode(stream: &mut ByteStream) -> Result<Self, SerializeError> {
-        Ok(Self(read_var_i32(stream)?))
+        Ok(read_var_i32(stream)?.into())
     }
 }
 
-impl BinarySerializable for builtin::VarUint32 {
+impl BinarySerializable for VarUint32 {
     fn encode(&self, stream: &mut ByteStream) {
-        write_var_u32(stream, self.0)
+        write_var_u32(stream, u32::from(*self))
     }
     fn decode(stream: &mut ByteStream) -> Result<Self, SerializeError> {
-        Ok(Self(read_var_u32(stream)?))
+        Ok(read_var_u32(stream)?.into())
     }
 }
 
@@ -173,7 +173,7 @@ impl BinarySerializable for builtin::VarUint32 {
 //     Serialization of string types
 // -----------------------------------------------------------------------------
 
-impl BinarySerializable for builtin::Bytes {
+impl BinarySerializable for Bytes {
     fn encode(&self, stream: &mut ByteStream) {
         write_var_u32(stream, self.len() as u32);
         stream.write_bytes(&self[..]);
@@ -183,7 +183,7 @@ impl BinarySerializable for builtin::Bytes {
         Ok(Vec::from(stream.read_bytes(len)?))
     }
 }
-impl BinarySerializable for builtin::String {
+impl BinarySerializable for String {
     fn encode(&self, stream: &mut ByteStream) {
         write_var_u32(stream, self.len() as u32);
         stream.write_bytes(self.as_bytes());
@@ -199,17 +199,17 @@ impl BinarySerializable for builtin::String {
 //     Serialization of time types
 // -----------------------------------------------------------------------------
 
-impl_wrapped_serialization!(builtin::TimePoint, i64);
-impl_wrapped_serialization!(builtin::TimePointSec, u32);
-impl_wrapped_serialization!(builtin::BlockTimestampType, u32);
+impl_wrapped_serialization!(TimePoint, i64);
+impl_wrapped_serialization!(TimePointSec, u32);
+impl_wrapped_serialization!(BlockTimestampType, u32);
 
 // -----------------------------------------------------------------------------
 //     Serialization of checksum types
 // -----------------------------------------------------------------------------
 
-impl_array_serialization!(builtin::Checksum160, 20);
-impl_array_serialization!(builtin::Checksum256, 32);
-impl_array_serialization!(builtin::Checksum512, 64);
+impl_array_serialization!(Checksum160, 20);
+impl_array_serialization!(Checksum256, 32);
+impl_array_serialization!(Checksum512, 64);
 
 // -----------------------------------------------------------------------------
 //     Serialization of Antelope types
@@ -261,7 +261,7 @@ impl BinarySerializable for Asset {
     }
 }
 
-impl BinarySerializable for builtin::ExtendedAsset {
+impl BinarySerializable for ExtendedAsset {
     fn encode(&self, stream: &mut ByteStream) {
         self.0.encode(stream);
         self.1.encode(stream);

@@ -1,11 +1,6 @@
 use tracing::instrument;
 
-use antelope_core::{
-    AntelopeType, AntelopeValue, Asset, Symbol,
-    Name, PrivateKey, PublicKey, Signature,
-    types::builtin,
-};
-
+use antelope_core::types::*;
 
 use crate::{
     binaryserializable::{
@@ -51,8 +46,8 @@ impl ABISerializable for AntelopeValue {
             Self::Uint32(n) => n.encode(stream),
             Self::Uint64(n) => n.encode(stream),
             Self::Uint128(n) => n.encode(stream),
-            Self::VarInt32(n) => builtin::VarInt32(*n).encode(stream),
-            Self::VarUint32(n) => builtin::VarUint32(*n).encode(stream),
+            Self::VarInt32(n) => n.encode(stream),
+            Self::VarUint32(n) => n.encode(stream),
             Self::Float32(x) => x.encode(stream),
             Self::Float64(x) => x.encode(stream),
             Self::Bytes(b) => b.encode(stream),
@@ -88,24 +83,24 @@ impl ABISerializable for AntelopeValue {
             AntelopeType::Uint32 => Self::Uint32(u32::decode(stream)?),
             AntelopeType::Uint64 => Self::Uint64(u64::decode(stream)?),
             AntelopeType::Uint128 => Self::Uint128(u128::decode(stream)?),
-            AntelopeType::VarInt32 => Self::VarInt32(read_var_i32(stream)?),
-            AntelopeType::VarUint32 => Self::VarUint32(read_var_u32(stream)?),
+            AntelopeType::VarInt32 => Self::VarInt32(VarInt32::decode(stream)?),
+            AntelopeType::VarUint32 => Self::VarUint32(VarUint32::decode(stream)?),
             AntelopeType::Float32 => Self::Float32(f32::decode(stream)?),
             AntelopeType::Float64 => Self::Float64(f64::decode(stream)?),
-            AntelopeType::Bytes => Self::Bytes(builtin::Bytes::decode(stream)?),
+            AntelopeType::Bytes => Self::Bytes(Bytes::decode(stream)?),
             AntelopeType::String => Self::String(String::decode(stream)?),
-            AntelopeType::TimePoint => Self::TimePoint(builtin::TimePoint::decode(stream)?),
-            AntelopeType::TimePointSec => Self::TimePointSec(builtin::TimePointSec::decode(stream)?),
-            AntelopeType::BlockTimestampType => Self::BlockTimestampType(builtin::BlockTimestampType::decode(stream)?),
-            AntelopeType::Checksum160 => Self::Checksum160(builtin::Checksum160::decode(stream)?),
-            AntelopeType::Checksum256 => Self::Checksum256(builtin::Checksum256::decode(stream)?),
-            AntelopeType::Checksum512 => Self::Checksum512(builtin::Checksum512::decode(stream)?),
+            AntelopeType::TimePoint => Self::TimePoint(TimePoint::decode(stream)?),
+            AntelopeType::TimePointSec => Self::TimePointSec(TimePointSec::decode(stream)?),
+            AntelopeType::BlockTimestampType => Self::BlockTimestampType(BlockTimestampType::decode(stream)?),
+            AntelopeType::Checksum160 => Self::Checksum160(Box::new(Checksum160::decode(stream)?)),
+            AntelopeType::Checksum256 => Self::Checksum256(Box::new(Checksum256::decode(stream)?)),
+            AntelopeType::Checksum512 => Self::Checksum512(Box::new(Checksum512::decode(stream)?)),
             AntelopeType::PublicKey => Self::PublicKey(Box::new(PublicKey::decode(stream)?)),
             AntelopeType::PrivateKey => Self::PrivateKey(Box::new(PrivateKey::decode(stream)?)),
             AntelopeType::Signature => Self::Signature(Box::new(Signature::decode(stream)?)),
             AntelopeType::Name => Self::Name(Name::decode(stream)?),
             AntelopeType::Symbol => Self::Symbol(Symbol::decode(stream)?),
-            AntelopeType::SymbolCode => Self::SymbolCode(builtin::SymbolCode::decode(stream)?),
+            AntelopeType::SymbolCode => Self::SymbolCode(SymbolCode::decode(stream)?),
             AntelopeType::Asset => Self::Asset(Asset::decode(stream)?),
             AntelopeType::ExtendedAsset => {
                 Self::ExtendedAsset(Box::new((Asset::decode(stream)?, Name::decode(stream)?)))

@@ -11,7 +11,7 @@ where
 
 }
 
-impl ABISerialize<builtin::VarInt32> for i32 {
+impl ABISerialize<VarInt32> for i32 {
     fn to_bin(&self, stream: &mut ByteStream) {
         write_var_i32(stream, *self);
     }
@@ -20,7 +20,7 @@ impl ABISerialize<builtin::VarInt32> for i32 {
     }
 }
 
-impl ABISerialize<builtin::VarUint32> for u32 {
+impl ABISerialize<VarUint32> for u32 {
     fn to_bin(&self, stream: &mut ByteStream) {
         write_var_u32(stream, *self);
     }

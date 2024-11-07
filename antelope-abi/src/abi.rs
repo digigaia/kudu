@@ -1,8 +1,7 @@
 use std::collections::HashMap;
 
 use antelope_core::{
-    AntelopeType, AntelopeValue, InvalidValue, Name,
-    types::builtin,
+    AntelopeType, AntelopeValue, InvalidValue, Name, VarUint32,
 };
 use serde_json::{
     json,
@@ -156,7 +155,7 @@ impl ABI {
             let inner_type: AntelopeType = ftype.try_into()?;
             if rtype.is_array() {
                 let a = object.as_array().ok_or_else(incompatible_types)?;
-                builtin::VarUint32::from(a.len()).encode(ds);
+                VarUint32::from(a.len()).encode(ds);
                 for v in a {
                     AntelopeValue::from_json(inner_type, v)?.to_bin(ds);
                 }
@@ -179,7 +178,7 @@ impl ABI {
 
             if rtype.is_array() {
                 let a = object.as_array().ok_or_else(incompatible_types)?;
-                builtin::VarUint32::from(a.len()).encode(ds);
+                VarUint32::from(a.len()).encode(ds);
                 for v in a {
                     self.encode_variant(ds, ftype, v)?;
                 }
@@ -203,7 +202,7 @@ impl ABI {
                         object[0]);
                 let variant_type = TypeNameRef(object[0].as_str().unwrap());
                 if let Some(vpos) = variant_def.types.iter().position(|v| v == variant_type.0) {
-                    builtin::VarUint32::from(vpos).encode(ds);
+                    VarUint32::from(vpos).encode(ds);
                     self.encode_variant(ds, variant_type, &object[1])?;
                 }
                 else {

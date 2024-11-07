@@ -1,5 +1,6 @@
 use std::array::TryFromSliceError;
 use std::convert::From;
+use std::num::TryFromIntError;
 
 use std::str::{ParseBoolError, Utf8Error};
 
@@ -16,11 +17,13 @@ use crate::{
     impl_auto_error_conversion,
 };
 
-use crate::types::{
-    builtin,
+use crate::types::{self,
+    VarInt32, VarUint32, Bytes,
+    TimePoint, TimePointSec, BlockTimestampType,
     Asset, InvalidAsset,
     Name, InvalidName,
     Symbol, SymbolCode, InvalidSymbol,
+    Checksum160, Checksum256, Checksum512,
     PublicKey, PrivateKey, Signature, InvalidCryptoData,
 };
 
@@ -54,32 +57,32 @@ pub enum AntelopeValue {
 
     #[strum(serialize = "varint32")]
     #[strum_discriminants(strum(serialize = "varint32"))]
-    VarInt32(i32),
+    VarInt32(VarInt32),
     #[strum(serialize = "varuint32")]
     #[strum_discriminants(strum(serialize = "varuint32"))]
-    VarUint32(u32),
+    VarUint32(VarUint32),
 
     Float32(f32),
     Float64(f64),
     // Float128(??),
 
-    Bytes(builtin::Bytes),
-    String(String),
+    Bytes(Bytes),
+    String(types::String),
 
-    TimePoint(builtin::TimePoint),
-    TimePointSec(builtin::TimePointSec),
-    BlockTimestampType(builtin::BlockTimestampType),
+    TimePoint(TimePoint),
+    TimePointSec(TimePointSec),
+    BlockTimestampType(BlockTimestampType),
 
-    Checksum160(Box<[u8; 20]>),
-    Checksum256(Box<[u8; 32]>),
-    Checksum512(Box<[u8; 64]>),
+    Checksum160(Box<Checksum160>),
+    Checksum256(Box<Checksum256>),
+    Checksum512(Box<Checksum512>),
 
     PublicKey(Box<PublicKey>),
     PrivateKey(Box<PrivateKey>),
     Signature(Box<Signature>),
 
     Name(Name),
-    SymbolCode(builtin::SymbolCode),
+    SymbolCode(SymbolCode),
     Symbol(Symbol),
     Asset(Asset),
     ExtendedAsset(Box<(Asset, Name)>),
@@ -107,15 +110,15 @@ impl AntelopeValue {
             AntelopeType::Uint32 => Self::Uint32(str_to_int(repr)?),
             AntelopeType::Uint64 => Self::Uint64(str_to_int(repr)?),
             AntelopeType::Uint128 => Self::Uint128(str_to_int(repr)?),
-            AntelopeType::VarInt32 => Self::VarInt32(str_to_int(repr)?),
-            AntelopeType::VarUint32 => Self::VarUint32(str_to_int(repr)?),
+            AntelopeType::VarInt32 => Self::VarInt32(str_to_int::<i32>(repr)?.into()),
+            AntelopeType::VarUint32 => Self::VarUint32(str_to_int::<u32>(repr)?.into()),
             AntelopeType::Float32 => Self::Float32(str_to_float(repr)?),
             AntelopeType::Float64 => Self::Float64(str_to_float(repr)?),
             AntelopeType::Bytes => Self::Bytes(hex::decode(repr).context(FromHexSnafu)?),
             AntelopeType::String => Self::String(repr.to_owned()),
-            AntelopeType::TimePoint => Self::TimePoint(builtin::TimePoint::from_str(repr)?),
-            AntelopeType::TimePointSec => Self::TimePointSec(builtin::TimePointSec::from_str(repr)?),
-            AntelopeType::BlockTimestampType => Self::BlockTimestampType(builtin::BlockTimestampType::from_str(repr)?),
+            AntelopeType::TimePoint => Self::TimePoint(TimePoint::from_str(repr)?),
+            AntelopeType::TimePointSec => Self::TimePointSec(TimePointSec::from_str(repr)?),
+            AntelopeType::BlockTimestampType => Self::BlockTimestampType(BlockTimestampType::from_str(repr)?),
             AntelopeType::Checksum160 => Self::Checksum160(hex_to_boxed_array(repr).context(FromHexSnafu)?),
             AntelopeType::Checksum256 => Self::Checksum256(hex_to_boxed_array(repr).context(FromHexSnafu)?),
             AntelopeType::Checksum512 => Self::Checksum512(hex_to_boxed_array(repr).context(FromHexSnafu)?),
@@ -144,8 +147,8 @@ impl AntelopeValue {
             Self::Uint32(n) => json!(n),
             Self::Uint64(n) => json!(n.to_string()),
             Self::Uint128(n) => json!(n.to_string()),
-            Self::VarInt32(n) => json!(n),
-            Self::VarUint32(n) => json!(n),
+            Self::VarInt32(n) => json!(i32::from(*n)),
+            Self::VarUint32(n) => json!(u32::from(*n)),
             Self::Float32(x) => json!(x),
             Self::Float64(x) => json!(x),
             Self::Bytes(b) => json!(hex::encode_upper(b)),
@@ -191,8 +194,8 @@ impl AntelopeValue {
             AntelopeType::Uint32 => Self::Uint32(variant_to_uint(v)?),
             AntelopeType::Uint64 => Self::Uint64(variant_to_uint(v)?),
             AntelopeType::Uint128 => Self::Uint128(variant_to_uint(v)?),
-            AntelopeType::VarInt32 => Self::VarInt32(variant_to_int(v)?),
-            AntelopeType::VarUint32 => Self::VarUint32(variant_to_uint(v)?),
+            AntelopeType::VarInt32 => Self::VarInt32(variant_to_int::<i32>(v)?.into()),
+            AntelopeType::VarUint32 => Self::VarUint32(variant_to_uint::<u32>(v)?.into()),
             AntelopeType::Float32 => Self::Float32(variant_to_float(v)?),
             AntelopeType::Float64 => Self::Float64(variant_to_float(v)?),
             AntelopeType::Bytes => Self::Bytes(hex::decode(
@@ -201,15 +204,15 @@ impl AntelopeValue {
             AntelopeType::String => Self::String(v.as_str().with_context(incompatible_types)?.to_owned()),
             AntelopeType::TimePoint => {
                 let repr = v.as_str().with_context(incompatible_types)?;
-                Self::TimePoint(builtin::TimePoint::from_str(repr)?)
+                Self::TimePoint(TimePoint::from_str(repr)?)
             },
             AntelopeType::TimePointSec => {
                 let repr = v.as_str().with_context(incompatible_types)?;
-                Self::TimePointSec(builtin::TimePointSec::from_str(repr)?)
+                Self::TimePointSec(TimePointSec::from_str(repr)?)
             },
             AntelopeType::BlockTimestampType => {
                 let repr = v.as_str().with_context(incompatible_types)?;
-                Self::BlockTimestampType(builtin::BlockTimestampType::from_str(repr)?)
+                Self::BlockTimestampType(BlockTimestampType::from_str(repr)?)
             },
             AntelopeType::Checksum160 => {
                 Self::Checksum160(hex_to_boxed_array(v.as_str().with_context(incompatible_types)?)
@@ -261,8 +264,8 @@ impl From<AntelopeValue> for i32 {
             AntelopeValue::Int32(n) => n,
             AntelopeValue::Uint8(n) => n as i32,
             AntelopeValue::Uint16(n) => n as i32,
-            AntelopeValue::Uint32(n) => n as i32,
-            AntelopeValue::VarUint32(n) => n as i32,
+            AntelopeValue::Uint32(n) => n.try_into().unwrap(),
+            AntelopeValue::VarUint32(n) => u32::from(n).try_into().unwrap(),
             _ => todo!(),
         }
     }
@@ -276,13 +279,13 @@ impl TryFrom<AntelopeValue> for usize {
             AntelopeValue::Int8(n) => n as usize,
             AntelopeValue::Int16(n) => n as usize,
             AntelopeValue::Int32(n) => n as usize,
-            AntelopeValue::Int64(n) => n as usize,
+            AntelopeValue::Int64(n) => n.try_into().context(IntConversionSnafu { size: "usize" })?,
             AntelopeValue::Uint8(n) => n as usize,
             AntelopeValue::Uint16(n) => n as usize,
             AntelopeValue::Uint32(n) => n as usize,
             AntelopeValue::Uint64(n) => n as usize,
-            AntelopeValue::VarInt32(n) => n as usize,
-            AntelopeValue::VarUint32(n) => n as usize,
+            AntelopeValue::VarInt32(n) => i32::from(n).try_into().context(IntConversionSnafu { size: "usize" })?,
+            AntelopeValue::VarUint32(n) => u32::from(n) as usize,
             _ => return InvalidDataSnafu { msg: (format!("cannot convert {:?} to usize", n)) }.fail(),
         })
     }
@@ -300,9 +303,9 @@ impl TryFrom<AntelopeValue> for i64 {
             AntelopeValue::Uint8(n) => n as i64,
             AntelopeValue::Uint16(n) => n as i64,
             AntelopeValue::Uint32(n) => n as i64,
-            AntelopeValue::Uint64(n) => n as i64,
-            AntelopeValue::VarInt32(n) => n as i64,
-            AntelopeValue::VarUint32(n) => n as i64,
+            AntelopeValue::Uint64(n) => n.try_into().context(IntConversionSnafu { size: "i64" })?,
+            AntelopeValue::VarInt32(n) => i32::from(n) as i64,
+            AntelopeValue::VarUint32(n) => u32::from(n) as i64,
             _ => return InvalidDataSnafu { msg: format!("cannot convert {:?} to i64", n) }.fail(),
         })
     }
@@ -408,6 +411,12 @@ pub enum InvalidValue {
 
     #[snafu(display("incorrect array size for checksum"))]
     IncorrectChecksumSize { source: TryFromSliceError },
+
+    #[snafu(display("cannot fit given number into integer type: {size}"))]
+    IntConversionError {
+        size: &'static str,
+        source: TryFromIntError
+    },
 
     #[snafu(display("{msg}"))]
     InvalidData { msg: String },  // acts as a generic error type with a given message

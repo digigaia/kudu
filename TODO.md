@@ -23,6 +23,10 @@ eg: settings paragraph in <https://github.com/tesselode/kira/releases/tag/v0.9.0
 - rename errors from `InvalidName` -> `NameError`, so the associated snafu will
   be `NameSnafu` instead of `InvalidNameSnafu`
 
+- (?) rename methods from `BinarySerializable`:
+  - `encode` -> `to_bin`
+  - `decode` -> `from_bin`
+
 - try defining the `ABISerializable` trait and implement it for all types, then replace the `AntelopeValue` struct with just the implementation of the base types
   (note: we might still need AntelopeValue, maybe rename it to AntelopeVariant)
 
@@ -85,6 +89,7 @@ eg: settings paragraph in <https://github.com/tesselode/kira/releases/tag/v0.9.0
 
 - check other tests and ideas from: <https://github.com/wharfkit/antelope>
 
+- replace links and refs from `AntelopeIO/leap` to `AntelopeIO/spring`
 
 ## MISC
 
