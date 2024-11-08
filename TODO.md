@@ -93,6 +93,8 @@ eg: settings paragraph in <https://github.com/tesselode/kira/releases/tag/v0.9.0
 
 ## MISC
 
+- include `ARCHITECTURE.md` somewhere in the docs
+
 - investigate rust libs found here: <https://onblock.dev/communicating-with-the-wax-blockchain>
 
 - Require Rust 1.80 and use LazyLock/OnceLock from std lib instead of a 3rd-party library

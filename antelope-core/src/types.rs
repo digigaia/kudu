@@ -2,15 +2,16 @@
 //!
 //! For the [built-in types][1] there are:
 //!  - type aliases when the Rust native type matches the Antelope type
-//!    (e.g.: `Int32 == i32`)
+//!    (e.g.: [`Int32`] is the same as `i32`)
 //!  - thin wrappers when the Antelope type adds some more functionality over
-//!    a base Rust type (e.g.: `VarInt32` wraps an `i32`)
-//!  - separate structs when the behavior is more complicated, eg: `Asset` or
-//!    `Symbol`
+//!    a base Rust type (e.g.: [`VarInt32`] wraps an `i32`)
+//!  - separate structs when the behavior is more complicated, eg: [`Asset`] or
+//!    [`Symbol`]
 //!
 //! Apart from the built-in types, there is [`AntelopeValue`] which is
-//! an enum that can contain any of the builtin types alongside
-//! [`AntelopeType`] which contains the list of its discriminants.
+//! an enum that can contain any of the built-in types and
+//! [`AntelopeType`] which contains the list of its discriminants (i.e.: the
+//! list of all built-in types).
 //!
 //! Other useful types include [`Action`], [`PermissionLevel`].
 //!

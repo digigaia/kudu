@@ -131,6 +131,7 @@ impl ABI {
         Ok(ds.pop())
     }
 
+    #[inline]
     pub fn encode<T: ABISerializable>(&self, stream: &mut ByteStream, obj: &T) {
         obj.to_bin(stream)
     }

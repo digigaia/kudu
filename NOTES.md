@@ -42,9 +42,6 @@ Spec is at: <https://github.com/eosio-eps/EEPs/blob/master/EEPS/eep-7.md>
 
 ## Design decisions
 
-This part lists the design decisions that went into the library. It helps document
-some decisions and their rationale and keep a trace so we don't have to ask the
-same question or wonder why some choices have been made over and over again.
 
 **TODO!**
 

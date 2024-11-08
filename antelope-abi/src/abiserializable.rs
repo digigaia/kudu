@@ -11,6 +11,8 @@ use crate::{
 
 
 // FIXME: from_bin should take &str instead of AntelopeType, and we might need to register an ABI provider
+//        we can actually get rid of `typename` by moving it as a generic trait type, or (better) by
+//        just calling it on the appropriate type that implements ABISerialize (if that is possible)
 pub trait ABISerializable {
     fn abi_name() -> &'static str {
         "undefined"
@@ -31,6 +33,17 @@ pub trait ABISerialize<T = Self> {
 }
 
 include!("abiserialize_builtin.rs");
+
+impl<T: BinarySerializable> ABISerializable for T {
+    fn to_bin(&self, stream: &mut ByteStream) {
+        self.encode(stream)
+    }
+    fn from_bin(_typename: AntelopeType, stream: &mut ByteStream) -> Result<T, SerializeError> {
+        // FIXME: we should check that the implement type (here: T) is compatible with
+        //        the `typename` type
+        T::decode(stream)
+    }
+}
 
 impl ABISerializable for AntelopeValue {
     fn to_bin(&self, stream: &mut ByteStream) {

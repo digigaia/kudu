@@ -183,6 +183,17 @@ impl BinarySerializable for Bytes {
         Ok(Vec::from(stream.read_bytes(len)?))
     }
 }
+
+impl BinarySerializable for &str {
+    fn encode(&self, stream: &mut ByteStream) {
+        write_var_u32(stream, self.len() as u32);
+        stream.write_bytes(self.as_bytes());
+    }
+    fn decode(_stream: &mut ByteStream) -> Result<Self, SerializeError> {
+        unimplemented!()
+    }
+}
+
 impl BinarySerializable for String {
     fn encode(&self, stream: &mut ByteStream) {
         write_var_u32(stream, self.len() as u32);

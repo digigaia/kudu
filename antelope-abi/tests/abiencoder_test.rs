@@ -1,4 +1,5 @@
-use std::fmt::Display;
+use std::fmt::{Debug, Display};
+use std::str::FromStr;
 
 use serde_json::json;
 use color_eyre::eyre::Result;
@@ -6,12 +7,11 @@ use chrono::{NaiveDate, TimeZone, Utc};
 
 use antelope_abi::abidefinition::*;
 use antelope_abi::{
-    ABI, ByteStream,
-    binaryserializable::write_var_u32,
+    ABI, ByteStream, BinarySerializable,
     abiserializable::ABISerializable,
 };
 use antelope_core::{
-    AntelopeValue, Name, Symbol, Asset, TimePoint, TimePointSec,
+    AntelopeValue, AntelopeType, Name, Symbol, Asset, TimePoint, TimePointSec, VarUint32,
 };
 
 use TypeNameRef as T;  // useful alias for writing literals
@@ -19,34 +19,93 @@ use TypeNameRef as T;  // useful alias for writing literals
 // TODO: add tests for deserialization
 // TODO: check more tests at: https://github.com/wharfkit/antelope/blob/master/test/serializer.ts
 
+fn test_encode<T>(obj: T, repr: &str)
+where
+    T: BinarySerializable + Debug + PartialEq,
+{
+    let mut stream = ByteStream::new();
+
+    // abi.encode(&mut stream, &obj);
+    obj.encode(&mut stream);
+    assert_eq!(stream.hex_data(), repr,
+               "wrong ABI serialization for: {obj:?}");
+}
+
+#[track_caller]
+fn test_roundtrip<T>(obj: T, repr: &str)
+where
+    T: BinarySerializable + Debug + PartialEq,
+{
+    let mut stream = ByteStream::new();
+
+    // abi.encode(&mut stream, &obj);
+    obj.encode(&mut stream);
+    assert_eq!(stream.hex_data(), repr,
+               "wrong ABI serialization for: {obj:?}");
+
+    let decoded = T::decode(&mut stream).unwrap();
+    assert_eq!(decoded, obj,
+               "deserialized object `{:?}` is not the same as original one `{:?}`",
+               decoded, obj);
+}
+
+#[track_caller]
+fn test_roundtrip_variant(obj: AntelopeValue, repr: &str) {
+    let abi = ABI::new();
+    let mut stream = ByteStream::new();
+
+    abi.encode(&mut stream, &obj);
+    assert_eq!(stream.hex_data(), repr, "wrong ABI serialization for: {obj:?}");
+
+    let typename: AntelopeType = AntelopeType::from_str(obj.as_ref()).unwrap();
+    let decoded = AntelopeValue::from_bin(typename, &mut stream).unwrap();
+    assert_eq!(decoded, obj,
+               "deserialized object `{:?}` is not the same as original one `{:?}`",
+               decoded, obj);
+}
+
+#[track_caller]
+fn check_round_trip<T, const N: usize, F>(vals: [(T, &str); N], convert: F)
+where
+    T: BinarySerializable + Debug + Clone + PartialEq,
+    F: Fn(T) -> AntelopeValue,
+{
+    for (val, repr) in vals {
+        // test serialization of the type itself
+        test_roundtrip(val.clone(), repr);
+
+        // test serialization of the type wrapped in an `AntelopeValue`
+        test_roundtrip_variant(convert(val.clone()), repr);
+    }
+}
+
+
+#[test]
+fn test_serialize_bools() {
+    let vals = [
+        (true,  "01"),
+        (false, "00"),
+    ];
+
+    check_round_trip(vals, AntelopeValue::Bool);
+}
 
 #[test]
 fn test_serialize_ints() {
-    let i1 = AntelopeValue::Uint64(5);
-    let i2 = AntelopeValue::Int64(-23);
+    test_roundtrip(5_u64, "0500000000000000");
+    test_roundtrip(-23_i64, "E9FFFFFFFFFFFFFF");
 
-    let abi = ABI::new();
-    let mut ds = ByteStream::new();
-
-    abi.encode(&mut ds, &i1);
-    assert_eq!(ds.hex_data(), "0500000000000000");
-
-    ds.clear();
-    abi.encode(&mut ds, &i2);
-    assert_eq!(ds.hex_data(), "E9FFFFFFFFFFFFFF");
+    test_roundtrip_variant(AntelopeValue::Int64(-23), "E9FFFFFFFFFFFFFF");
+    test_roundtrip_variant(AntelopeValue::Uint64(5), "0500000000000000");
 }
 
 #[test]
 fn test_serialize_string() {
-    let abi = ABI::new();
-    let mut ds = ByteStream::new();
+    test_encode("foo", "03666F6F");  // can't decode to &str due to lifetime issues
+    test_roundtrip("foo".to_owned(), "03666F6F");
+    test_roundtrip_variant(AntelopeValue::String("foo".to_owned()), "03666F6F");
 
-    abi.encode(&mut ds, &AntelopeValue::String("foo".to_owned()));
-    assert_eq!(ds.hex_data(), "03666F6F");
-
-    ds.clear();
-    abi.encode(&mut ds, &AntelopeValue::String("Hello world!".to_owned()));
-    assert_eq!(ds.hex_data(), "0C48656C6C6F20776F726C6421");
+    test_encode("Hello world!", "0C48656C6C6F20776F726C6421");
 }
 
 #[test]
@@ -71,13 +130,10 @@ fn test_serialize_name() {
     let obj = Name::from_str("foobar").unwrap();
     let json = r#""foobar""#;
 
-    let abi = ABI::new();
-    let mut ds = ByteStream::new();
-    abi.encode(&mut ds, &AntelopeValue::Name(obj));
-
     assert_eq!(obj.as_u64(), 6712742083569909760);
 
-    assert_eq!(&ds.hex_data(), &data);
+    test_roundtrip(obj, data);
+    test_roundtrip_variant(AntelopeValue::Name(obj), data);
 
     assert_eq!(serde_json::from_str::<Name>(json).unwrap(), obj);
     assert_eq!(serde_json::to_string(&obj).unwrap(), json);
@@ -89,14 +145,11 @@ fn test_serialize_symbol() {
     let obj = Symbol::from_str("4,FOO").unwrap();
     let json = r#""4,FOO""#;
 
-    let abi = ABI::new();
-    let mut ds = ByteStream::new();
-    abi.encode(&mut ds, &AntelopeValue::Symbol(obj));
-
     assert_eq!(obj.decimals(), 4);
     assert_eq!(obj.name(), "FOO");
 
-    assert_eq!(&ds.hex_data(), &data);
+    test_roundtrip(obj, data);
+    test_roundtrip_variant(AntelopeValue::Symbol(obj), data);
 
     assert_eq!(serde_json::from_str::<Symbol>(json).unwrap(), obj);
     assert_eq!(serde_json::to_string(&obj).unwrap(), json);
@@ -108,15 +161,12 @@ fn test_serialize_asset() {
     let obj = Asset::from_str("1.2345 FOO").unwrap();
     let json = r#""1.2345 FOO""#;
 
-    let abi = ABI::new();
-    let mut ds = ByteStream::new();
-    abi.encode(&mut ds, &AntelopeValue::Asset(obj));
-
     assert_eq!(obj.amount(), 12345);
     assert_eq!(obj.decimals(), 4);
     assert_eq!(obj.precision(), 10000);
 
-    assert_eq!(&ds.hex_data(), &data);
+    test_roundtrip(obj, data);
+    test_roundtrip_variant(AntelopeValue::Asset(obj), data);
 
     assert_eq!(serde_json::from_str::<Asset>(json).unwrap(), obj);
     assert_eq!(serde_json::to_string(&obj).unwrap(), json);
@@ -172,6 +222,7 @@ fn test_serialize_struct() {
 //                                                                            //
 ////////////////////////////////////////////////////////////////////////////////
 
+#[track_caller]
 fn test_serialize<T, const N: usize, const M: usize, F>(vals: [(T, &[u8; N]); M], convert: F)
 where
     T: Display + Clone,
@@ -385,7 +436,7 @@ fn test_var_u32() {
 
     for &(val, repr) in vals {
         ds.clear();
-        write_var_u32(&mut ds, val);
+        VarUint32::from(val).encode(&mut ds);
         assert_eq!(ds.data(), repr, "wrong ABI serialization for: {val}");
     }
 }

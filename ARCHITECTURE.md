@@ -8,6 +8,10 @@ TODO!
 
 # DESIGN DECISIONS
 
+This part lists the design decisions that went into the library. It helps document
+some decisions and their rationale and keep a trace so we don't have to ask the
+same question or wonder why some choices have been made over and over again.
+
 ## own class for ByteStream
 
 we investigated the possibility to use the `std::io::Read` and `std::io::Write`
@@ -18,8 +22,8 @@ we investigated the possibility to use the `bytes` crate which looks very nice,
 except for one minor issue:
 the read and write operation are both infallible. This is ok for write operations
 for us, but for read operations that means that we panic if we reach the end of
-the stream, which is something that we could expect and we currently account
-properly for it with `StreamError`.
+the stream, which is something that we could expect and that we currently account
+properly for with `StreamError`.
 
 ## Error handling
 
