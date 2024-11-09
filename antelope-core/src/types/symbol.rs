@@ -41,7 +41,7 @@ impl Symbol {
 
     fn from_prec_and_str(precision: u8, name: &str) -> Result<Self, InvalidSymbol> {
         Ok(Self {
-            value: string_to_symbol(precision, name.as_bytes())?,
+            value: string_to_symbol(precision, name)?,
         })
     }
 
@@ -103,25 +103,26 @@ impl SymbolCode {
     pub fn from_u64(n: u64) -> SymbolCode {
         SymbolCode(n)
     }
+
     pub fn as_u64(&self) -> u64 { self.0 }
 
-
-    pub fn from_bytes(s: &[u8]) -> Result<SymbolCode, InvalidSymbol> {
+    pub fn from_str(s: &str) -> Result<SymbolCode, InvalidSymbol> {
         string_to_symbol_code(s).map(SymbolCode)
     }
 }
 
 // FIXME: inline these into `SymbolCode` methods
-fn string_to_symbol_code(s: &[u8]) -> Result<u64, InvalidSymbol> {
+fn string_to_symbol_code(s: &str) -> Result<u64, InvalidSymbol> {
     let mut result: u64 = 0;
     ensure!(!s.is_empty(), EmptySnafu);
 
-    let name = String::from_utf8(s.to_owned()).unwrap(); // unwrap should be safe here
+    // let name = std::str::from_utf8(s).unwrap(); // unwrap should be safe here
+    let name = s;
     ensure!(s.len() <= 7, TooLongSnafu { name });
 
-    for (i, &c) in s.iter().enumerate() {
+    for (i, &c) in s.as_bytes().iter().enumerate() {
         ensure!(c.is_ascii_uppercase(), InvalidCharSnafu { symbol: name, c: c as char });
-        result |= (s[i] as u64) << (8 * i);
+        result |= (c as u64) << (8 * i);
     }
     Ok(result)
 }
@@ -137,7 +138,7 @@ fn symbol_code_to_string(value: u64) -> String {
     result
 }
 
-fn string_to_symbol(precision: u8, s: &[u8]) -> Result<u64, InvalidSymbol> {
+fn string_to_symbol(precision: u8, s: &str) -> Result<u64, InvalidSymbol> {
     ensure!(precision <= Symbol::MAX_PRECISION,
             InvalidPrecisionSnafu { given: precision, max: Symbol::MAX_PRECISION });
     Ok(string_to_symbol_code(s)? << 8 | (precision as u64))
@@ -212,6 +213,18 @@ impl<'de> Deserialize<'de> for Symbol {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn basic_functionality() {
+        let obj = Symbol::from_str("4,FOO").unwrap();
+        let json = r#""4,FOO""#;
+
+        assert_eq!(obj.decimals(), 4);
+        assert_eq!(obj.name(), "FOO");
+
+        assert_eq!(serde_json::from_str::<Symbol>(json).unwrap(), obj);
+        assert_eq!(serde_json::to_string(&obj).unwrap(), json);
+    }
 
     #[test]
     fn invalid_symbols() {

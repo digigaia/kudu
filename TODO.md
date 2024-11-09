@@ -18,6 +18,10 @@ eg: settings paragraph in <https://github.com/tesselode/kira/releases/tag/v0.9.0
 <https://docs.rs/builder-pattern/latest/builder_pattern/>
 <https://zerotomastery.io/blog/rust-struct-guide/>
 
+- split `ByteStream` into a trait and a class implementing it.
+  methods operate generically using the trait, which allow people to use their own
+  implementation if needed (the one we have currently is pretty barebones and not optimized)
+
 - clean abi.rs
 
 - rename errors from `InvalidName` -> `NameError`, so the associated snafu will
@@ -68,6 +72,12 @@ eg: settings paragraph in <https://github.com/tesselode/kira/releases/tag/v0.9.0
 
 
 ## CORRECTNESS / TESTING
+
+- IMPORTANT
+  unittests for base types should have at least the following:
+  - basic functionality
+  - invalid values
+  - (de)serialization to JSON
 
 - check whether we can fix this test for abieos float printing:
   `check_round_trip2(abi, "float64", "151115727451828646838272.0", "000000000000C044", "151115727451828650000000"`

@@ -64,10 +64,10 @@ fn encode() {
     // assert!(false);
     let enc = req.encode();
 
-    assert_eq!(hex::encode_upper(enc),
-               concat!("000101010000000000EA30557015D289DEAA32DD",
+    assert_eq!(hex::encode(enc),
+               concat!("000101010000000000ea30557015d289deaa32dd",
                        "0101000000000000000200000000000000110100",
-                       "000000000000A032DD181BE9D56500010000"));
+                       "000000000000a032dd181be9d56500010000"));
 }
 
 #[test]
@@ -179,7 +179,7 @@ fn create_from_action() -> Result<()> {
                 "account": "eosio.token",
                 "name": "transfer",
                 "authorization": [{"actor": "foo", "permission": "active"}],
-                "data": "000000000000285D000000000000AE39E80300000000000003454F53000000000B68656C6C6F207468657265",
+                "data": "000000000000285d000000000000ae39e80300000000000003454f53000000000b68656c6c6f207468657265",
             },
         ],
         "callback": "",
@@ -227,13 +227,13 @@ fn create_from_actions() -> Result<()> {
                     "account": "eosio.token",
                     "name": "transfer",
                     "authorization": [{"actor": "foo", "permission": "active"}],
-                    "data": "000000000000285D000000000000AE39E80300000000000003454F53000000000B68656C6C6F207468657265"
+                    "data": "000000000000285d000000000000ae39e80300000000000003454f53000000000b68656c6c6f207468657265"
                 },
                 {
                     "account": "eosio.token",
                     "name": "transfer",
                     "authorization": [{"actor": "baz", "permission": "active"}],
-                    "data": "000000000000BE39000000000000AE39E80300000000000003454F53000000000B68656C6C6F207468657265"
+                    "data": "000000000000be39000000000000ae39e80300000000000003454f53000000000b68656c6c6f207468657265"
                 }
             ]
         ],
@@ -263,7 +263,7 @@ fn create_from_transaction() -> Result<()> {
                     "account": "eosio.token",
                     "name": "transfer",
                     "authorization": [{"actor": "foo", "permission": "active"}],
-                    "data": "000000000000285D000000000000AE39E80300000000000003454F53000000000B68656C6C6F207468657265",
+                    "data": "000000000000285d000000000000ae39e80300000000000003454f53000000000b68656c6c6f207468657265",
                 }
             ]
         }))
@@ -285,7 +285,7 @@ fn create_from_transaction() -> Result<()> {
                         "account": "eosio.token",
                         "name": "transfer",
                         "authorization": [{"actor": "foo", "permission": "active"}],
-                        "data": "000000000000285D000000000000AE39E80300000000000003454F53000000000B68656C6C6F207468657265",
+                        "data": "000000000000285d000000000000ae39e80300000000000003454f53000000000b68656c6c6f207468657265",
                     },
                 ],
                 "context_free_actions": [],

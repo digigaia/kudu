@@ -71,6 +71,15 @@ It should still be possible to extend this and implement new external ABIProvide
 using a custom variant that takes ownership of a struct implementing a new
 ABIProviderTrait or something similar.
 
+## Voluntarily unsupported features
+
+## `f128`
+
+`f128` is unsupported for the following reasons:
+
+- `f128` support is experimental in Rust
+- most importantly, we believe `f128` is completely unused in the EOS ecosystem
+
 
 # STYLE
 
@@ -83,10 +92,15 @@ ABIProviderTrait or something similar.
 - our own crate imports
 
 
-## TODO: DECIDE: use `hex::encode_upper()` instead of `hex::encode()`
+## Hex literals are written in lower-case
+
+That also means that we should use `hex::encode()` instead of `hex::encode_upper()`
 
 Antelope C++ code uses UPPER_CASE
 Wharfkit TS code uses lower_case
 
-it seems that lower case encoding is more readable as lower case letters have a
-lower height than digits, whereas upper case letters have the same height
+It seems that lower case encoding is more readable as lower case letters have a
+lower height than digits, whereas upper case letters and digits all have the same
+height so it's harder to distinguish groups of characters.
+
+Most crypto websites (block explorers) seem to use lower case too.

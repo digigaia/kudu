@@ -65,7 +65,7 @@ impl ByteStream {
     }
 
     pub fn hex_data(&self) -> String {
-        hex::encode_upper(&self.data)
+        hex::encode(&self.data)
     }
 
     pub fn leftover(&self) -> &[u8] {

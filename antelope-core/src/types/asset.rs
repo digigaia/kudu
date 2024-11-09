@@ -191,4 +191,17 @@ mod tests {
             assert!(Asset::from_str(n).is_err());
         }
     }
+
+    #[test]
+    fn serialize_json() {
+        let obj = Asset::from_str("1.2345 FOO").unwrap();
+        let json = r#""1.2345 FOO""#;
+
+        assert_eq!(obj.amount(), 12345);
+        assert_eq!(obj.decimals(), 4);
+        assert_eq!(obj.precision(), 10000);
+
+        assert_eq!(serde_json::from_str::<Asset>(json).unwrap(), obj);
+        assert_eq!(serde_json::to_string(&obj).unwrap(), json);
+    }
 }

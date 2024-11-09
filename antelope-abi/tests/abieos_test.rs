@@ -27,6 +27,8 @@ use antelope_abi::data::{
     STATE_HISTORY_PLUGIN_ABI,
 };
 
+// FIXME: hex literals should be lowercase
+
 ////////////////////////////////////////////////////////////////////////////////
 //                                                                            //
 // following tests are coming from                                            //
@@ -85,7 +87,7 @@ fn round_trip(abi: &ABI, typename: &str, data: &str, hex: &str, expected: &str) 
     let mut ds = ByteStream::new();
 
     try_encode_stream(&mut ds, abi, T(typename), data)?;
-    assert_eq!(ds.hex_data(), hex.to_ascii_uppercase());
+    assert_eq!(ds.hex_data(), hex.to_ascii_lowercase());
 
     let decoded = try_decode_stream(&mut ds, abi, T(typename))?;
     assert_eq!(decoded.to_string(), expected);

@@ -126,7 +126,7 @@ impl AntelopeValue {
             AntelopeType::PrivateKey => Self::PrivateKey(Box::new(PrivateKey::from_str(repr).context(CryptoDataSnafu)?)),
             AntelopeType::Signature => Self::Signature(Box::new(Signature::from_str(repr).context(CryptoDataSnafu)?)),
             AntelopeType::Name => Self::Name(Name::from_str(repr).context(NameSnafu)?),
-            AntelopeType::SymbolCode => Self::SymbolCode(SymbolCode::from_bytes(repr.as_bytes()).context(SymbolSnafu)?),
+            AntelopeType::SymbolCode => Self::SymbolCode(SymbolCode::from_str(repr).context(SymbolSnafu)?),
             AntelopeType::Symbol => Self::Symbol(Symbol::from_str(repr).context(SymbolSnafu)?),
             AntelopeType::Asset => Self::Asset(Asset::from_str(repr).context(AssetSnafu { repr })?),
             AntelopeType::ExtendedAsset => Self::from_json(typename, &serde_json::from_str(repr).context(JsonParseSnafu)?)?,

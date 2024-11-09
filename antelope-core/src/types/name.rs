@@ -193,9 +193,6 @@ mod tests {
         assert_eq!(Name::from_str("")?,
                    Name::from_u64(0));
 
-        assert_eq!(Name::from_str("foobar")?,
-                   Name::from_u64(6712742083569909760));
-
         Ok(())
     }
 
@@ -229,4 +226,17 @@ mod tests {
 
         Ok(())
     }
+
+    #[test]
+    fn basic_functionality() {
+        let name = Name::from_str("foobar").unwrap();
+        let json = r#""foobar""#;
+
+        assert_eq!(name, Name::from_u64(6712742083569909760));
+        assert_eq!(name.as_u64(), 6712742083569909760);
+
+        assert_eq!(serde_json::from_str::<Name>(json).unwrap(), name);
+        assert_eq!(serde_json::to_string(&name).unwrap(), json);
+    }
+
 }
