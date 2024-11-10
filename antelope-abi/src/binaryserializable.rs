@@ -1,15 +1,15 @@
 use std::str::{from_utf8, Utf8Error};
 
-use antelope_core::{
-    types::*,
-    crypto::{CryptoData, CryptoDataType, KeyType},
-    impl_auto_error_conversion,
-};
 use bytemuck::{cast_ref, pod_read_unaligned};
 use hex::FromHexError;
 use snafu::{ensure, Snafu, IntoError, ResultExt};
 
 use antelope_macros::with_location;
+use antelope_core::{
+    types::*,
+    crypto::{CryptoData, CryptoDataType, KeyType},
+    impl_auto_error_conversion,
+};
 use crate::{ByteStream, StreamError};
 
 
@@ -184,10 +184,11 @@ impl BinarySerializable for Bytes {
     }
 }
 
-impl BinarySerializable for &str {
+// convenience implementation to avoid allocating when encoding a &[u8]
+impl BinarySerializable for &[u8] {
     fn encode(&self, stream: &mut ByteStream) {
         write_var_u32(stream, self.len() as u32);
-        stream.write_bytes(self.as_bytes());
+        stream.write_bytes(self);
     }
     fn decode(_stream: &mut ByteStream) -> Result<Self, SerializeError> {
         unimplemented!()
@@ -205,6 +206,17 @@ impl BinarySerializable for String {
     }
 }
 
+// convenience implementation to avoid allocating encoding a &str
+impl BinarySerializable for &str {
+    fn encode(&self, stream: &mut ByteStream) {
+        write_var_u32(stream, self.len() as u32);
+        stream.write_bytes(self.as_bytes());
+    }
+    fn decode(_stream: &mut ByteStream) -> Result<Self, SerializeError> {
+        unimplemented!()
+    }
+}
+
 
 // -----------------------------------------------------------------------------
 //     Serialization of time types
@@ -214,6 +226,7 @@ impl_wrapped_serialization!(TimePoint, i64);
 impl_wrapped_serialization!(TimePointSec, u32);
 impl_wrapped_serialization!(BlockTimestampType, u32);
 
+
 // -----------------------------------------------------------------------------
 //     Serialization of checksum types
 // -----------------------------------------------------------------------------
@@ -221,6 +234,7 @@ impl_wrapped_serialization!(BlockTimestampType, u32);
 impl_array_serialization!(Checksum160, 20);
 impl_array_serialization!(Checksum256, 32);
 impl_array_serialization!(Checksum512, 64);
+
 
 // -----------------------------------------------------------------------------
 //     Serialization of Antelope types
@@ -303,9 +317,7 @@ impl<T: CryptoDataType, const DATA_SIZE: usize> BinarySerializable for CryptoDat
 //     util functions for varints and reading/writing str/bytes
 // -----------------------------------------------------------------------------
 
-// TODO: remove pub visibility on those functions?
-
-pub fn write_var_u32(stream: &mut ByteStream, n: u32) {
+fn write_var_u32(stream: &mut ByteStream, n: u32) {
     let mut n = n;
     loop {
         if n >> 7 != 0 {
@@ -319,12 +331,12 @@ pub fn write_var_u32(stream: &mut ByteStream, n: u32) {
     }
 }
 
-pub fn write_var_i32(stream: &mut ByteStream, n: i32) {
+fn write_var_i32(stream: &mut ByteStream, n: i32) {
     let unsigned = ((n as u32) << 1) ^ ((n >> 31) as u32);
     write_var_u32(stream, unsigned)
 }
 
-pub fn read_var_u32(stream: &mut ByteStream) -> Result<u32, SerializeError> {
+fn read_var_u32(stream: &mut ByteStream) -> Result<u32, SerializeError> {
     let mut offset = 0;
     let mut result = 0;
     loop {
@@ -338,7 +350,7 @@ pub fn read_var_u32(stream: &mut ByteStream) -> Result<u32, SerializeError> {
     Ok(result)
 }
 
-pub fn read_var_i32(stream: &mut ByteStream) -> Result<i32, SerializeError> {
+fn read_var_i32(stream: &mut ByteStream) -> Result<i32, SerializeError> {
     let n = read_var_u32(stream)?;
     Ok(match n & 1 {
         0 => n >> 1,

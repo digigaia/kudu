@@ -9,8 +9,7 @@ use antelope_abi::{
     abiserializable::ABISerializable,
 };
 use antelope_core::{
-    AntelopeValue, AntelopeType, VarInt32, VarUint32,
-    Name, Symbol, SymbolCode, Asset, TimePoint, TimePointSec,
+    convert::hex_to_boxed_array, AntelopeType, AntelopeValue, Asset, BlockTimestampType, Name, Symbol, SymbolCode, TimePoint, TimePointSec, VarInt32, VarUint32
 };
 
 // =============================================================================
@@ -21,8 +20,7 @@ use antelope_core::{
 //        - https://github.com/AntelopeIO/abieos/blob/main/src/test.cpp#L577
 //
 //     TODO:
-//      - missing tests for: Bytes, BlockTimestampType, checksum types,
-//        crypto types, ExtendedAsset
+//      - missing tests for: crypto types, utf8 encoding
 //      - check more tests at: https://github.com/wharfkit/antelope/blob/master/test/serializer.ts
 //
 // =============================================================================
@@ -389,7 +387,6 @@ fn test_f64() {
 //     String and Bytes tests
 // -----------------------------------------------------------------------------
 
-
 #[test]
 fn test_string() {
     let vals = [
@@ -403,6 +400,60 @@ fn test_string() {
     test_encode("foo", "03666f6f");  // can't decode to &str due to lifetime issues
 }
 
+#[test]
+fn test_bytes() {
+    let vals = [
+        ("", "00"),
+        ("00", "0100"),
+        ("aabbccddeeff00010203040506070809", "10aabbccddeeff00010203040506070809"),
+    ];
+    check_round_trip_map_type(vals, |s| hex::decode(s).unwrap(), AntelopeValue::Bytes);
+
+    test_encode(&b"foo"[..], "03666f6f");  // can't decode to &str due to lifetime issues
+}
+
+
+// -----------------------------------------------------------------------------
+//     Checksum types
+// -----------------------------------------------------------------------------
+
+#[test]
+fn roundtrip_crypto_types() {
+    let vals = [
+        ("0000000000000000000000000000000000000000",
+         "0000000000000000000000000000000000000000"),
+        ("123456789abcdef01234567890abcdef70123456",
+         "123456789abcdef01234567890abcdef70123456"),
+    ];
+    check_round_trip_map_type(vals,
+                              |s| *hex_to_boxed_array(s).unwrap(),
+                              |s| AntelopeValue::Checksum160(Box::new(s)));
+
+    let vals = [
+        ("0000000000000000000000000000000000000000000000000000000000000000",
+         "0000000000000000000000000000000000000000000000000000000000000000"),
+        ("0987654321abcdef0987654321ffff1234567890abcdef001234567890abcdef",
+         "0987654321abcdef0987654321ffff1234567890abcdef001234567890abcdef"),
+    ];
+    check_round_trip_map_type(vals,
+                              |s| *hex_to_boxed_array(s).unwrap(),
+                              |s| AntelopeValue::Checksum256(Box::new(s)));
+
+    let vals = [
+        (concat!("0000000000000000000000000000000000000000000000000000000000000000",
+                 "0000000000000000000000000000000000000000000000000000000000000000"),
+         concat!("0000000000000000000000000000000000000000000000000000000000000000",
+                 "0000000000000000000000000000000000000000000000000000000000000000")),
+        (concat!("0987654321abcdef0987654321ffff1234567890abcdef001234567890abcdef",
+                 "0987654321abcdef0987654321ffff1234567890abcdef001234567890abcdef"),
+         concat!("0987654321abcdef0987654321ffff1234567890abcdef001234567890abcdef",
+                 "0987654321abcdef0987654321ffff1234567890abcdef001234567890abcdef")),
+    ];
+    check_round_trip_map_type(vals,
+                              |s| *hex_to_boxed_array(s).unwrap(),
+                              |s| AntelopeValue::Checksum512(Box::new(s)));
+}
+
 
 // -----------------------------------------------------------------------------
 //     Time-related types tests
@@ -410,7 +461,7 @@ fn test_string() {
 
 
 #[test]
-fn test_time_point_sec() -> Result<()> {
+fn test_time_point_sec() {
     fn dt(year: i32, month: u32, day: u32,
           hour: u32, min: u32, sec: u32) -> TimePointSec
     {
@@ -429,11 +480,10 @@ fn test_time_point_sec() -> Result<()> {
     ];
 
     check_round_trip(vals, AntelopeValue::TimePointSec);
-    Ok(())
 }
 
 #[test]
-fn test_time_point() -> Result<()> {
+fn test_time_point() {
     fn dt(year: i32, month: u32, day: u32,
           hour: u32, min: u32, sec: u32, micro: u32) -> TimePoint
     {
@@ -453,8 +503,23 @@ fn test_time_point() -> Result<()> {
     ];
 
     check_round_trip(vals, AntelopeValue::TimePoint);
-    Ok(())
 }
+
+#[test]
+fn test_block_timestamp_type() {
+    let vals = [
+        ("2000-01-01T00:00:00.000", "00000000"),
+        ("2000-01-01T00:00:00.500", "01000000"),
+        ("2000-01-01T00:00:01.000", "02000000"),
+        ("2018-06-15T19:17:47.500", "b79a6d45"),
+        ("2018-06-15T19:17:48.000", "b89a6d45"),
+    ];
+
+    check_round_trip_map_type(vals,
+                              |s| BlockTimestampType::from_str(s).unwrap(),
+                              AntelopeValue::BlockTimestampType)
+}
+
 
 
 // -----------------------------------------------------------------------------
@@ -462,7 +527,7 @@ fn test_time_point() -> Result<()> {
 // -----------------------------------------------------------------------------
 
 #[test]
-fn test_name() -> Result<()> {
+fn test_name() {
     let vals = [
         ("a",             "0000000000000030"),
         ("b",             "0000000000000038"),
@@ -476,11 +541,10 @@ fn test_name() -> Result<()> {
     check_round_trip_map_type(vals,
                               |s| Name::from_str(s).unwrap(),
                               AntelopeValue::Name);
-    Ok(())
 }
 
 #[test]
-fn test_symbol_code() -> Result<()> {
+fn test_symbol_code() {
     let vals = [
         ("A",   "4100000000000000"),
         ("B",   "4200000000000000"),
@@ -490,11 +554,10 @@ fn test_symbol_code() -> Result<()> {
     check_round_trip_map_type(vals,
                               |s| SymbolCode::from_str(s).unwrap(),
                               AntelopeValue::SymbolCode);
-    Ok(())
 }
 
 #[test]
-fn test_symbol() -> Result<()> {
+fn test_symbol() {
     let vals = [
         ("0,W",       "0057000000000000"),  // minimum amount of characters
         ("0,WAXXXXX", "0057415858585858"),  // maximum amount of characters
@@ -506,11 +569,10 @@ fn test_symbol() -> Result<()> {
     check_round_trip_map_type(vals,
                               |s| Symbol::from_str(s).unwrap(),
                               AntelopeValue::Symbol);
-    Ok(())
 }
 
 #[test]
-fn test_asset() -> Result<()> {
+fn test_asset() {
     let vals = [
         ("99.9 WAX",   "e7030000000000000157415800000000"),
         ("99 WAX",     "63000000000000000057415800000000"),
@@ -520,5 +582,17 @@ fn test_asset() -> Result<()> {
     check_round_trip_map_type(vals,
                               |s| Asset::from_str(s).unwrap(),
                               AntelopeValue::Asset);
+}
+
+#[test]
+fn test_extended_asset() -> Result<()> {
+    let vals = [
+        ((Asset::from_str("0 FOO")?, Name::try_from("bar")?),
+         "000000000000000000464f4f00000000000000000000ae39"),
+        ((Asset::from_str("0.123456 SIX")?, Name::try_from("seven")?),
+         "40e201000000000006534958000000000000000080a9b6c2"),
+    ];
+
+    check_round_trip(vals, |s| AntelopeValue::ExtendedAsset(Box::new(s)));
     Ok(())
 }

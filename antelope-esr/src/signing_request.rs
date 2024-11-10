@@ -11,7 +11,7 @@ use flate2::read::DeflateDecoder;
 use serde::{Serialize, Serializer, ser::SerializeTuple, ser::SerializeStruct};
 
 use antelope_macros::with_location;
-use antelope_core::{types::antelopevalue::hex_to_boxed_array, JsonValue, Name, json};
+use antelope_core::{convert::hex_to_boxed_array, JsonValue, Name, json};
 use antelope_abi::{
     ByteStream, SerializeError,
     abidefinition::TypeNameRef as T,

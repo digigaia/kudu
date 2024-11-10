@@ -3,9 +3,6 @@ use tracing::instrument;
 use antelope_core::types::*;
 
 use crate::{
-    binaryserializable::{
-        read_var_i32, read_var_u32, write_var_i32, write_var_u32,
-    },
     ByteStream, BinarySerializable, SerializeError,
 };
 

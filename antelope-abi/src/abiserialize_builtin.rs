@@ -13,19 +13,19 @@ where
 
 impl ABISerialize<VarInt32> for i32 {
     fn to_bin(&self, stream: &mut ByteStream) {
-        write_var_i32(stream, *self);
+        VarInt32::from(*self).encode(stream)
     }
     fn from_bin(stream: &mut ByteStream) -> Result<Self, SerializeError> {
-        read_var_i32(stream)
+        Ok(VarInt32::decode(stream)?.into())
     }
 }
 
 impl ABISerialize<VarUint32> for u32 {
     fn to_bin(&self, stream: &mut ByteStream) {
-        write_var_u32(stream, *self);
+        VarUint32::from(*self).encode(stream)
     }
     fn from_bin(stream: &mut ByteStream) -> Result<Self, SerializeError> {
-        read_var_u32(stream)
+        Ok(VarUint32::decode(stream)?.into())
     }
 }
 

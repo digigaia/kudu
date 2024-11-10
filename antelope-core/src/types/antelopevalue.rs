@@ -29,7 +29,7 @@ use crate::types::{self,
 
 use crate::convert::{
     variant_to_int, variant_to_uint, variant_to_float, variant_to_str,
-    str_to_int, str_to_float,
+    str_to_int, str_to_float, hex_to_boxed_array,
     ConversionError
 };
 
@@ -326,13 +326,6 @@ impl TryFrom<AntelopeValue> for String {
     }
 }
 
-
-
-pub fn hex_to_boxed_array<const N: usize>(s: &str) -> Result<Box<[u8; N]>, FromHexError> {
-    let mut result = [0_u8; N];
-    hex::decode_to_slice(s, &mut result)?;
-    Ok(Box::new(result))
-}
 
 
 #[cfg(test)]
