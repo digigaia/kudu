@@ -151,6 +151,7 @@ impl Default for SigningRequest {
 //     EncodeOptions
 // -----------------------------------------------------------------------------
 
+// TODO: use builder pattern to create instances of this struct
 pub struct EncodeOptions {
     pub version: u8,
     pub use_compression: bool,

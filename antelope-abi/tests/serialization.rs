@@ -9,7 +9,7 @@ use antelope_abi::{
     abiserializable::ABISerializable,
 };
 use antelope_core::{
-    convert::hex_to_boxed_array, AntelopeType, AntelopeValue, Asset, BlockTimestampType, Name, Symbol, SymbolCode, TimePoint, TimePointSec, VarInt32, VarUint32
+    convert::hex_to_boxed_array, AntelopeType, AntelopeValue, Asset, BlockTimestampType, Name, Symbol, SymbolCode, TimePoint, TimePointSec, VarInt32, VarUint32, PublicKey, PrivateKey, Signature,
 };
 
 // =============================================================================
@@ -20,7 +20,6 @@ use antelope_core::{
 //        - https://github.com/AntelopeIO/abieos/blob/main/src/test.cpp#L577
 //
 //     TODO:
-//      - missing tests for: crypto types, utf8 encoding
 //      - check more tests at: https://github.com/wharfkit/antelope/blob/master/test/serializer.ts
 //
 // =============================================================================
@@ -336,7 +335,7 @@ fn test_f32() {
         (   10f32, "00002041"),
         (    1e15, "a95f6358"),
         ( 1.15e15, "68bd8258"),
-        // (-0f32, "00000000"),  // FIXME: failing, what is the actual expected value?
+        (     -0., "00000080"),
         (    -0.1, "cdccccbd"),
         (   -0.10, "cdccccbd"),
         (  -0.100, "cdccccbd"),
@@ -366,7 +365,7 @@ fn test_f64() {
         (   10f64, "0000000000002440"),
         (    1e15, "00003426f56b0c43"),
         ( 1.15e15, "0080f7f5ac571043"),
-        // (-0f64, "0000000000000000"),  // FIXME: failing, what is the actual expected value?
+        (     -0., "0000000000000080"),
         (    -0.1, "9a9999999999b9bf"),
         (   -0.10, "9a9999999999b9bf"),
         (  -0.100, "9a9999999999b9bf"),
@@ -377,6 +376,7 @@ fn test_f64() {
         (  -10f64, "00000000000024c0"),
         (   -1e15, "00003426f56b0cc3"),
         (-1.15e15, "0080f7f5ac5710c3"),
+        (151115727451828646838272.0, "000000000000c044"),
     ];
 
     check_round_trip(vals, AntelopeValue::Float64);
@@ -414,11 +414,12 @@ fn test_bytes() {
 
 
 // -----------------------------------------------------------------------------
-//     Checksum types
+//     Crypto types
 // -----------------------------------------------------------------------------
 
 #[test]
-fn roundtrip_crypto_types() {
+fn roundtrip_checksum() {
+    // ==== Checksum160 ====
     let vals = [
         ("0000000000000000000000000000000000000000",
          "0000000000000000000000000000000000000000"),
@@ -429,6 +430,7 @@ fn roundtrip_crypto_types() {
                               |s| *hex_to_boxed_array(s).unwrap(),
                               |s| AntelopeValue::Checksum160(Box::new(s)));
 
+    // ==== Checksum256 ====
     let vals = [
         ("0000000000000000000000000000000000000000000000000000000000000000",
          "0000000000000000000000000000000000000000000000000000000000000000"),
@@ -439,6 +441,7 @@ fn roundtrip_crypto_types() {
                               |s| *hex_to_boxed_array(s).unwrap(),
                               |s| AntelopeValue::Checksum256(Box::new(s)));
 
+    // ==== Checksum512 ====
     let vals = [
         (concat!("0000000000000000000000000000000000000000000000000000000000000000",
                  "0000000000000000000000000000000000000000000000000000000000000000"),
@@ -454,11 +457,81 @@ fn roundtrip_crypto_types() {
                               |s| AntelopeValue::Checksum512(Box::new(s)));
 }
 
+#[test]
+fn roundtrip_crypto_types() -> Result<()> {
+    // ==== PublicKey ====
+    let vals = [
+        ("PUB_K1_11111111111111111111111111111111149Mr2R",
+         "00000000000000000000000000000000000000000000000000000000000000000000"),
+        ("PUB_K1_11111111111111111111111115qCHTcgbQwpvP72Uq",
+         "0000000000000000000000000000000000000000000000000000ffffffffffffffff"),
+        ("PUB_K1_111111111111111114ZrjxJnU1LA5xSyrWMNuXTrVub2r",
+         "000000000000000000000000000000000000ffffffffffffffffffffffffffffffff"),
+        ("PUB_K1_1111111113diW7pnisfdBvHTXP7wvW5k5Ky1e5DVuF4PizpM",
+         "00000000000000000000ffffffffffffffffffffffffffffffffffffffffffffffff"),
+        ("PUB_K1_11DsZ6Lyr1aXpm9aBqqgV4iFJpNbSw5eE9LLTwNAxqjJgXSdB8",
+         "00000080ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"),
+        ("PUB_K1_12wkBET2rRgE8pahuaczxKbmv7ciehqsne57F9gtzf1PVb7Rf7o",
+         "0000ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"),
+        ("PUB_K1_1yp8ebBuKZ13orqUrZsGsP49e6K3ThVK1nLutxSyU5j9Tx1r96",
+         "000080ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"),
+        ("PUB_K1_9adaAMuB9v8yX1mZ5PtoB6VFSCeqRGjASd8ZTM6VUkiHLB5XEdw",
+         "00ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"),
+        ("PUB_K1_69X3383RzBZj41k73CSjUNXM5MYGpnDxyPnWUKPEtYQmVzqTY7",
+         "0002a5d2400af24411f64c29da2fe893ff2b6681a3b6ffbe980b2ee42ad10cc2e994"),
+        ("PUB_K1_7yBtksm8Kkg85r4in4uCbfN77uRwe82apM8jjbhFVDgEcarGb8",
+         "000395c2020968e922eb4319fb56eb4fb0e7543d4b84ad367d8dc1b922338eb7232b"),
+        ("PUB_K1_7WnhaKwHpbSidYuh2DF1qAExTRUtPEdZCaZqt75cKcixtU7gEn",
+         "000359d04e6519311041b10fe9e828a226b48f3f27a52f071f8e364cd317785abebc"),
+        ("PUB_K1_7Bn1YDeZ18w2N9DU4KAJxZDt6hk3L7eUwFRAc1hb5bp6uEBZA8",
+         "00032ea514c6b834dbdd6520d0ac420bcf2335fe138de3d2dc5b7b2f03f9f99e9fac"),
+    ];
+    check_round_trip_map_type(vals,
+                              |s| PublicKey::from_str(s).unwrap(),
+                              |k| AntelopeValue::PublicKey(Box::new(k)));
+
+    // test old format for public keys
+    test_encode(PublicKey::from_str("EOS1111111111111111111111111111111114T1Anm")?,
+                "00000000000000000000000000000000000000000000000000000000000000000000");
+    test_encode(PublicKey::from_str("EOS9adaAMuB9v8yX1mZ5PtoB6VFSCeqRGjASd8ZTM6VUkiHL7mue4K")?,
+                "00ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
+    test_encode(PublicKey::from_str("EOS7WnhaKwHpbSidYuh2DF1qAExTRUtPEdZCaZqt75cKcixuQUtdA")?,
+                "000359d04e6519311041b10fe9e828a226b48f3f27a52f071f8e364cd317785abebc");
+
+    // ==== PrivateKey ====
+    let vals = [
+        ("PVT_R1_PtoxLPzJZURZmPS4e26pjBiAn41mkkLPrET5qHnwDvbvqFEL6",
+         "0133fb621e78d5dc78f0029b6fd714bfe3b42fe4b72bc109051591e71f204d2813"),
+        ("PVT_R1_vbRKUuE34hjMVQiePj2FEjM8FvuG7yemzQsmzx89kPS9J8Coz",
+         "0179b0c1811bf83356f3fa2dedb76494d8d2bba188fae9c286f118e5e9f0621760"),
+    ];
+    check_round_trip_map_type(vals,
+                              |s| PrivateKey::from_str(s).unwrap(),
+                              |k| AntelopeValue::PrivateKey(Box::new(k)));
+
+    test_encode(PrivateKey::from_str("5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3")?,
+                "00d2653ff7cbb2d8ff129ac27ef5781ce68b2558c41a74af1f2ddca635cbeef07d");
+
+    // ==== Signature ====
+    let vals = [
+        ("SIG_K1_Kg2UKjXTX48gw2wWH4zmsZmWu3yarcfC21Bd9JPj7QoDURqiAacCHmtExPk3syPb2tFLsp1R4ttXLXgr7FYgDvKPC5RCkx",
+         concat!("002056355ed1079822d2728886b449f0f4a2bbf48bf38698c0ebe8c7079768882b",
+                 "1c64ac07d7a4bd85cf96b8a74fdcafef1a4805f946177c609fdf31abe2463038e5")),
+        ("SIG_R1_Kfh19CfEcQ6pxkMBz6xe9mtqKuPooaoyatPYWtwXbtwHUHU8YLzxPGvZhkqgnp82J41e9R6r5mcpnxy1wAf1w9Vyo9wybZ",
+         concat!("012053a48d3bb9a321e4ae8f079eab72efa778c8c09bc4c2f734de6d19ad9bce6a",
+                 "137495d877d4e51a585376aa6c1a174295dabdb25286e803bf553735cd2d31b1fc")),
+    ];
+    check_round_trip_map_type(vals,
+                              |s| Signature::from_str(s).unwrap(),
+                              |k| AntelopeValue::Signature(Box::new(k)));
+
+    Ok(())
+}
+
 
 // -----------------------------------------------------------------------------
 //     Time-related types tests
 // -----------------------------------------------------------------------------
-
 
 #[test]
 fn test_time_point_sec() {

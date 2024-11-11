@@ -4,7 +4,7 @@ TODO IMPORTANT!!
 
 After splitting workspace into different crates, do the following:
 - review Cargo.toml for each of them and remove unused dependencies
-- check for minimum rust version (I think there is a tool for that)
+- check for minimum rust version (use `cargo-msrv`)
 - review each file individually
 
 Make sure that every item on this page gets a corresponding entry in the ARCHITECTURE.md
@@ -13,19 +13,11 @@ file once they are implemented.
 
 ## API DESIGN
 
-- look at builder pattern / fluent interface for specifiying EncodeOptions in ESR
-eg: settings paragraph in <https://github.com/tesselode/kira/releases/tag/v0.9.0>
-<https://docs.rs/builder-pattern/latest/builder_pattern/>
-<https://zerotomastery.io/blog/rust-struct-guide/>
-
 - split `ByteStream` into a trait and a class implementing it.
   methods operate generically using the trait, which allow people to use their own
   implementation if needed (the one we have currently is pretty barebones and not optimized)
 
 - clean abi.rs
-
-- rename errors from `InvalidName` -> `NameError`, so the associated snafu will
-  be `NameSnafu` instead of `InvalidNameSnafu`
 
 - (?) rename methods from `BinarySerializable`:
   - `encode` -> `to_bin`
@@ -55,6 +47,10 @@ eg: settings paragraph in <https://github.com/tesselode/kira/releases/tag/v0.9.0
 
 - define specific error to abi.rs, do not reuse InvalidValue for it (use the same for abidef too?)
 
+- rename errors from `InvalidName` -> `NameError`, so the associated snafu will
+  be `NameSnafu` instead of `InvalidNameSnafu`
+
+
 ### AntelopeValue
 
 - is `from_str` the best name for most of our types constructors? Reconsider disabling the clippy warning
@@ -78,9 +74,6 @@ eg: settings paragraph in <https://github.com/tesselode/kira/releases/tag/v0.9.0
   - basic functionality
   - invalid values
   - (de)serialization to JSON
-
-- check whether we can fix this test for abieos float printing:
-  `check_round_trip2(abi, "float64", "151115727451828646838272.0", "000000000000C044", "151115727451828650000000"`
 
 - do we allow constructing non-normalized names?
   see: tests/abieos_test.rs:402 vs.

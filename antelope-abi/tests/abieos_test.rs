@@ -82,6 +82,7 @@ fn try_decode<T: AsRef<[u8]>>(abi: &ABI, typename: &str, data: T) -> Result<Json
     try_decode_stream(&mut ds, abi, T(typename))
 }
 
+#[track_caller]
 fn round_trip(abi: &ABI, typename: &str, data: &str, hex: &str, expected: &str) -> Result<()> {
     debug!(r#"==== round-tripping type "{typename}" with value {data}"#);
     let mut ds = ByteStream::new();
@@ -90,7 +91,18 @@ fn round_trip(abi: &ABI, typename: &str, data: &str, hex: &str, expected: &str) 
     assert_eq!(ds.hex_data(), hex.to_ascii_lowercase());
 
     let decoded = try_decode_stream(&mut ds, abi, T(typename))?;
-    assert_eq!(decoded.to_string(), expected);
+    let repr = decoded.to_string();
+
+    // if we have a number which representation would use scientific notation,
+    // first convert it to an `f64` and then call `to_string()` in order to get
+    // the representation with only digits
+    if let Some(x) = decoded.as_f64() {
+        if repr.contains('e') {
+            assert_eq!(x.to_string(), expected);
+            return Ok(());
+        }
+    }
+    assert_eq!(repr, expected);
 
     Ok(())
 }
@@ -115,10 +127,12 @@ fn check_error<F, T>(f: F, expected_error_msg: &str)
 }
 
 /// check roundtrip JSON -> variant -> bin -> variant -> JSON
+#[track_caller]
 fn check_round_trip(abi: &ABI, typename: &str, data: &str, hex: &str) {
     round_trip(abi, typename, data, hex, data).unwrap()
 }
 
+#[track_caller]
 fn check_round_trip2(abi: &ABI, typename: &str, data: &str, hex: &str, expected: &str) {
     round_trip(abi, typename, data, hex, expected).unwrap()
 }
@@ -384,8 +398,8 @@ fn roundtrip_floats() -> Result<()> {
     check_round_trip(abi, "float64", "0.0", "0000000000000000");
     check_round_trip(abi, "float64", "0.125", "000000000000C03F");
     check_round_trip(abi, "float64", "-0.125", "000000000000C0BF");
-    check_round_trip2(abi, "float64", "151115727451828646838272.0", "000000000000C044", "1.5111572745182865e23");
-    check_round_trip2(abi, "float64", "-151115727451828646838272.0", "000000000000C0C4", "-1.5111572745182865e23");
+    check_round_trip2(abi, "float64", "151115727451828646838272.0", "000000000000C044", "151115727451828650000000");
+    check_round_trip2(abi, "float64", "-151115727451828646838272.0", "000000000000C0C4", "-151115727451828650000000");
 
     Ok(())
 }

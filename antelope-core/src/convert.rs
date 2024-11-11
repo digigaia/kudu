@@ -46,7 +46,6 @@ pub enum ConversionError {
         typename: &'static str,
         value: Box<JsonValue>
     },
-
 }
 
 type Result<T, E = ConversionError> = std::result::Result<T, E>;
