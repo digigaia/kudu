@@ -19,7 +19,8 @@ pub mod data;
 pub mod typenameref;
 
 pub use abi::ABI;
-pub use abidefinition::ABIDefinition;
+pub use abidefinition::{ABIDefinition, ABIError};
+pub use abiserializable::ABISerializable;
 pub use bytestream::{ByteStream, StreamError};
 pub use binaryserializable::{BinarySerializable, SerializeError};
 pub use provider::ABIProvider;

@@ -162,7 +162,7 @@ fn integration_test() -> Result<()> {
 
     let _abi = &_transaction_abi;
 
-    check_error(|| Ok(ABIDefinition::from_str("")?), "cannot parse JSON string");
+    check_error(|| Ok(ABIDefinition::from_str("")?), "cannot deserialize ABIDefinition");
     check_error(|| Ok(ABI::from_hex_abi("")?), "stream ended");
     check_error(|| Ok(ABI::from_hex_abi("00")?), "unsupported ABI version");
     check_error(|| Ok(ABI::from_hex_abi(&str_to_hex("eosio::abi/9.0"))?), "unsupported ABI version");

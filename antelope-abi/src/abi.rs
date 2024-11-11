@@ -8,16 +8,13 @@ use serde_json::{
     Map as JsonMap,
     Value as JsonValue,
 };
+use snafu::ResultExt;
 use strum::VariantNames;
 use tracing::{debug, warn, instrument};
 
-// use super::*;
-// use crate::abi::*;
 use crate::{
-    ByteStream, ABIDefinition,
-    abidefinition::{TypeName, TypeNameRef, Struct, Variant},
-    abiserializable::ABISerializable,
-    binaryserializable::{SerializeError, BinarySerializable},
+    ABIDefinition, ABISerializable, ByteStream, BinarySerializable,
+    abidefinition::{ABIError, DeserializeSnafu, TypeName, TypeNameRef, Struct, Variant},
 };
 
 // TODO: make sure that we can (de)serialize an ABI (ABIDefinition?) itself (eg, see: https://github.com/wharfkit/antelope/blob/master/src/chain/abi.ts, which implements ABISerializableObject)
@@ -58,11 +55,11 @@ impl ABI {
 
     pub fn with_abi(abi: &ABIDefinition) -> Self { Self::from_abi(abi) }
 
-    pub fn from_hex_abi(abi: &str) -> Result<Self, SerializeError> {
+    pub fn from_hex_abi(abi: &str) -> Result<Self, ABIError> {
         Self::from_bin_abi(&hex::decode(abi)?)
     }
 
-    pub fn from_bin_abi(abi: &[u8]) -> Result<Self, SerializeError> {
+    pub fn from_bin_abi(abi: &[u8]) -> Result<Self, ABIError> {
         let mut data = ByteStream::from(abi.to_owned());
         let abi_def = ABIDefinition::from_bin(&mut data)?;
         Ok(Self::from_abi(&abi_def))
@@ -243,7 +240,7 @@ impl ABI {
     }
 
     #[allow(clippy::collapsible_else_if)]
-    pub fn decode_variant(&self, ds: &mut ByteStream, typename: TypeNameRef) -> Result<JsonValue, SerializeError> {
+    pub fn decode_variant(&self, ds: &mut ByteStream, typename: TypeNameRef) -> Result<JsonValue, ABIError> {
         let rtype = self.resolve_type(typename);
         let ftype = rtype.fundamental_type();
 
@@ -253,29 +250,30 @@ impl ABI {
             // if our fundamental type is a builtin type, we can deserialize it directly
             // from the stream
             if rtype.is_array() {
-                let item_count: usize = AntelopeValue::from_bin(AntelopeType::VarUint32, ds)?.try_into()?;
+                let item_count = decode_usize(ds, "item_count (as varuint32)")?;
                 debug!(r#"reading array of {item_count} elements of type "{ftype}""#);
                 let mut a = Vec::with_capacity(item_count);
                 for _ in 0..item_count {
-                    a.push(AntelopeValue::from_bin(type_, ds)?.to_json());
+                    a.push(read_value(ds, type_, "array item")?);
                 }
                 JsonValue::Array(a)
             }
             else if rtype.is_optional() {
-                let non_null: bool = AntelopeValue::from_bin(AntelopeType::Bool, ds)?.into();
+                let non_null = bool::decode(ds)
+                    .context(DeserializeSnafu { what: "optional discriminant" })?;
                 match non_null {
-                    true => AntelopeValue::from_bin(type_, ds)?.to_json(),
+                    true => read_value(ds, type_, "optional value")?,
                     false => JsonValue::Null,
                 }
             }
             else {
-                AntelopeValue::from_bin(type_, ds)?.to_json()
+                read_value(ds, type_, "single AntelopeValue")?
             }
         }
         else {
             if rtype.is_array() {
                 // not a builtin type, we have to recurse down
-                let item_count: usize = AntelopeValue::from_bin(AntelopeType::VarUint32, ds)?.try_into()?;
+                let item_count = decode_usize(ds, "item_count (as varuint32)")?;
                 debug!(r#"reading array of {item_count} elements of type "{ftype}""#);
                 let mut a = Vec::with_capacity(item_count);
                 for _ in 0..item_count {
@@ -284,14 +282,15 @@ impl ABI {
                 JsonValue::Array(a)
             }
             else if rtype.is_optional() {
-                let non_null = AntelopeValue::from_bin(AntelopeType::Bool, ds)?.into();
+                let non_null = bool::decode(ds)
+                    .context(DeserializeSnafu { what: "optional discriminant" })?;
                 match non_null {
                     true => self.decode_variant(ds, ftype)?,
                     false => JsonValue::Null,
                 }
             }
             else if let Some(variant_def) = self.variants.get(rtype.0) {
-                let variant_tag: usize = AntelopeValue::from_bin(AntelopeType::VarUint32, ds)?.try_into()?;
+                let variant_tag: usize = decode_usize(ds, "variant tag (as varuint32)")?;
                 assert!(variant_tag < variant_def.types.len(),
                         "deserialized invalid tag {} for variant {}", variant_tag, rtype);
                 let variant_type = TypeNameRef(&variant_def.types[variant_tag]);
@@ -313,7 +312,7 @@ impl ABI {
     }
 
 
-    fn decode_struct(&self, ds: &mut ByteStream, struct_def: &Struct) -> Result<JsonValue, SerializeError> {
+    fn decode_struct(&self, ds: &mut ByteStream, struct_def: &Struct) -> Result<JsonValue, ABIError> {
         debug!(r#"reading struct with name "{}" and base "{}""#, struct_def.name, struct_def.base);
 
         let mut result: JsonMap<String, JsonValue> = JsonMap::new();
@@ -343,4 +342,14 @@ impl ABI {
         debug!("fully decoded `{}` struct: {:#?}", struct_def.name, result);
         Ok(JsonValue::Object(result))
     }
+}
+
+fn read_value(stream: &mut ByteStream, type_: AntelopeType, what: &str) ->  Result<JsonValue, ABIError> {
+    Ok(AntelopeValue::from_bin(type_, stream)
+       .context(DeserializeSnafu { what })?.to_json())
+}
+
+fn decode_usize(stream: &mut ByteStream, what: &str) -> Result<usize, ABIError> {
+    let n = VarUint32::decode(stream).context(DeserializeSnafu { what })?;
+    Ok(n.into())
 }

@@ -4,11 +4,10 @@ use std::rc::Rc;
 use std::sync::OnceLock;
 
 use serde_json::json;
-use snafu::{Snafu, ResultExt};
 
-use antelope_core::{APIClient, InvalidValue};
+use antelope_core::APIClient;
 
-use crate::{ABI, ABIDefinition};
+use crate::{ABI, ABIDefinition, ABIError};
 
 
 //
@@ -27,25 +26,6 @@ pub fn get_signing_request_abi() -> &'static ABI {
     })
 }
 
-
-// =============================================================================
-//
-//     InvalidABI error
-//
-// =============================================================================
-
-
-#[derive(Debug, Snafu)]
-pub enum InvalidABI {
-    #[snafu(display(r#"unknown ABI with name "{name}""#))]
-    Unknown { name: String },
-
-    #[snafu(display("could not parse ABI"))]
-    ParseError { source: InvalidValue },
-
-}
-
-
 pub enum ABIProvider {
     API(APIClient),
     Test,
@@ -56,7 +36,7 @@ pub enum ABIProvider {
 }
 
 impl ABIProvider {
-    pub fn get_abi(&self, abi_name: &str) -> Result<Rc<ABI>, InvalidABI> {
+    pub fn get_abi(&self, abi_name: &str) -> Result<Rc<ABI>, ABIError> {
         match self {
             ABIProvider::Cached { provider, cache } => {
                 if let Some(abi) = cache.borrow().get(abi_name) {
@@ -68,13 +48,13 @@ impl ABIProvider {
                 Ok(abi)
             },
             _ => {
-                let abi_def = ABIDefinition::from_str(&self.get_abi_definition(abi_name)?).context(ParseSnafu)?;
+                let abi_def = ABIDefinition::from_str(&self.get_abi_definition(abi_name)?)?;
                 Ok(Rc::new(ABI::from_abi(&abi_def)))
             }
         }
     }
 
-    pub fn get_abi_definition(&self, abi_name: &str) -> Result<String, InvalidABI> {
+    pub fn get_abi_definition(&self, abi_name: &str) -> Result<String, ABIError> {
         if abi_name == "signing_request" {
             Ok(SIGNING_REQUEST_ABI.to_owned())
         }

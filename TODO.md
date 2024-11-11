@@ -19,6 +19,8 @@ file once they are implemented.
 
 - clean abi.rs
 
+- remove `TypeNameRef as T`, use `Into<TypeNameRef>` so methods can accept naked `&str`
+
 - (?) rename methods from `BinarySerializable`:
   - `encode` -> `to_bin`
   - `decode` -> `from_bin`
@@ -45,7 +47,7 @@ file once they are implemented.
 
 ### Error Handling
 
-- define specific error to abi.rs, do not reuse InvalidValue for it (use the same for abidef too?)
+- remove unused error variants from `SerializeError`
 
 - rename errors from `InvalidName` -> `NameError`, so the associated snafu will
   be `NameSnafu` instead of `InvalidNameSnafu`

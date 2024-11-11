@@ -1,11 +1,14 @@
 use std::sync::OnceLock;
 
-use antelope_core::{
-    JsonValue, InvalidValue,
-    ActionName, TableName,
-};
+use hex::FromHexError;
 use serde::{Deserialize, Serialize};
-use serde_json::json;
+use serde_json::{json, Error as JsonError};
+use snafu::{ensure, Snafu, IntoError, ResultExt};
+
+use antelope_core::{
+    JsonValue, ActionName, TableName, impl_auto_error_conversion,
+};
+use antelope_macros::with_location;
 
 use crate::binaryserializable::BinarySerializable;
 use crate::{ABI, ByteStream, SerializeError};
@@ -121,22 +124,18 @@ pub struct ABIDefinition {
 
 
 impl ABIDefinition {
-    pub fn from_str(s: &str) -> Result<Self, InvalidValue> {
-        Ok(serde_json::from_str(s)?)
+    pub fn from_str(s: &str) -> Result<Self, ABIError> {
+        serde_json::from_str(s).context(JsonSnafu)
     }
 
-    pub fn from_variant(v: &JsonValue) -> Result<Self, InvalidValue> {
-        Ok(serde_json::from_str(&v.to_string())?)
+    pub fn from_variant(v: &JsonValue) -> Result<Self, ABIError> {
+        serde_json::from_str(&v.to_string()).context(JsonSnafu)
     }
 
-    pub fn from_bin(data: &mut ByteStream) -> Result<Self, SerializeError> {
-        let version = String::decode(data)?;
+    pub fn from_bin(data: &mut ByteStream) -> Result<Self, ABIError> {
+        let version = String::decode(data).context(DeserializeSnafu { what: "version" })?;
 
-        if !version.starts_with("eosio::abi/1.") {
-            Err(InvalidValue::InvalidData {
-                msg: format!(r#"unsupported ABI version: "{}""#, version)
-            })?;
-        }
+        ensure!(version.starts_with("eosio::abi/1."), VersionSnafu { version });
 
         let parser = bin_abi_parser();
         let abi = json!({
@@ -242,6 +241,26 @@ fn bin_abi_parser() -> &'static ABI {
         ABI::with_abi(abi_schema())
     })
 }
+
+
+#[with_location]
+#[derive(Debug, Snafu)]
+pub enum ABIError {
+    #[snafu(display("cannot deserialize {what} from stream"), visibility(pub))]
+    DeserializeError { what: String, source: SerializeError },
+
+    #[snafu(display(r#"unsupported ABI version: "{version}""#))]
+    VersionError { version: String },
+
+    #[snafu(display("cannot deserialize ABIDefinition from JSON"))]
+    JsonError { source: JsonError },
+
+    #[snafu(display("cannot decode hex representation for hex ABI"))]
+    HexABIError { source: FromHexError },
+}
+
+impl_auto_error_conversion!(FromHexError, ABIError, HexABISnafu);
+
 
 #[cfg(test)]
 mod tests {

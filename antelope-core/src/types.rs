@@ -72,6 +72,12 @@ impl From<usize> for VarUint32 {
     }
 }
 
+impl From<VarUint32> for usize {
+    fn from(n: VarUint32) -> usize {
+        n.0 as usize
+    }
+}
+
 pub type Float32 = f32;
 pub type Float64 = f64;
 

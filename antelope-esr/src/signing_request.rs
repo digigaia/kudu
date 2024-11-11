@@ -13,9 +13,9 @@ use serde::{Serialize, Serializer, ser::SerializeTuple, ser::SerializeStruct};
 use antelope_macros::with_location;
 use antelope_core::{convert::hex_to_boxed_array, JsonValue, Name, json};
 use antelope_abi::{
-    ByteStream, SerializeError,
+    ByteStream, SerializeError, ABIError,
     abidefinition::TypeNameRef as T,
-    provider::{get_signing_request_abi, ABIProvider, InvalidABI},
+    provider::{get_signing_request_abi, ABIProvider},
 };
 
 use tracing::{trace, debug, warn};
@@ -245,7 +245,7 @@ impl SigningRequest {
 
         let mut ds = ByteStream::from(dec2);
 
-        abi.decode_variant(&mut ds, T("signing_request")).context(JsonDecodeSnafu)
+        abi.decode_variant(&mut ds, T("signing_request")).context(ABISnafu)
     }
 
     pub fn decode<T>(esr: T, abi_provider: Option<ABIProvider>) -> Result<Self, SigningRequestError>
@@ -486,7 +486,7 @@ pub enum SigningRequestError {
 
     #[snafu(display("ABI error"))]
     ABI {
-        source: InvalidABI,
+        source: ABIError,
     },
 
 }
