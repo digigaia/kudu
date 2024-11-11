@@ -47,8 +47,6 @@ file once they are implemented.
 
 ### Error Handling
 
-- remove unused error variants from `SerializeError`
-
 - rename errors from `InvalidName` -> `NameError`, so the associated snafu will
   be `NameSnafu` instead of `InvalidNameSnafu`
 

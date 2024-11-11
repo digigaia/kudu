@@ -1,7 +1,6 @@
 use std::str::{from_utf8, Utf8Error};
 
 use bytemuck::{cast_ref, pod_read_unaligned};
-use hex::FromHexError;
 use snafu::{ensure, Snafu, IntoError, ResultExt};
 
 use antelope_macros::with_location;
@@ -19,14 +18,8 @@ pub enum SerializeError {
     #[snafu(display("stream error"))]
     StreamError { source: StreamError },
 
-    #[snafu(display("invalid value"))]
-    InvalidValue { source: InvalidValue },
-
     #[snafu(display("invalid symbol"))]
     InvalidSymbol { source: InvalidSymbol },
-
-    #[snafu(display("cannot decode hex data"))]
-    HexDecodeError { source: FromHexError },
 
     #[snafu(display("cannot decode bytes as utf-8"))]
     Utf8Error { source: Utf8Error },
@@ -39,9 +32,7 @@ pub enum SerializeError {
 }
 
 impl_auto_error_conversion!(StreamError, SerializeError, StreamSnafu);
-impl_auto_error_conversion!(InvalidValue, SerializeError, InvalidValueSnafu);
 impl_auto_error_conversion!(InvalidSymbol, SerializeError, InvalidSymbolSnafu);
-impl_auto_error_conversion!(FromHexError, SerializeError, HexDecodeSnafu);
 impl_auto_error_conversion!(InvalidCryptoData, SerializeError, InvalidCryptoDataSnafu);
 
 
