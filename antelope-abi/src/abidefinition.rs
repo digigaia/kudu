@@ -15,8 +15,6 @@ use crate::{ABI, ByteStream, SerializeError};
 
 pub use crate::typenameref::TypeNameRef;
 
-use TypeNameRef as T;
-
 // see doc at: https://docs.eosnetwork.com/manuals/cdt/latest/best-practices/abi/understanding-abi-files/
 //             https://docs.eosnetwork.com/docs/latest/advanced-topics/understanding-ABI-files/
 
@@ -140,11 +138,11 @@ impl ABIDefinition {
         let parser = bin_abi_parser();
         let abi = json!({
             "version": version,
-            "types": parser.decode_variant(data, T("typedef[]"))?,
-            "structs": parser.decode_variant(data, T("struct[]"))?,
-            "actions": parser.decode_variant(data, T("action[]"))?,
-            "tables": parser.decode_variant(data, T("table[]"))?,
-            "variants": parser.decode_variant(data, T("variants[]"))?,
+            "types":    parser.decode_variant(data, "typedef[]")?,
+            "structs":  parser.decode_variant(data, "struct[]")?,
+            "actions":  parser.decode_variant(data, "action[]")?,
+            "tables":   parser.decode_variant(data, "table[]")?,
+            "variants": parser.decode_variant(data, "variants[]")?,
         });
 
         // FIXME: we should deserialize everything here, we have some fields missing...
@@ -152,7 +150,7 @@ impl ABIDefinition {
         // check here: https://github.com/wharfkit/antelope/blob/master/src/chain/abi.ts#L109
         assert_eq!(data.leftover(), [0u8; 2]);
 
-        Ok(Self::from_str(&abi.to_string())?)
+        Self::from_str(&abi.to_string())
     }
 }
 

@@ -13,8 +13,6 @@ use antelope_abi::{
     ABI, ByteStream
 };
 
-use TypeNameRef as T;
-
 use antelope_core::{
     JsonValue,
     types::InvalidValue,
@@ -68,7 +66,7 @@ fn try_encode_stream(ds: &mut ByteStream, abi: &ABI, typename: TypeNameRef, data
 
 fn try_encode(abi: &ABI, typename: &str, data: &str) -> Result<()> {
     let mut ds = ByteStream::new();
-    try_encode_stream(&mut ds, abi, T(typename), data)
+    try_encode_stream(&mut ds, abi, typename.into(), data)
 }
 
 fn try_decode_stream(ds: &mut ByteStream, abi: &ABI, typename: TypeNameRef) -> Result<JsonValue> {
@@ -79,7 +77,7 @@ fn try_decode_stream(ds: &mut ByteStream, abi: &ABI, typename: TypeNameRef) -> R
 
 fn try_decode<T: AsRef<[u8]>>(abi: &ABI, typename: &str, data: T) -> Result<JsonValue> {
     let mut ds = ByteStream::from(hex::decode(data).map_err(InvalidValue::from)?);
-    try_decode_stream(&mut ds, abi, T(typename))
+    try_decode_stream(&mut ds, abi, typename.into())
 }
 
 #[track_caller]
@@ -87,10 +85,10 @@ fn round_trip(abi: &ABI, typename: &str, data: &str, hex: &str, expected: &str) 
     debug!(r#"==== round-tripping type "{typename}" with value {data}"#);
     let mut ds = ByteStream::new();
 
-    try_encode_stream(&mut ds, abi, T(typename), data)?;
+    try_encode_stream(&mut ds, abi, typename.into(), data)?;
     assert_eq!(ds.hex_data(), hex.to_ascii_lowercase());
 
-    let decoded = try_decode_stream(&mut ds, abi, T(typename))?;
+    let decoded = try_decode_stream(&mut ds, abi, typename.into())?;
     let repr = decoded.to_string();
 
     // if we have a number which representation would use scientific notation,

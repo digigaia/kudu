@@ -76,6 +76,18 @@ impl<'a> fmt::Display for TypeNameRef<'a> {
 
 // }
 
+impl<'a> From<&'a str> for TypeNameRef<'a> {
+    fn from(t: &str) -> TypeNameRef {
+        TypeNameRef(t)
+    }
+}
+
+impl<'a> From<TypeNameRef<'a>> for &'a str {
+    fn from(t: TypeNameRef) -> &str {
+        t.0
+    }
+}
+
 impl<'a> TryFrom<TypeNameRef<'a>> for AntelopeType {
     type Error = strum::ParseError;
 

@@ -14,7 +14,6 @@ use antelope_macros::with_location;
 use antelope_core::{convert::hex_to_boxed_array, JsonValue, Name, json};
 use antelope_abi::{
     ByteStream, SerializeError, ABIError,
-    abidefinition::TypeNameRef as T,
     provider::{get_signing_request_abi, ABIProvider},
 };
 
@@ -245,7 +244,7 @@ impl SigningRequest {
 
         let mut ds = ByteStream::from(dec2);
 
-        abi.decode_variant(&mut ds, T("signing_request")).context(ABISnafu)
+        abi.decode_variant(&mut ds, "signing_request").context(ABISnafu)
     }
 
     pub fn decode<T>(esr: T, abi_provider: Option<ABIProvider>) -> Result<Self, SigningRequestError>
@@ -349,7 +348,7 @@ impl SigningRequest {
         let data = &action["data"];
         let mut ds = ByteStream::new();
         let abi = abi_provider.get_abi(account).context(ABISnafu)?;
-        abi.encode_variant(&mut ds, T(action_name), data).unwrap();
+        abi.encode_variant(&mut ds, action_name, data).unwrap();
         action["data"] = JsonValue::String(ds.hex_data());
         Ok(())
     }
@@ -362,7 +361,7 @@ impl SigningRequest {
         let data        = conv_action_field_str(action, "data")?;
         let mut ds = ByteStream::from(hex::decode(data).unwrap());
         let abi = abi_provider.get_abi(account).context(ABISnafu)?;
-        action["data"] = abi.decode_variant(&mut ds, T(action_name)).unwrap();
+        action["data"] = abi.decode_variant(&mut ds, action_name).unwrap();
         Ok(())
     }
 
@@ -375,7 +374,7 @@ impl SigningRequest {
         warn!("chain id = {:?}", cid);
 
         let sr = json!(self);
-        abi.encode_variant(&mut ds, T("signing_request"), &sr).unwrap(); // FIXME: remove this `unwrap`
+        abi.encode_variant(&mut ds, "signing_request", &sr).unwrap(); // FIXME: remove this `unwrap`
         ds.into()
     }
 }

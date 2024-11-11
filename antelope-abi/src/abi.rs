@@ -133,8 +133,16 @@ impl ABI {
         obj.to_bin(stream)
     }
 
+    pub fn encode_variant<'a, T>(&self, ds: &mut ByteStream, typename: T, object: &JsonValue)
+                                 -> Result<(), InvalidValue>
+    where
+        T: Into<TypeNameRef<'a>>
+    {
+        self.encode_variant_(ds, typename.into(), object)
+    }
+
     #[instrument(skip(self, ds))]
-    pub fn encode_variant(&self, ds: &mut ByteStream, typename: TypeNameRef, object: &JsonValue) -> Result<(), InvalidValue> {
+    fn encode_variant_(&self, ds: &mut ByteStream, typename: TypeNameRef, object: &JsonValue) -> Result<(), InvalidValue> {
         // see C++ implementation here: https://github.com/AntelopeIO/leap/blob/main/libraries/chain/abi_serializer.cpp#L491
         let rtype = self.resolve_type(typename);
         let ftype = rtype.fundamental_type();
@@ -239,8 +247,15 @@ impl ABI {
         Ok(())
     }
 
+    pub fn decode_variant<'a, T>(&self, ds: &mut ByteStream, typename: T) -> Result<JsonValue, ABIError>
+    where
+        T: Into<TypeNameRef<'a>>
+    {
+        self.decode_variant_(ds, typename.into())
+    }
+
     #[allow(clippy::collapsible_else_if)]
-    pub fn decode_variant(&self, ds: &mut ByteStream, typename: TypeNameRef) -> Result<JsonValue, ABIError> {
+    fn decode_variant_(&self, ds: &mut ByteStream, typename: TypeNameRef) -> Result<JsonValue, ABIError> {
         let rtype = self.resolve_type(typename);
         let ftype = rtype.fundamental_type();
 
