@@ -133,6 +133,7 @@ impl ABI {
         obj.to_bin(stream)
     }
 
+    #[inline]
     pub fn encode_variant<'a, T>(&self, ds: &mut ByteStream, typename: T, object: &JsonValue)
                                  -> Result<(), InvalidValue>
     where
@@ -247,6 +248,7 @@ impl ABI {
         Ok(())
     }
 
+    #[inline]
     pub fn decode_variant<'a, T>(&self, ds: &mut ByteStream, typename: T) -> Result<JsonValue, ABIError>
     where
         T: Into<TypeNameRef<'a>>

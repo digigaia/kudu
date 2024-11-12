@@ -13,22 +13,11 @@ file once they are implemented.
 
 ## API DESIGN
 
-- split `ByteStream` into a trait and a class implementing it.
-  methods operate generically using the trait, which allow people to use their own
-  implementation if needed (the one we have currently is pretty barebones and not optimized)
-
 - clean abi.rs
 
-- (?) rename methods from `BinarySerializable`:
-  - `encode` -> `to_bin`
-  - `decode` -> `from_bin`
-
-- try defining the `ABISerializable` trait and implement it for all types, then replace the `AntelopeValue` struct with just the implementation of the base types
+- try defining the `ABISerializable` trait and implement it for all types, then replace
+  the `AntelopeValue` struct with just the implementation of the base types
   (note: we might still need AntelopeValue, maybe rename it to AntelopeVariant)
-
-  Rust native types that map directly to an Antelope type would be synonym (ie: type Antelope::i32 = i32, etc.) with `From` trait defined between them
-  Non-native types such as `varint32` need to have a thin wrapper struct around a rust native type
-  Also implement more complex types in the same way: `Action`, `Transaction`, etc.
 
   for ESR: <https://github.com/AntelopeIO/spring/blob/main/libraries/chain/include/eosio/chain/transaction.hpp#L53>
   ```
@@ -130,3 +119,5 @@ file once they are implemented.
 - crypto primitives do not implement WebAuthn key and signatures yet
 
 - implement action_result in abi and abi_parser
+
+- update from Leap to Spring

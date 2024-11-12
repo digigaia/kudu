@@ -53,9 +53,11 @@ pub trait BinarySerializable {
 macro_rules! impl_pod_serialization {
     ($typ:ty, $size:literal) => {
         impl BinarySerializable for $typ {
+            #[inline]
             fn encode(&self, stream: &mut ByteStream) {
                 stream.write_bytes(cast_ref::<$typ, [u8; $size]>(self))
             }
+            #[inline]
             fn decode(stream: &mut ByteStream) -> Result<Self, SerializeError> {
                 Ok(pod_read_unaligned(stream.read_bytes($size)?))
             }
@@ -66,9 +68,11 @@ macro_rules! impl_pod_serialization {
 macro_rules! impl_wrapped_serialization {
     ($typ:ty, $inner:ty) => {
         impl BinarySerializable for $typ {
+            #[inline]
             fn encode(&self, stream: &mut ByteStream) {
                 <$inner>::from(*self).encode(stream)
             }
+            #[inline]
             fn decode(stream: &mut ByteStream) -> Result<Self, SerializeError> {
                 Ok(<$typ>::from(<$inner>::decode(stream)?))
             }
@@ -79,9 +83,11 @@ macro_rules! impl_wrapped_serialization {
 macro_rules! impl_array_serialization {
     ($typ:ty, $size:literal) => {
         impl BinarySerializable for $typ {
+            #[inline]
             fn encode(&self, stream: &mut ByteStream) {
                 stream.write_bytes(&self[..])
             }
+            #[inline]
             fn decode(stream: &mut ByteStream) -> Result<Self, SerializeError> {
                 Ok(stream.read_bytes($size)?.try_into().unwrap())
             }
@@ -95,12 +101,14 @@ macro_rules! impl_array_serialization {
 // -----------------------------------------------------------------------------
 
 impl BinarySerializable for bool {
+    #[inline]
     fn encode(&self, stream: &mut ByteStream) {
         stream.write_byte(match *self {
             true => 1u8,
             false => 0u8,
         })
     }
+    #[inline]
     fn decode(stream: &mut ByteStream) -> Result<Self, SerializeError> {
         match stream.read_byte()? {
             1 => Ok(true),
@@ -111,9 +119,11 @@ impl BinarySerializable for bool {
 }
 
 impl BinarySerializable for i8 {
+    #[inline]
     fn encode(&self, stream: &mut ByteStream) {
         stream.write_byte(*self as u8)
     }
+    #[inline]
     fn decode(stream: &mut ByteStream) -> Result<Self, SerializeError> {
         Ok(stream.read_byte()? as i8)
     }
@@ -125,9 +135,11 @@ impl_pod_serialization!(i64, 8);
 impl_pod_serialization!(i128, 16);
 
 impl BinarySerializable for u8 {
+    #[inline]
     fn encode(&self, stream: &mut ByteStream) {
         stream.write_byte(*self)
     }
+    #[inline]
     fn decode(stream: &mut ByteStream) -> Result<Self, SerializeError> {
         Ok(stream.read_byte()?)
     }
@@ -143,18 +155,22 @@ impl_pod_serialization!(f64, 8);
 
 
 impl BinarySerializable for VarInt32 {
+    #[inline]
     fn encode(&self, stream: &mut ByteStream) {
         write_var_i32(stream, i32::from(*self))
     }
+    #[inline]
     fn decode(stream: &mut ByteStream) -> Result<Self, SerializeError> {
         Ok(read_var_i32(stream)?.into())
     }
 }
 
 impl BinarySerializable for VarUint32 {
+    #[inline]
     fn encode(&self, stream: &mut ByteStream) {
         write_var_u32(stream, u32::from(*self))
     }
+    #[inline]
     fn decode(stream: &mut ByteStream) -> Result<Self, SerializeError> {
         Ok(read_var_u32(stream)?.into())
     }
@@ -232,10 +248,12 @@ impl_array_serialization!(Checksum512, 64);
 // -----------------------------------------------------------------------------
 
 impl BinarySerializable for Name {
+    #[inline]
     fn encode(&self, stream: &mut ByteStream) {
         self.as_u64().encode(stream)
     }
 
+    #[inline]
     fn decode(stream: &mut ByteStream) -> Result<Self, SerializeError> {
         let n = u64::decode(stream)?;
         Ok(Name::from_u64(n))
@@ -243,10 +261,12 @@ impl BinarySerializable for Name {
 }
 
 impl BinarySerializable for Symbol {
+    #[inline]
     fn encode(&self, stream: &mut ByteStream) {
         self.as_u64().encode(stream)
     }
 
+    #[inline]
     fn decode(stream: &mut ByteStream) -> Result<Self, SerializeError> {
         let n = u64::decode(stream)?;
         Ok(Symbol::from_u64(n)?)
@@ -254,10 +274,12 @@ impl BinarySerializable for Symbol {
 }
 
 impl BinarySerializable for SymbolCode {
+    #[inline]
     fn encode(&self, stream: &mut ByteStream) {
         self.as_u64().encode(stream)
     }
 
+    #[inline]
     fn decode(stream: &mut ByteStream) -> Result<Self, SerializeError> {
         let n = u64::decode(stream)?;
         Ok(SymbolCode::from_u64(n))

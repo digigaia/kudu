@@ -12,7 +12,7 @@ This part lists the design decisions that went into the library. It helps docume
 some decisions and their rationale and keep a trace so we don't have to ask the
 same question or wonder why some choices have been made over and over again.
 
-## own class for ByteStream
+## own class for `ByteStream`
 
 we investigated the possibility to use the `std::io::Read` and `std::io::Write`
 trait but they don't provide enough convenience functions and don't bring much
@@ -21,9 +21,38 @@ to the table for us
 we investigated the possibility to use the `bytes` crate which looks very nice,
 except for one minor issue:
 the read and write operation are both infallible. This is ok for write operations
-for us, but for read operations that means that we panic if we reach the end of
-the stream, which is something that we could expect and that we currently account
-properly for with `StreamError`.
+for us (ie: we can always grow a vec or append to a file we are writing to), but
+for read operations that means that we panic if we reach the end of the stream,
+which is something that we could expect and that we currently account properly
+for with `StreamError`.
+
+### Open question on `ByteStream`
+
+we considered the possibility of having a `ByteStream` trait with the following
+methods:
+
+```
+pub trait ByteStream {
+    fn read_byte(&mut self) -> Result<u8, StreamError>;
+    fn read_bytes(&mut self, n: usize) -> Result<&[u8], StreamError>;
+
+    fn write_byte(&mut self, byte: u8);
+    fn write_bytes(&mut self, bytes: &[u8]);
+}
+```
+
+and have a `DataStream` class implementing those, leaving open the possibility
+for someone else to come with a better implementation that would fit this trait.
+
+However, we ran into the following issues:
+
+- `read_bytes()` returns a `&[u8]` with a lifetime bound to the one of the struct
+  implementing the trait; this is not always desirable.
+- `ABIDefinition::from_bin()` wants to call `leftover()` but that method is not
+  part of the trait and does not belong in there.
+
+So for now, `ByteStream` stays as a normal struct.
+
 
 ## Error handling
 
