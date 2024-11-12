@@ -34,17 +34,8 @@ file once they are implemented.
 
 ### Error Handling
 
-- rename errors from `InvalidName` -> `NameError`, so the associated snafu will
-  be `NameSnafu` instead of `InvalidNameSnafu`
-
 - check whether `InvalidValue` is the right error type for `ABI::encode_variant`
 
-### AntelopeValue
-
-- is `from_str` the best name for most of our types constructors? Reconsider disabling the clippy warning
-  about it at the top of `antelope-{core,abi}/src/lib.rs`
-
-- use `From` and `Into` traits for constructing base Antelope types
 
 ### Investigate Serde
 

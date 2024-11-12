@@ -153,7 +153,7 @@ impl ABI {
         // use a closure to avoid cloning and copying if no error occurs
         let incompatible_types = || { InvalidValue::IncompatibleVariantTypes {
             typename: rtype.0.to_owned(),
-            value: object.clone()
+            value: Box::new(object.clone())
         }};
 
         if AntelopeValue::VARIANTS.contains(&ftype.0) {

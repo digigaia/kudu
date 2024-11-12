@@ -18,13 +18,13 @@ pub enum InvalidSymbol {
     MissingComma,
 
     #[snafu(display(r#"invalid char '{c}' in symbol "{symbol}""#))]
-    InvalidChar { symbol: String, c: char },
+    CharError { symbol: String, c: char },
 
     #[snafu(display("could not parse precision for symbol"))]
     ParsePrecisionError { source: ParseIntError },
 
     #[snafu(display("given precision {given} should be <= max precision {max}"))]
-    InvalidPrecision { given: u8, max: u8 },
+    PrecisionError { given: u8, max: u8 },
 
     #[snafu(display("invalid u64 representation: {value} cannot be turned into a valid symbol"))]
     InvalidU64Representation { value: u64 },
@@ -51,7 +51,7 @@ impl Symbol {
         let pos = s.find(',').context(MissingCommaSnafu)?;
         let precision: u8 = s[..pos].parse().context(ParsePrecisionSnafu)?;
         ensure!(precision <= Self::MAX_PRECISION,
-                InvalidPrecisionSnafu { given: precision, max: Self::MAX_PRECISION });
+                PrecisionSnafu { given: precision, max: Self::MAX_PRECISION });
         Self::from_prec_and_str(precision, &s[pos + 1..])
     }
 
@@ -121,7 +121,7 @@ fn string_to_symbol_code(s: &str) -> Result<u64, InvalidSymbol> {
     ensure!(s.len() <= 7, TooLongSnafu { name });
 
     for (i, &c) in s.as_bytes().iter().enumerate() {
-        ensure!(c.is_ascii_uppercase(), InvalidCharSnafu { symbol: name, c: c as char });
+        ensure!(c.is_ascii_uppercase(), CharSnafu { symbol: name, c: c as char });
         result |= (c as u64) << (8 * i);
     }
     Ok(result)
@@ -140,7 +140,7 @@ fn symbol_code_to_string(value: u64) -> String {
 
 fn string_to_symbol(precision: u8, s: &str) -> Result<u64, InvalidSymbol> {
     ensure!(precision <= Symbol::MAX_PRECISION,
-            InvalidPrecisionSnafu { given: precision, max: Symbol::MAX_PRECISION });
+            PrecisionSnafu { given: precision, max: Symbol::MAX_PRECISION });
     Ok(string_to_symbol_code(s)? << 8 | (precision as u64))
 }
 

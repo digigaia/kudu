@@ -22,9 +22,6 @@ pub enum InvalidCryptoData {
 
     #[snafu(display("error while decoding base58 data"))]
     Base58Error { source: bs58::decode::Error },
-
-    #[snafu(display("invalid checksum for crypto data"))]
-    InvalidChecksum,
 }
 
 

@@ -363,7 +363,7 @@ pub enum InvalidValue {
     #[snafu(display(r#"cannot convert given variant {value} to Antelope type "{typename}""#))]
     IncompatibleVariantTypes {
         typename: String,
-        value: JsonValue
+        value: Box<JsonValue>,
     },
 
     #[snafu(display("invalid bool"))]
