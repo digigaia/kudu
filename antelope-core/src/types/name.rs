@@ -164,7 +164,7 @@ fn u64_to_bytes(n: u64) -> Vec<u8> {
 }
 
 fn u64_to_string(n: u64) -> String {
-    String::from_utf8(u64_to_bytes(n)).unwrap()  // unwrap is safe here
+    String::from_utf8(u64_to_bytes(n)).unwrap()  // safe unwrap
 }
 
 

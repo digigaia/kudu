@@ -107,7 +107,8 @@ impl ABI {
     pub fn is_type(&self, t: TypeNameRef) -> bool {
         let t = t.fundamental_type();
         AntelopeValue::VARIANTS.contains(&t.0)
-            || (self.typedefs.contains_key(t.0) && self.is_type(TypeNameRef(self.typedefs.get(t.0).unwrap())))
+            || (self.typedefs.contains_key(t.0) &&
+               self.is_type(TypeNameRef(self.typedefs.get(t.0).unwrap())))  // safe unwrap
             || self.structs.contains_key(t.0)
             || self.variants.contains_key(t.0)
     }

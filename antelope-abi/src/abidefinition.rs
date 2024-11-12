@@ -266,13 +266,13 @@ mod tests {
     use super::*;
 
     #[test]
-    fn parse_abi_def() {
-        let abi: ABIDefinition = serde_json::from_str(ABI_EXAMPLE).unwrap();
+    fn parse_abi_def() -> Result<(), JsonError> {
+        let abi: ABIDefinition = serde_json::from_str(ABI_EXAMPLE)?;
 
         assert_eq!(abi.version, "eosio::abi/1.1");
 
         println!("{:#?}", &abi);
 
-        // assert!(false);
+        Ok(())
     }
 }

@@ -44,7 +44,7 @@ impl TimePoint {
         Ok(TimePoint(parse_date(s)?.timestamp_micros()))
     }
     pub fn to_datetime(&self) -> DateTime<Utc> {
-        Utc.timestamp_micros(self.0).unwrap()
+        Utc.timestamp_micros(self.0).unwrap()  // safe unwrap
     }
     pub fn to_json(&self) -> JsonValue {
         json!(format!("{}", self.to_datetime().format(DATE_FORMAT)))
@@ -79,7 +79,7 @@ impl TimePointSec {
                         .try_into().expect("Date not representable as a `u32`")))
     }
     pub fn to_datetime(&self) -> DateTime<Utc> {
-        Utc.timestamp_micros(self.0 as i64 * 1_000_000).unwrap()
+        Utc.timestamp_micros(self.0 as i64 * 1_000_000).unwrap()  // safe unwrap
     }
     pub fn to_json(&self) -> JsonValue {
         json!(format!("{}", self.to_datetime().format(DATE_FORMAT)))
@@ -118,7 +118,7 @@ impl BlockTimestampType {
     pub fn to_datetime(&self) -> DateTime<Utc> {
         Utc.timestamp_micros(
             ((self.0 as i64 * config::BLOCK_INTERVAL_MS as i64) + config::BLOCK_TIMESTAMP_EPOCH as i64) * 1000
-        ).unwrap()
+        ).unwrap()  // safe unwrap
     }
     pub fn to_json(&self) -> JsonValue {
         json!(format!("{}", self.to_datetime().format(DATE_FORMAT)))

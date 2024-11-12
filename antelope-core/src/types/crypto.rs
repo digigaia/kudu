@@ -120,7 +120,7 @@ impl<T: CryptoDataType, const DATA_SIZE: usize> CryptoData<T, DATA_SIZE> {
         ensure!(result.is_ok(), InvalidDataSizeSnafu {
             msg: format!("wrong size for {}, needs to be {} but is: {}", T::DISPLAY_NAME, DATA_SIZE, input_len)
         });
-        Ok(result.unwrap())
+        Ok(result.unwrap())  // safe unwrap
     }
 }
 

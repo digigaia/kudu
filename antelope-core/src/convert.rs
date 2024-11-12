@@ -91,13 +91,10 @@ pub fn variant_to_int<T>(v: &JsonValue) -> Result<T>
 where
     T: TryFromInt64 + FromStr<Err = ParseIntError>,
 {
-    match v {
-        v if v.is_i64() => T::try_from_i64(v.as_i64().unwrap()),
-        v if v.is_string() => {
-            let v_str = v.as_str().unwrap();
-            v_str.parse().context(IntSnafu { repr: v_str })
-        },
-        _ => IncompatibleVariantTypesSnafu { typename: type_name::<T>(), value: v.clone() }.fail(),
+    if let Some(n) = v.as_i64()      { T::try_from_i64(n) }
+    else if let Some(s) = v.as_str() { s.parse().context(IntSnafu { repr: s }) }
+    else {
+        IncompatibleVariantTypesSnafu { typename: type_name::<T>(), value: v.clone() }.fail()
     }
 }
 
@@ -105,13 +102,10 @@ pub fn variant_to_uint<T>(v: &JsonValue) -> Result<T>
 where
     T: TryFromUint64 + FromStr<Err = ParseIntError>,
 {
-    match v {
-        v if v.is_u64() => T::try_from_u64(v.as_u64().unwrap()),
-        v if v.is_string() => {
-            let v_str = v.as_str().unwrap();
-            v_str.parse().context(IntSnafu { repr: v_str })
-        },
-        _ => IncompatibleVariantTypesSnafu { typename: type_name::<T>(), value: v.clone() }.fail(),
+    if let Some(n) = v.as_u64()      { T::try_from_u64(n) }
+    else if let Some(s) = v.as_str() { s.parse().context(IntSnafu { repr: s }) }
+    else {
+        IncompatibleVariantTypesSnafu { typename: type_name::<T>(), value: v.clone() }.fail()
     }
 }
 
@@ -119,13 +113,10 @@ pub fn variant_to_float<T>(v: &JsonValue) -> Result<T>
 where
     T: TryFromFloat64 + FromStr<Err = ParseFloatError>,
 {
-    match v {
-        v if v.is_f64() => T::try_from_f64(v.as_f64().unwrap()),
-        v if v.is_string() => {
-            let v_str = v.as_str().unwrap();
-            v_str.parse().context(FloatSnafu { repr: v_str })
-        },
-        _ => IncompatibleVariantTypesSnafu { typename: type_name::<T>(), value: v.clone() }.fail(),
+    if let Some(x) = v.as_f64()      { T::try_from_f64(x) }
+    else if let Some(s) = v.as_str() { s.parse().context(FloatSnafu { repr: s }) }
+    else {
+        IncompatibleVariantTypesSnafu { typename: type_name::<T>(), value: v.clone() }.fail()
     }
 }
 

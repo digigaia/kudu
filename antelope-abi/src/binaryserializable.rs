@@ -89,7 +89,7 @@ macro_rules! impl_array_serialization {
             }
             #[inline]
             fn decode(stream: &mut ByteStream) -> Result<Self, SerializeError> {
-                Ok(stream.read_bytes($size)?.try_into().unwrap())
+                Ok(stream.read_bytes($size)?.try_into().unwrap())  // safe unwrap
             }
         }
     }
@@ -320,7 +320,7 @@ impl<T: CryptoDataType, const DATA_SIZE: usize> BinarySerializable for CryptoDat
 
     fn decode(stream: &mut ByteStream) -> Result<Self, SerializeError> {
         let key_type = KeyType::from_index(stream.read_byte()?)?;
-        let data = stream.read_bytes(DATA_SIZE)?.try_into().unwrap();
+        let data = stream.read_bytes(DATA_SIZE)?.try_into().unwrap();  // safe unwrap
         Ok(Self::new(key_type, data))
     }
 }
