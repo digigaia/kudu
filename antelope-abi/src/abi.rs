@@ -1,20 +1,20 @@
 use std::collections::HashMap;
 
 use antelope_core::{
-    AntelopeType, AntelopeValue, InvalidValue, Name, VarUint32,
+    AntelopeType, AntelopeValue, Name, VarUint32,
 };
 use serde_json::{
     json,
     Map as JsonMap,
     Value as JsonValue,
 };
-use snafu::ResultExt;
+use snafu::{ensure, ResultExt};
 use strum::VariantNames;
 use tracing::{debug, warn, instrument};
 
 use crate::{
     ABIDefinition, ABISerializable, ByteStream, BinarySerializable,
-    abidefinition::{ABIError, DeserializeSnafu, TypeName, TypeNameRef, Struct, Variant},
+    abidefinition::{ABIError, IntegritySnafu, DeserializeSnafu, EncodeSnafu, DecodeSnafu, TypeName, TypeNameRef, Struct, Variant},
 };
 
 // TODO: make sure that we can (de)serialize an ABI (ABIDefinition?) itself (eg, see: https://github.com/wharfkit/antelope/blob/master/src/chain/abi.ts, which implements ABISerializableObject)
@@ -38,7 +38,6 @@ pub struct ABI {
 impl ABI {
     pub fn new() -> Self {
         Self {
-            // data: ByteStream::new(),
             typedefs: HashMap::new(),
             structs: HashMap::new(),
             actions: HashMap::new(),
@@ -47,13 +46,11 @@ impl ABI {
         }
     }
 
-    pub fn from_abi(abi: &ABIDefinition) -> Self {
+    pub fn from_definition(abi: &ABIDefinition) -> Result<Self, ABIError> {
         let mut result = Self::new();
-        result.set_abi(abi);
-        result
+        result.set_abi(abi)?;
+        Ok(result)
     }
-
-    pub fn with_abi(abi: &ABIDefinition) -> Self { Self::from_abi(abi) }
 
     pub fn from_hex_abi(abi: &str) -> Result<Self, ABIError> {
         Self::from_bin_abi(&hex::decode(abi)?)
@@ -62,25 +59,21 @@ impl ABI {
     pub fn from_bin_abi(abi: &[u8]) -> Result<Self, ABIError> {
         let mut data = ByteStream::from(abi.to_owned());
         let abi_def = ABIDefinition::from_bin(&mut data)?;
-        Ok(Self::from_abi(&abi_def))
+        Self::from_definition(&abi_def)
     }
 
-    // FIXME: we should probably move abi in there instead of passing a ref
-    pub fn set_abi(&mut self, abi: &ABIDefinition) {
+    fn set_abi(&mut self, abi: &ABIDefinition) -> Result<(), ABIError> {
         self.typedefs.clear();
         self.structs.clear();
         self.actions.clear();
         self.tables.clear();
         self.variants.clear();
 
-        // FIXME: check if we have to clone objects here or if it is ok to keep refs only
-        //        maybe we want to move the whole ABIDefinition inside the encoder so it
-        //        owns it and then we're fine just using refs everywhere
-
-        for s in &abi.structs { self.structs.insert(s.name.to_owned(), s.clone()); }
+        for s in &abi.structs { self.structs.insert(s.name.to_string(), s.clone()); }
         for td in &abi.types {
-            assert!(!self.is_type(TypeNameRef(&td.new_type_name)),
-                    "Type already exists: {}", td.new_type_name);
+            ensure!(!self.is_type(TypeNameRef(&td.new_type_name)),
+                    IntegritySnafu { message: format!("Type already exists: {}",
+                                                      td.new_type_name) });
             self.typedefs.insert(td.new_type_name.clone(), td.type_.clone());
         }
 
@@ -94,14 +87,19 @@ impl ABI {
             self.variants.insert(v.name.clone(), v.clone());
         }
 
-        // The ABI vector may contain duplicates which would make it an invalid ABI
-        assert_eq!(self.typedefs.len(), abi.types.len(), "duplicate type definition detected");
-        assert_eq!(self.structs.len(), abi.structs.len(), "duplicate struct definition detected");
-        assert_eq!(self.actions.len(), abi.actions.len(), "duplicate action definition detected");
-        assert_eq!(self.tables.len(), abi.tables.len(), "duplicate table definition detected");
-        assert_eq!(self.variants.len(), abi.variants.len(), "duplicate variants definition detected");
+        // The ABIDefinition vectors may contain duplicates which would make it an invalid ABI
+        ensure!(self.typedefs.len() == abi.types.len(),
+                IntegritySnafu { message: "duplicate type definition detected" });
+        ensure!(self.structs.len() == abi.structs.len(),
+                IntegritySnafu { message: "duplicate struct definition detected" });
+        ensure!(self.actions.len() == abi.actions.len(),
+                IntegritySnafu { message: "duplicate action definition detected" });
+        ensure!(self.tables.len() == abi.tables.len(),
+                IntegritySnafu { message: "duplicate table definition detected" });
+        ensure!(self.variants.len() == abi.variants.len(),
+                IntegritySnafu { message: "duplicate variants definition detected" });
 
-        self.validate();
+        self.validate()
     }
 
     pub fn is_type(&self, t: TypeNameRef) -> bool {
@@ -123,7 +121,7 @@ impl ABI {
         }
     }
 
-    pub fn json_to_bin(&self, typename: TypeNameRef, obj: &JsonValue) -> Result<Vec<u8>, InvalidValue> {
+    pub fn json_to_bin(&self, typename: TypeNameRef, obj: &JsonValue) -> Result<Vec<u8>, ABIError> {
         let mut ds = ByteStream::new();
         self.encode_variant(&mut ds, typename, obj)?;
         Ok(ds.pop())
@@ -136,7 +134,7 @@ impl ABI {
 
     #[inline]
     pub fn encode_variant<'a, T>(&self, ds: &mut ByteStream, typename: T, object: &JsonValue)
-                                 -> Result<(), InvalidValue>
+                                 -> Result<(), ABIError>
     where
         T: Into<TypeNameRef<'a>>
     {
@@ -144,7 +142,7 @@ impl ABI {
     }
 
     #[instrument(skip(self, ds))]
-    fn encode_variant_(&self, ds: &mut ByteStream, typename: TypeNameRef, object: &JsonValue) -> Result<(), InvalidValue> {
+    fn encode_variant_(&self, ds: &mut ByteStream, typename: TypeNameRef, object: &JsonValue) -> Result<(), ABIError> {
         // see C++ implementation here: https://github.com/AntelopeIO/leap/blob/main/libraries/chain/abi_serializer.cpp#L491
         let rtype = self.resolve_type(typename);
         let ftype = rtype.fundamental_type();
@@ -152,7 +150,7 @@ impl ABI {
         debug!(rtype=rtype.0, ftype=ftype.0);
 
         // use a closure to avoid cloning and copying if no error occurs
-        let incompatible_types = || { InvalidValue::IncompatibleVariantTypes {
+        let incompatible_types = || { ABIError::IncompatibleVariantTypes {
             typename: rtype.0.to_owned(),
             value: Box::new(object.clone())
         }};
@@ -160,25 +158,25 @@ impl ABI {
         if AntelopeValue::VARIANTS.contains(&ftype.0) {
             // if our fundamental type is a builtin type, we can serialize it directly
             // to the stream
-            let inner_type: AntelopeType = ftype.try_into()?;
+            let inner_type: AntelopeType = ftype.try_into().unwrap();  // safe unwrap
             if rtype.is_array() {
                 let a = object.as_array().ok_or_else(incompatible_types)?;
                 VarUint32::from(a.len()).encode(ds);
                 for v in a {
-                    AntelopeValue::from_json(inner_type, v)?.to_bin(ds);
+                    AntelopeValue::from_variant(inner_type, v)?.to_bin(ds);
                 }
             }
             else if rtype.is_optional() {
                 match !object.is_null() {
                     true => {
                         true.encode(ds);
-                        AntelopeValue::from_json(inner_type, object)?.to_bin(ds);
+                        AntelopeValue::from_variant(inner_type, object)?.to_bin(ds);
                     },
                     false => false.encode(ds),
                 }
             }
             else {
-                AntelopeValue::from_json(inner_type, object)?.to_bin(ds);
+                AntelopeValue::from_variant(inner_type, object)?.to_bin(ds);
             }
         }
         else {
@@ -202,20 +200,26 @@ impl ABI {
             }
             else if let Some(variant_def) = self.variants.get(rtype.0) {
                 debug!("serializing type {:?} with variant: {:?}", rtype.0, object);
-                // FIXME: replace with `ensure!`
-                assert!(object.is_array() && object.as_array().unwrap().len() == 2,
-                        "expected input to be an array of 2 elements while processing variant: {}",
-                        &object);
-                assert!(object[0].is_string(), "expected variant typename to be a string: {}",
-                        object[0]);
+                ensure!(object.is_array() && object.as_array().unwrap().len() == 2,
+                        EncodeSnafu {
+                            message: format!("expected input to be an array of 2 elements while processing variant: {}",
+                                             &object)
+                        });
+                ensure!(object[0].is_string(),
+                        EncodeSnafu {
+                            message: format!("expected variant typename to be a string: {}",
+                                             object[0])
+                        });
                 let variant_type = TypeNameRef(object[0].as_str().unwrap());
                 if let Some(vpos) = variant_def.types.iter().position(|v| v == variant_type.0) {
                     VarUint32::from(vpos).encode(ds);
                     self.encode_variant(ds, variant_type, &object[1])?;
                 }
                 else {
-                    panic!("specified type {} is not valid within the variant {}",
-                           variant_type, rtype);
+                    EncodeSnafu {
+                        message: format!("specified type {} is not valid within the variant {}",
+                                         variant_type, rtype)
+                    }.fail()?;
                 }
             }
             else if let Some(struct_def) = self.structs.get(rtype.0) {
@@ -227,8 +231,11 @@ impl ABI {
 
                     for field in &struct_def.fields {
                         let present: bool = obj.contains_key(&field.name);
-                        assert!(present, r#"Missing field "{}" in input object while processing struct "{}""#,
-                                &field.name, &struct_def.name);
+                        ensure!(present,
+                                EncodeSnafu {
+                                    message: format!(r#"Missing field "{}" in input object while processing struct "{}""#,
+                                                     &field.name, &struct_def.name)
+                                });
                         self.encode_variant(ds, TypeNameRef(&field.type_), obj.get(&field.name).unwrap())?;
                     }
                 }
@@ -242,7 +249,7 @@ impl ABI {
                 }
             }
             else {
-                panic!("Do not know how to serialize type: {}", rtype);
+                EncodeSnafu { message: format!("Do not know how to serialize type: {}", rtype) }.fail()?;
             }
         }
 
@@ -309,8 +316,10 @@ impl ABI {
             }
             else if let Some(variant_def) = self.variants.get(rtype.0) {
                 let variant_tag: usize = decode_usize(ds, "variant tag (as varuint32)")?;
-                assert!(variant_tag < variant_def.types.len(),
-                        "deserialized invalid tag {} for variant {}", variant_tag, rtype);
+                ensure!(variant_tag < variant_def.types.len(),
+                        DecodeSnafu { message: format!("deserialized invalid tag {} for variant {}",
+                                                       variant_tag, rtype)
+                        });
                 let variant_type = TypeNameRef(&variant_def.types[variant_tag]);
                 json!([variant_type.0, self.decode_variant(ds, variant_type)?])
             }
@@ -318,15 +327,16 @@ impl ABI {
                 self.decode_struct(ds, struct_def)?
             }
             else {
-                panic!("Do not know how to deserialize type: {}", rtype);
+                DecodeSnafu { message: format!("Do not know how to deserialize type: {}", rtype) }.fail()?
             }
         })
     }
 
-    pub fn validate(&self) {
+    pub fn validate(&self) -> Result<(), ABIError> {
         // FIXME: implement me!
         // see: https://github.com/AntelopeIO/leap/blob/6817911900a088c60f91563995cf482d6b380b2d/libraries/chain/abi_serializer.cpp#L273
         // https://github.com/AntelopeIO/leap/blob/main/libraries/chain/abi_serializer.cpp#L282
+        Ok(())
     }
 
 
@@ -364,7 +374,7 @@ impl ABI {
 
 fn read_value(stream: &mut ByteStream, type_: AntelopeType, what: &str) ->  Result<JsonValue, ABIError> {
     Ok(AntelopeValue::from_bin(type_, stream)
-       .context(DeserializeSnafu { what })?.to_json())
+       .context(DeserializeSnafu { what })?.to_variant())
 }
 
 fn decode_usize(stream: &mut ByteStream, what: &str) -> Result<usize, ABIError> {

@@ -129,12 +129,12 @@ impl AntelopeValue {
             AntelopeType::SymbolCode => Self::SymbolCode(SymbolCode::from_str(repr).context(SymbolSnafu)?),
             AntelopeType::Symbol => Self::Symbol(Symbol::from_str(repr).context(SymbolSnafu)?),
             AntelopeType::Asset => Self::Asset(Asset::from_str(repr).context(AssetSnafu { repr })?),
-            AntelopeType::ExtendedAsset => Self::from_json(typename, &serde_json::from_str(repr).context(JsonParseSnafu)?)?,
+            AntelopeType::ExtendedAsset => Self::from_variant(typename, &serde_json::from_str(repr).context(JsonParseSnafu)?)?,
             // _ => { return Err(InvalidValue::InvalidType(typename.to_string())); },
         })
     }
 
-    pub fn to_json(&self) -> JsonValue {
+    pub fn to_variant(&self) -> JsonValue {
         match self {
             Self::Bool(b) => json!(b),
             Self::Int8(n) => json!(n),
@@ -177,7 +177,7 @@ impl AntelopeValue {
     }
 
     #[instrument]
-    pub fn from_json(typename: AntelopeType, v: &JsonValue) -> Result<Self, InvalidValue> {
+    pub fn from_variant(typename: AntelopeType, v: &JsonValue) -> Result<Self, InvalidValue> {
         let incompatible_types = || {
             IncompatibleVariantTypesSnafu { typename, value: v.clone() }
         };
@@ -338,7 +338,7 @@ mod tests {
     #[test]
     fn test_conversion() -> Result<(), Report> {
         let n = json!(23);
-        let n = AntelopeValue::from_json(AntelopeType::Int8, &n)?;
+        let n = AntelopeValue::from_variant(AntelopeType::Int8, &n)?;
         println!("n = {n:?}");
 
         Ok(())

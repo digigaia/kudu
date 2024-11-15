@@ -6,7 +6,7 @@ use serde_json::{json, Error as JsonError};
 use snafu::{ensure, Snafu, IntoError, ResultExt};
 
 use antelope_core::{
-    JsonValue, ActionName, TableName, impl_auto_error_conversion,
+    JsonValue, InvalidValue, ActionName, TableName, impl_auto_error_conversion,
 };
 use antelope_macros::with_location;
 
@@ -236,7 +236,7 @@ fn abi_schema() -> &'static ABIDefinition {
 fn bin_abi_parser() -> &'static ABI {
     static BIN_ABI_PARSER: OnceLock<ABI> = OnceLock::new();
     BIN_ABI_PARSER.get_or_init(|| {
-        ABI::with_abi(abi_schema())
+        ABI::from_definition(abi_schema()).unwrap()  // safe unwrap
     })
 }
 
@@ -244,20 +244,39 @@ fn bin_abi_parser() -> &'static ABI {
 #[with_location]
 #[derive(Debug, Snafu)]
 pub enum ABIError {
-    #[snafu(display("cannot deserialize {what} from stream"), visibility(pub))]
+    #[snafu(display("cannot deserialize {what} from stream"), visibility(pub(crate)))]
     DeserializeError { what: String, source: SerializeError },
 
     #[snafu(display(r#"unsupported ABI version: "{version}""#))]
     VersionError { version: String },
+
+    #[snafu(display("integrity error: {message}"), visibility(pub(crate)))]
+    IntegrityError { message: String },
+
+    #[snafu(display("encode error: {message}"), visibility(pub(crate)))]
+    EncodeError { message: String },
+
+    #[snafu(display("decode error: {message}"), visibility(pub(crate)))]
+    DecodeError { message: String },
 
     #[snafu(display("cannot deserialize ABIDefinition from JSON"))]
     JsonError { source: JsonError },
 
     #[snafu(display("cannot decode hex representation for hex ABI"))]
     HexABIError { source: FromHexError },
+
+    #[snafu(display("cannot convert variant to AntelopeValue"))]
+    VariantConversionError { source: InvalidValue },
+
+    #[snafu(display(r#"cannot convert given variant {value} to Antelope type "{typename}""#))]
+    IncompatibleVariantTypes {
+        typename: String,
+        value: Box<JsonValue>,
+    },
 }
 
 impl_auto_error_conversion!(FromHexError, ABIError, HexABISnafu);
+impl_auto_error_conversion!(InvalidValue, ABIError, VariantConversionSnafu);
 
 
 #[cfg(test)]

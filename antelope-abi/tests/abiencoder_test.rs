@@ -57,7 +57,7 @@ fn test_serialize_struct() {
         "four": ['f', 'o', 'u', 'r'],
     });
 
-    let abi = ABI::from_abi(&abi);
+    let abi = ABI::from_definition(&abi).unwrap();  // safe unwrap
     let mut ds = ByteStream::new();
     abi.encode_variant(&mut ds, "bar", &obj).unwrap();
 

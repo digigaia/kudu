@@ -22,7 +22,7 @@ pub static SIGNING_REQUEST_ABI: &str = include_str!("../../antelope-esr/src/sign
 pub fn get_signing_request_abi() -> &'static ABI {
     static SR_ABI: OnceLock<ABI> = OnceLock::new();
     SR_ABI.get_or_init(|| {
-        ABI::with_abi(&ABIDefinition::from_str(SIGNING_REQUEST_ABI).unwrap())  // safe unwrap
+        ABI::from_definition(&ABIDefinition::from_str(SIGNING_REQUEST_ABI).unwrap()).unwrap()  // safe unwrap
     })
 }
 
@@ -49,7 +49,7 @@ impl ABIProvider {
             },
             _ => {
                 let abi_def = ABIDefinition::from_str(&self.get_abi_definition(abi_name)?)?;
-                Ok(Rc::new(ABI::from_abi(&abi_def)))
+                Ok(Rc::new(ABI::from_definition(&abi_def)?))
             }
         }
     }
