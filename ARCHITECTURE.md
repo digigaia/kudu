@@ -121,6 +121,11 @@ ABIProviderTrait or something similar.
 - our own crate imports
 
 
+## Error messages are not capitalized
+
+logging messages should not be capitalized either
+
+
 ## Hex literals are written in lower-case
 
 That also means that we should use `hex::encode()` instead of `hex::encode_upper()`

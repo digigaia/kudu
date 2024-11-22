@@ -40,7 +40,21 @@ macro_rules! check_error {
             $error_type => (),
             err => panic!("wrong error type: expected `{}`, got `{}`", stringify!($error_type), err),
         }
-    }
+    };
+    ($t:ident, $error_type:pat, $msg:literal) => {
+        assert!($t.is_err(), "expected error, found some result instead");
+        let err = $t.err().unwrap();
+        match err {
+            $error_type => {
+                let received = err.to_string();
+                if !received.contains($msg) {
+                    panic!(r#"expected error with message "{}", got this instead: "{}""#,
+                           $msg, received);
+                }
+            },
+            err => panic!("wrong error type: expected `{}`, got `{}`", stringify!($error_type), err),
+        }
+    };
 }
 
 
@@ -147,7 +161,7 @@ fn abi_cycle() -> Result<()> {
 
     let abi = ABI::from_definition(&typedef_cycle_abi);
     println!("{:?}", abi);
-    check_error!(abi, ABIError::IntegrityError { .. });
+    check_error!(abi, ABIError::IntegrityError { .. }, "gloup");
 
     let abi = ABI::from_definition(&struct_cycle_abi);
     check_error!(abi, ABIError::IntegrityError { .. });

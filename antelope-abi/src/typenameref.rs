@@ -76,6 +76,12 @@ impl<'a> fmt::Display for TypeNameRef<'a> {
 
 // }
 
+impl<'a> From<&'a String> for TypeNameRef<'a> {
+    fn from(t: &String) -> TypeNameRef {
+        TypeNameRef(t.as_str())
+    }
+}
+
 impl<'a> From<&'a str> for TypeNameRef<'a> {
     fn from(t: &str) -> TypeNameRef {
         TypeNameRef(t)

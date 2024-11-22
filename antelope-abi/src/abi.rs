@@ -75,7 +75,9 @@ impl ABI {
         self.tables.clear();
         self.variants.clear();
 
-        for s in &abi.structs { self.structs.insert(s.name.to_string(), s.clone()); }
+        // for s in &abi.structs { self.structs.insert(s.name.to_string(), s.clone()); }
+        self.structs.extend(abi.structs.iter().map(|s| (s.name.to_string(), s.clone())));
+
         for td in &abi.types {
             // TODO: this check is redundant with the circular reference detection
             //       in `validate()` (right?), so we should remove it
@@ -260,7 +262,7 @@ impl ABI {
                         let present: bool = obj.contains_key(&field.name);
                         ensure!(present,
                                 EncodeSnafu {
-                                    message: format!(r#"Missing field "{}" in input object while processing struct "{}""#,
+                                    message: format!(r#"missing field "{}" in input object while processing struct "{}""#,
                                                      &field.name, &struct_def.name)
                                 });
                         self.encode_variant(ds, TypeNameRef(&field.type_), obj.get(&field.name).unwrap())?;
@@ -276,7 +278,7 @@ impl ABI {
                 }
             }
             else {
-                EncodeSnafu { message: format!("Do not know how to serialize type: {}", rtype) }.fail()?;
+                EncodeSnafu { message: format!("do not know how to serialize type: {}", rtype) }.fail()?;
             }
         }
 
@@ -354,7 +356,7 @@ impl ABI {
                 self.decode_struct(ds, struct_def)?
             }
             else {
-                DecodeSnafu { message: format!("Do not know how to deserialize type: {}", rtype) }.fail()?
+                DecodeSnafu { message: format!("do not know how to deserialize type: {}", rtype) }.fail()?
             }
         })
     }
@@ -371,33 +373,37 @@ impl ABI {
             while itr.is_some() {
                 let it = itr.unwrap();
                 ensure!(!types_seen.contains(&it),
-                        IntegritySnafu { message: format!("Circular reference in type {}", t.0) });
+                        IntegritySnafu { message: format!("circular reference in type {}", t.0) });
                 types_seen.push(it);
                 itr = self.typedefs.get(it);
             }
         }
 
-        for _t in &self.typedefs {
-            // TODO: assert is_type(t)
+        // check all types used in typedefs are valid types
+        for t in &self.typedefs {
+            ensure!(self.is_type(t.1.into()),
+                    IntegritySnafu { message: format!("invalid type used in typedefs: {}", t.1) });
         }
 
+        // check there are no circular references in the structs definition
         for s in self.structs.values() {
-            // check there are no circular references in the structs definition
             if !s.base.is_empty() {
                 let mut current = s;
                 let mut types_seen = vec![&current.name];
                 while !current.base.is_empty() {
                     let base = self.structs.get(&current.base).unwrap();  // safe unwrap
                     ensure!(!types_seen.contains(&&base.name),
-                            IntegritySnafu { message: format!("Circular reference in struct {}", &s.name) });
+                            IntegritySnafu { message: format!("circular reference in struct {}", &s.name) });
                     types_seen.push(&base.name);
                     current = base;
                 }
             }
 
-            // check that the field types are valid types
-            for _field in &s.fields {
-                // TODO assert is_type(_field.type)
+            // check all field types are valid types
+            for field in &s.fields {
+                ensure!(self.is_type(TypeNameRef(&field.type_[..])),
+                        IntegritySnafu { message: format!("invalid type used in field `{}::{}`: {}",
+                                                          &s.name, &field.name, &field.type_) });
             }
         }
 

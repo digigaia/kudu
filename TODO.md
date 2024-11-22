@@ -16,6 +16,8 @@ file once they are implemented.
 - clean abi.rs
   move ABIError from ABIDefinition to ABI.rs
 
+- check FIXME in TypeNameRef
+
 - check nomenclature about ABI: ABIDefinition, ABI, ABIEncoder, etc.
 
 - try defining the `ABISerializable` trait and implement it for all types, then replace
