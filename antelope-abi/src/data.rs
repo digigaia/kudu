@@ -1,4 +1,16 @@
 
+// -----------------------------------------------------------------------------
+//     Core data
+// -----------------------------------------------------------------------------
+
+pub static ABI_SCHEMA: &str = include_str!("../data/abi_definition.json");
+
+pub static CONTRACT_ABI: &str = include_str!("../data/contract_abi.json");
+
+// -----------------------------------------------------------------------------
+//     Tests data
+// -----------------------------------------------------------------------------
+
 // FIXME: find why using #[cfg(test)] makes the tests not compile
 
 #[cfg(test)]

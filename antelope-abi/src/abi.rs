@@ -14,14 +14,20 @@ use tracing::{debug, warn, instrument};
 
 use crate::{
     ABIDefinition, ABISerializable, ByteStream, BinarySerializable,
-    abidefinition::{ABIError, IntegritySnafu, DeserializeSnafu, EncodeSnafu, DecodeSnafu, TypeName, TypeNameRef, Struct, Variant},
+    abidefinition::{
+        ABIError, IntegritySnafu, DeserializeSnafu, EncodeSnafu, DecodeSnafu,
+        IncompatibleVariantTypesSnafu, VariantConversionSnafu,
+        TypeName, TypeNameRef, Struct, Variant
+    },
 };
+
+type Result<T, E = ABIError> = core::result::Result<T, E>;
 
 // TODO: make sure that we can (de)serialize an ABI (ABIDefinition?) itself (eg, see: https://github.com/wharfkit/antelope/blob/master/src/chain/abi.ts, which implements ABISerializableObject)
 
 // FIXME: remove all `.0` lying in this file
 
-#[derive(Default, Clone)]
+#[derive(Default, Clone, Debug)]
 pub struct ABI {
     // ABI-related fields
     typedefs: HashMap<TypeName, TypeName>,
@@ -71,8 +77,10 @@ impl ABI {
 
         for s in &abi.structs { self.structs.insert(s.name.to_string(), s.clone()); }
         for td in &abi.types {
+            // TODO: this check is redundant with the circular reference detection
+            //       in `validate()` (right?), so we should remove it
             ensure!(!self.is_type(TypeNameRef(&td.new_type_name)),
-                    IntegritySnafu { message: format!("Type already exists: {}",
+                    IntegritySnafu { message: format!("type already exists: {}",
                                                       td.new_type_name) });
             self.typedefs.insert(td.new_type_name.clone(), td.type_.clone());
         }
@@ -121,10 +129,23 @@ impl ABI {
         }
     }
 
-    pub fn json_to_bin(&self, typename: TypeNameRef, obj: &JsonValue) -> Result<Vec<u8>, ABIError> {
+    pub fn variant_to_binary<'a, T>(&self, typename: T, obj: &JsonValue)
+                                    -> Result<Vec<u8>>
+    where
+        T: Into<TypeNameRef<'a>>
+    {
         let mut ds = ByteStream::new();
-        self.encode_variant(&mut ds, typename, obj)?;
+        self.encode_variant(&mut ds, typename.into(), obj)?;
         Ok(ds.pop())
+    }
+
+    pub fn binary_to_variant<'a, T>(&self, typename: T, bytes: Vec<u8>)
+                                    -> Result<JsonValue>
+    where
+        T: Into<TypeNameRef<'a>>
+    {
+        let mut ds = ByteStream::from(bytes);
+        self.decode_variant_(&mut ds, typename.into())
     }
 
     #[inline]
@@ -150,10 +171,10 @@ impl ABI {
         debug!(rtype=rtype.0, ftype=ftype.0);
 
         // use a closure to avoid cloning and copying if no error occurs
-        let incompatible_types = || { ABIError::IncompatibleVariantTypes {
+        let incompatible_types = || { IncompatibleVariantTypesSnafu {
             typename: rtype.0.to_owned(),
             value: Box::new(object.clone())
-        }};
+        }.build() };
 
         if AntelopeValue::VARIANTS.contains(&ftype.0) {
             // if our fundamental type is a builtin type, we can serialize it directly
@@ -163,20 +184,26 @@ impl ABI {
                 let a = object.as_array().ok_or_else(incompatible_types)?;
                 VarUint32::from(a.len()).encode(ds);
                 for v in a {
-                    AntelopeValue::from_variant(inner_type, v)?.to_bin(ds);
+                    AntelopeValue::from_variant(inner_type, v)
+                        .with_context(|_| VariantConversionSnafu { v: v.clone() })?
+                        .to_bin(ds);
                 }
             }
             else if rtype.is_optional() {
                 match !object.is_null() {
                     true => {
                         true.encode(ds);
-                        AntelopeValue::from_variant(inner_type, object)?.to_bin(ds);
+                        AntelopeValue::from_variant(inner_type, object)
+                            .with_context(|_| VariantConversionSnafu { v: object.clone() })?
+                            .to_bin(ds);
                     },
                     false => false.encode(ds),
                 }
             }
             else {
-                AntelopeValue::from_variant(inner_type, object)?.to_bin(ds);
+                AntelopeValue::from_variant(inner_type, object)
+                    .with_context(|_| VariantConversionSnafu { v: object.clone() })?
+                    .to_bin(ds);
             }
         }
         else {
@@ -270,7 +297,7 @@ impl ABI {
         let ftype = rtype.fundamental_type();
 
         Ok(if AntelopeValue::VARIANTS.contains(&ftype.0) {
-            let type_ = ftype.try_into().unwrap(); //.context(InvalidTypeSnafu { name: ftype.0 })?;
+            let type_ = ftype.try_into().unwrap();  // safe unwrap
 
             // if our fundamental type is a builtin type, we can deserialize it directly
             // from the stream
@@ -336,6 +363,44 @@ impl ABI {
         // FIXME: implement me!
         // see: https://github.com/AntelopeIO/leap/blob/6817911900a088c60f91563995cf482d6b380b2d/libraries/chain/abi_serializer.cpp#L273
         // https://github.com/AntelopeIO/leap/blob/main/libraries/chain/abi_serializer.cpp#L282
+
+        // check there are no circular references in the typedefs definition
+        for t in &self.typedefs {
+            let mut types_seen = vec![t.0, t.1];
+            let mut itr = self.typedefs.get(&t.1[..]);
+            while itr.is_some() {
+                let it = itr.unwrap();
+                ensure!(!types_seen.contains(&it),
+                        IntegritySnafu { message: format!("Circular reference in type {}", t.0) });
+                types_seen.push(it);
+                itr = self.typedefs.get(it);
+            }
+        }
+
+        for _t in &self.typedefs {
+            // TODO: assert is_type(t)
+        }
+
+        for s in self.structs.values() {
+            // check there are no circular references in the structs definition
+            if !s.base.is_empty() {
+                let mut current = s;
+                let mut types_seen = vec![&current.name];
+                while !current.base.is_empty() {
+                    let base = self.structs.get(&current.base).unwrap();  // safe unwrap
+                    ensure!(!types_seen.contains(&&base.name),
+                            IntegritySnafu { message: format!("Circular reference in struct {}", &s.name) });
+                    types_seen.push(&base.name);
+                    current = base;
+                }
+            }
+
+            // check that the field types are valid types
+            for _field in &s.fields {
+                // TODO assert is_type(_field.type)
+            }
+        }
+
         Ok(())
     }
 

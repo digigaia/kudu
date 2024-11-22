@@ -1,0 +1,64 @@
+{
+    "version": "eosio::abi/1.2",
+    "types": [],
+    "structs": [
+        {
+            "name": "typedef",
+            "base": "",
+            "fields": [
+                { "name": "new_type_name", "type": "string" },
+                { "name": "type",          "type": "string" }
+            ]
+        },
+        {
+            "name": "field",
+            "base": "",
+            "fields": [
+                { "name": "name", "type": "string" },
+                { "name": "type", "type": "string" }
+            ]
+        },
+        {
+            "name": "struct",
+            "base": "",
+            "fields": [
+                { "name": "name",   "type": "string" },
+                { "name": "base",   "type": "string" },
+                { "name": "fields", "type": "field[]" }
+            ]
+        },
+        {
+            "name": "action",
+            "base": "",
+            "fields": [
+                { "name": "name",               "type": "name" },
+                { "name": "type",               "type": "string" },
+                { "name": "ricardian_contract", "type": "string" }
+            ]
+        },
+        {
+            "name": "table",
+            "base": "",
+            "fields": [
+                { "name": "name",       "type": "name" },
+                { "name": "index_type", "type": "string" },
+                { "name": "key_names",  "type": "string[]" },
+                { "name": "key_types",  "type": "string[]" },
+                { "name": "type",       "type": "string" }
+            ]
+        },
+        {
+            "name": "variant",
+            "base": "",
+            "fields": [
+                { "name": "name",  "type": "name" },
+                { "name": "types", "type": "string[]" }
+            ]
+        }
+    ],
+    "actions": [],
+    "tables": [],
+    "ricardian_clauses": [],
+    "error_messages": [],
+    "variants": []
+}

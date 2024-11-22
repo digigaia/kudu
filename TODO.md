@@ -25,7 +25,7 @@ file once they are implemented.
   for ESR: <https://github.com/AntelopeIO/spring/blob/main/libraries/chain/include/eosio/chain/transaction.hpp#L53>
   ```
   pub struct TransactionHeader {
-      expiration: builtin::TimePointSec,
+      expiration: TimePointSec,
       ref_block_num: u16,
       ref_block_prefix: u32,
       max_net_usage_words: usize, // FIXME: check this type
@@ -35,9 +35,9 @@ file once they are implemented.
 
 - check <https://rust-lang.github.io/api-guidelines/checklist.html>
 
-### Error Handling
+- investigate the following as alternative to `ByteStream`: <https://graphallthethings.com/posts/better-buf-read>
 
-- check whether `InvalidValue` is the right error type for `ABI::encode_variant`
+### Error Handling
 
 
 ### Investigate Serde
@@ -77,6 +77,8 @@ file once they are implemented.
 - replace links and refs from `AntelopeIO/leap` to `AntelopeIO/spring`
 
 ## MISC
+
+- use a small string library so that ABIs have a much better cache locality
 
 - include `ARCHITECTURE.md` somewhere in the docs
 

@@ -11,7 +11,7 @@ use antelope_core::{
 use antelope_macros::with_location;
 
 use crate::binaryserializable::BinarySerializable;
-use crate::{ABI, ByteStream, SerializeError};
+use crate::{ABI, ByteStream, SerializeError, data::{ABI_SCHEMA, CONTRACT_ABI}};
 
 pub use crate::typenameref::TypeNameRef;
 
@@ -23,29 +23,29 @@ pub use crate::typenameref::TypeNameRef;
 // see also builtin types:
 // https://github.com/AntelopeIO/spring/blob/main/libraries/chain/abi_serializer.cpp#L90-L131
 
-
+type Result<T, E = ABIError> = core::result::Result<T, E>;
 
 // from https://github.com/AntelopeIO/leap/blob/main/libraries/chain/include/eosio/chain/abi_def.hpp#L7
 pub type TypeName = String;
 pub type FieldName = String;
 
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct Type {
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+pub struct TypeDef {
     pub new_type_name: TypeName,
 
     #[serde(rename = "type")]
     pub type_: TypeName,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct Field {
     pub name: FieldName,
     #[serde(rename = "type")]
     pub type_: TypeName,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct Struct {
     pub name: TypeName,
     #[serde(default)]
@@ -53,7 +53,7 @@ pub struct Struct {
     pub fields: Vec<Field>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct Action {
     pub name: ActionName,
     #[serde(rename = "type")]
@@ -62,7 +62,7 @@ pub struct Action {
     pub ricardian_contract: String,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct Table {
     pub name: TableName,
     #[serde(rename = "type")]
@@ -74,36 +74,36 @@ pub struct Table {
     pub key_types: Vec<TypeName>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct ClausePair {
     pub id: String,
     pub body: String,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct ErrorMessage {
     pub error_code: u64,
     pub error_msg: String,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct Variant {
     pub name: TypeName,
     #[serde(default)]
     pub types: Vec<TypeName>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct ActionResult {
     pub name: ActionName,
     pub result_type: TypeName,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct ABIDefinition {
     pub version: String,
     #[serde(default)]
-    pub types: Vec<Type>,
+    pub types: Vec<TypeDef>,
     #[serde(default)]
     pub structs: Vec<Struct>,
     #[serde(default)]
@@ -122,15 +122,15 @@ pub struct ABIDefinition {
 
 
 impl ABIDefinition {
-    pub fn from_str(s: &str) -> Result<Self, ABIError> {
+    pub fn from_str(s: &str) -> Result<Self> {
         serde_json::from_str(s).context(JsonSnafu)
     }
 
-    pub fn from_variant(v: &JsonValue) -> Result<Self, ABIError> {
+    pub fn from_variant(v: &JsonValue) -> Result<Self> {
         serde_json::from_str(&v.to_string()).context(JsonSnafu)
     }
 
-    pub fn from_bin(data: &mut ByteStream) -> Result<Self, ABIError> {
+    pub fn from_bin(data: &mut ByteStream) -> Result<Self> {
         let version = String::decode(data).context(DeserializeSnafu { what: "version" })?;
 
         ensure!(version.starts_with("eosio::abi/1."), VersionSnafu { version });
@@ -152,6 +152,29 @@ impl ABIDefinition {
 
         Self::from_str(&abi.to_string())
     }
+
+    pub fn update(&mut self, other: &ABIDefinition) -> Result<()> {
+        ensure!(self.version.is_empty() || other.version.is_empty() ||
+                self.version == other.version,
+                IncompatibleVersionSnafu { a: self.version.clone(), b: other.version.clone() });
+
+        self.types.extend(other.types.iter().map(Clone::clone));
+        self.structs.extend(other.structs.iter().map(Clone::clone));
+        self.actions.extend(other.actions.iter().map(Clone::clone));
+        self.tables.extend(other.tables.iter().map(Clone::clone));
+        self.ricardian_clauses.extend(other.ricardian_clauses.iter().map(Clone::clone));
+        self.error_messages.extend(other.error_messages.iter().map(Clone::clone));
+        self.variants.extend(other.variants.iter().map(Clone::clone));
+
+        Ok(())
+    }
+
+    // FIXME: do we really need this? we should remove it
+    pub fn with_contract_abi(mut self) -> Result<Self> {
+        // ref impl: `spring/libraries/chain/eosio_contract_abi.cpp`
+        self.update(&ABIDefinition::from_str(CONTRACT_ABI)?)?;
+        Ok(self)
+    }
 }
 
 impl Default for ABIDefinition {
@@ -169,68 +192,9 @@ impl Default for ABIDefinition {
     }
 }
 
-fn abi_schema() -> &'static ABIDefinition {
-    static ABI_SCHEMA: OnceLock<ABIDefinition> = OnceLock::new();
-    ABI_SCHEMA.get_or_init(|| { ABIDefinition {
-        structs: vec![
-            Struct {
-                name: "typedef".to_owned(),
-                base: "".to_owned(),
-                fields: vec![
-                    Field { name: "new_type_name".to_owned(), type_: "string".to_owned() },
-                    Field { name: "type".to_owned(), type_: "string".to_owned() },
-                ],
-            },
-            Struct {
-                name: "field".to_owned(),
-                base: "".to_owned(),
-                fields: vec![
-                    Field { name: "name".to_owned(), type_: "string".to_owned() },
-                    Field { name: "type".to_owned(), type_: "string".to_owned() },
-                ],
-            },
-            Struct {
-                name: "struct".to_owned(),
-                base: "".to_owned(),
-                fields: vec![
-                    Field { name: "name".to_owned(), type_: "string".to_owned() },
-                    Field { name: "base".to_owned(), type_: "string".to_owned() },
-                    Field { name: "fields".to_owned(), type_: "field[]".to_owned() },
-                ],
-            },
-            Struct {
-                name: "action".to_owned(),
-                base: "".to_owned(),
-                fields: vec![
-                    Field { name: "name".to_owned(), type_: "name".to_owned() },
-                    Field { name: "type".to_owned(), type_: "string".to_owned() },
-                    // FIXME: should this be made optional? `signing_request_abi.json` defines an action without it
-                    Field { name: "ricardian_contract".to_owned(), type_: "string".to_owned() },
-                ],
-            },
-            Struct {
-                name: "table".to_owned(),
-                base: "".to_owned(),
-                fields: vec![
-                    Field { name: "name".to_owned(), type_: "name".to_owned() },
-                    Field { name: "index_type".to_owned(), type_: "string".to_owned() },
-                    Field { name: "key_names".to_owned(), type_: "string[]".to_owned() },
-                    Field { name: "key_types".to_owned(), type_: "string[]".to_owned() },
-                    Field { name: "type".to_owned(), type_: "string".to_owned() },
-                ],
-            },
-            Struct {
-                name: "variant".to_owned(),
-                base: "".to_owned(),
-                fields: vec![
-                    Field { name: "name".to_owned(), type_: "name".to_owned() },
-                    Field { name: "types".to_owned(), type_: "string[]".to_owned() }, // FIXME: is it String[] or Name[] here?
-                ],
-            },
-
-        ],
-        ..ABIDefinition::default()
-    }})
+pub fn abi_schema() -> &'static ABIDefinition {
+    static ABI_SCHEMA_ONCE: OnceLock<ABIDefinition> = OnceLock::new();
+    ABI_SCHEMA_ONCE.get_or_init(|| { ABIDefinition::from_str(ABI_SCHEMA).unwrap() })
 }
 
 fn bin_abi_parser() -> &'static ABI {
@@ -250,6 +214,9 @@ pub enum ABIError {
     #[snafu(display(r#"unsupported ABI version: "{version}""#))]
     VersionError { version: String },
 
+    #[snafu(display(r#"incompatible versions: "{a}" vs. "{b}""#))]
+    IncompatibleVersionError { a: String, b: String },
+
     #[snafu(display("integrity error: {message}"), visibility(pub(crate)))]
     IntegrityError { message: String },
 
@@ -265,10 +232,10 @@ pub enum ABIError {
     #[snafu(display("cannot decode hex representation for hex ABI"))]
     HexABIError { source: FromHexError },
 
-    #[snafu(display("cannot convert variant to AntelopeValue"))]
-    VariantConversionError { source: InvalidValue },
+    #[snafu(display("cannot convert variant to AntelopeValue: {v}"), visibility(pub(crate)))]
+    VariantConversionError { v: JsonValue, source: InvalidValue },
 
-    #[snafu(display(r#"cannot convert given variant {value} to Antelope type "{typename}""#))]
+    #[snafu(display(r#"cannot convert given variant {value} to Antelope type "{typename}""#), visibility(pub(crate)))]
     IncompatibleVariantTypes {
         typename: String,
         value: Box<JsonValue>,
@@ -276,7 +243,6 @@ pub enum ABIError {
 }
 
 impl_auto_error_conversion!(FromHexError, ABIError, HexABISnafu);
-impl_auto_error_conversion!(InvalidValue, ABIError, VariantConversionSnafu);
 
 
 #[cfg(test)]

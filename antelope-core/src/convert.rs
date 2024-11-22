@@ -17,10 +17,17 @@ use antelope_macros::with_location;
 #[with_location]
 #[derive(Debug, Snafu)]
 pub enum ConversionError {
-    #[snafu(display("invalid integer: {repr}"))]
+    #[snafu(display("invalid integer: {repr} - target type: {target}"))]
     Int {
         repr: String,
+        target: &'static str,
         source: ParseIntError
+    },
+
+    #[snafu(display("invalid hex integer: {repr} - target type: {target}"))]
+    HexInt {
+        repr: String,
+        target: &'static str,
     },
 
     #[snafu(display("integer out of range: cannot fit {value} in a `{target_type}`"))]
@@ -61,6 +68,30 @@ pub fn hex_to_boxed_array<const N: usize>(s: &str) -> Result<Box<[u8; N]>, FromH
     Ok(Box::new(result))
 }
 
+/// Trait for signed integers that allows parsing negative integers
+/// from their hex representation
+pub trait NegativeHex : Integer + Signed {
+    fn from_hex_str(repr: &str) -> Result<Self>;
+}
+
+macro_rules! impl_negative_hex {
+    ($t:ident, $unsigned:ty) => {
+        impl NegativeHex for $t {
+            fn from_hex_str(repr: &str) -> Result<Self> {
+                <$unsigned>::from_str_radix(repr, 16)
+                    .map(|n| n as $t)
+                    .map_err(|_| HexIntSnafu { repr, target: stringify!($t) }.build())
+            }
+        }
+    }
+}
+
+impl_negative_hex!(i8, u8);
+impl_negative_hex!(i16, u16);
+impl_negative_hex!(i32, u32);
+impl_negative_hex!(i64, u64);
+impl_negative_hex!(i128, u128);
+
 
 // -----------------------------------------------------------------------------
 //     Utility functions to convert numeric types
@@ -77,7 +108,7 @@ pub fn str_to_int<T>(s: &str) -> Result<T>
 where
     T: Integer + FromStr<Err = ParseIntError>,
 {
-    s.parse().context(IntSnafu { repr: s })
+    s.parse().context(IntSnafu { repr: s, target: type_name::<T>() })
 }
 
 pub fn str_to_float<T>(s: &str) -> Result<T>
@@ -89,10 +120,17 @@ where
 
 pub fn variant_to_int<T>(v: &JsonValue) -> Result<T>
 where
-    T: TryFromInt64 + FromStr<Err = ParseIntError>,
+    T: TryFromInt64 + FromStr<Err = ParseIntError> + NegativeHex,
 {
     if let Some(n) = v.as_i64()      { T::try_from_i64(n) }
-    else if let Some(s) = v.as_str() { s.parse().context(IntSnafu { repr: s }) }
+    else if let Some(s) = v.as_str() {
+        if let Some(hex_repr) = s.strip_prefix("0x") {
+            T::from_hex_str(hex_repr)
+        }
+        else {
+            s.parse().context(IntSnafu { repr: s, target: type_name::<T>() })
+        }
+    }
     else {
         IncompatibleVariantTypesSnafu { typename: type_name::<T>(), value: v.clone() }.fail()
     }
@@ -103,7 +141,14 @@ where
     T: TryFromUint64 + FromStr<Err = ParseIntError>,
 {
     if let Some(n) = v.as_u64()      { T::try_from_u64(n) }
-    else if let Some(s) = v.as_str() { s.parse().context(IntSnafu { repr: s }) }
+    else if let Some(s) = v.as_str() {
+        if let Some(hex_repr) = s.strip_prefix("0x") {
+            T::from_str_radix(hex_repr, 16).map_err(|_| HexIntSnafu { repr: s, target: type_name::<T>() }.build())
+        }
+        else {
+            s.parse().context(IntSnafu { repr: s, target: type_name::<T>() })
+        }
+    }
     else {
         IncompatibleVariantTypesSnafu { typename: type_name::<T>(), value: v.clone() }.fail()
     }

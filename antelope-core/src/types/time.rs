@@ -8,11 +8,14 @@ use crate::config;
 // FIXME: remove pub inner type
 
 const DATE_FORMAT: &str = "%Y-%m-%dT%H:%M:%S%.3f";
+const DATE_FORMAT_NO_SECS: &str = "%Y-%m-%dT%H:%M";
 
 /// return a date in microseconds, timezone is UTC by default
 /// (we don't use naive datetimes)
 fn parse_date(s: &str) -> Result<DateTime<Utc>, ChronoParseError> {
-    Ok(NaiveDateTime::parse_from_str(s, DATE_FORMAT)?.and_utc())
+    Ok(NaiveDateTime::parse_from_str(s, DATE_FORMAT)
+       .or_else(|_| NaiveDateTime::parse_from_str(s, DATE_FORMAT_NO_SECS))?
+       .and_utc())
 }
 
 fn timestamp_to_block_slot(dt: &DateTime<Utc>) -> u32 {
