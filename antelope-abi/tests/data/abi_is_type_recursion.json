@@ -1,0 +1,25 @@
+{
+    "version": "eosio::abi/1.0",
+    "types": [{
+        "new_type_name": "a[]",
+        "type": "a[][]"
+    }],
+    "structs": [{
+        "name": "a[]",
+        "base": "",
+        "fields": []
+    },{
+        "name": "hi",
+        "base": "",
+        "fields": [{
+            "name": "user",
+            "type": "name"
+        }]
+    }],
+    "actions": [{
+        "name": "hi",
+        "type": "hi",
+        "ricardian_contract": ""
+    }],
+    "tables": []
+}

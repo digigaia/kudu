@@ -16,7 +16,7 @@ use crate::{
     ABIDefinition, ABISerializable, ByteStream, BinarySerializable,
     abidefinition::{
         ABIError, IntegritySnafu, DeserializeSnafu, EncodeSnafu, DecodeSnafu,
-        IncompatibleVariantTypesSnafu, VariantConversionSnafu,
+        IncompatibleVariantTypesSnafu, VariantConversionSnafu, VersionSnafu,
         TypeName, TypeNameRef, Struct, Variant
     },
 };
@@ -52,23 +52,29 @@ impl ABI {
         }
     }
 
-    pub fn from_definition(abi: &ABIDefinition) -> Result<Self, ABIError> {
+    pub fn from_definition(abi: &ABIDefinition) -> Result<Self> {
         let mut result = Self::new();
         result.set_abi(abi)?;
         Ok(result)
     }
 
-    pub fn from_hex_abi(abi: &str) -> Result<Self, ABIError> {
+    pub fn from_str(abi: &str) -> Result<Self> {
+        Self::from_definition(&ABIDefinition::from_str(abi)?)
+    }
+
+    pub fn from_hex_abi(abi: &str) -> Result<Self> {
         Self::from_bin_abi(&hex::decode(abi)?)
     }
 
-    pub fn from_bin_abi(abi: &[u8]) -> Result<Self, ABIError> {
+    pub fn from_bin_abi(abi: &[u8]) -> Result<Self> {
         let mut data = ByteStream::from(abi.to_owned());
         let abi_def = ABIDefinition::from_bin(&mut data)?;
         Self::from_definition(&abi_def)
     }
 
-    fn set_abi(&mut self, abi: &ABIDefinition) -> Result<(), ABIError> {
+    fn set_abi(&mut self, abi: &ABIDefinition) -> Result<()> {
+        ensure!(abi.version.starts_with("eosio::abi/1."), VersionSnafu { version: &abi.version });
+
         self.typedefs.clear();
         self.structs.clear();
         self.actions.clear();
@@ -81,6 +87,8 @@ impl ABI {
         for td in &abi.types {
             // TODO: this check is redundant with the circular reference detection
             //       in `validate()` (right?), so we should remove it
+            //       BUT! we also check this way the we have no duplicates between
+            //       the previously defined structs and the typedefs
             ensure!(!self.is_type(TypeNameRef(&td.new_type_name)),
                     IntegritySnafu { message: format!("type already exists: {}",
                                                       td.new_type_name) });
@@ -113,7 +121,18 @@ impl ABI {
     }
 
     pub fn is_type(&self, t: TypeNameRef) -> bool {
-        let t = t.fundamental_type();
+        // NOTE: this would be a better behavior IMO but it doesn't match the C++ code
+        //       for Antelope Spring; keep the latter for better compatibility
+
+        let mut t = t;
+        let mut ft = t.fundamental_type();
+        while ft != t {
+            t = ft;
+            ft = t.fundamental_type();
+        }
+
+        // NOTE: this is the C++ Antelope Spring behavior
+        // let t = t.fundamental_type();
         AntelopeValue::VARIANTS.contains(&t.0)
             || (self.typedefs.contains_key(t.0) &&
                self.is_type(TypeNameRef(self.typedefs.get(t.0).unwrap())))  // safe unwrap
@@ -373,7 +392,7 @@ impl ABI {
             while itr.is_some() {
                 let it = itr.unwrap();
                 ensure!(!types_seen.contains(&it),
-                        IntegritySnafu { message: format!("circular reference in type {}", t.0) });
+                        IntegritySnafu { message: format!("circular reference in type `{}`", t.0) });
                 types_seen.push(it);
                 itr = self.typedefs.get(it);
             }
@@ -382,7 +401,7 @@ impl ABI {
         // check all types used in typedefs are valid types
         for t in &self.typedefs {
             ensure!(self.is_type(t.1.into()),
-                    IntegritySnafu { message: format!("invalid type used in typedefs: {}", t.1) });
+                    IntegritySnafu { message: format!("invalid type used in typedef `{}`", t.1) });
         }
 
         // check there are no circular references in the structs definition
@@ -393,7 +412,7 @@ impl ABI {
                 while !current.base.is_empty() {
                     let base = self.structs.get(&current.base).unwrap();  // safe unwrap
                     ensure!(!types_seen.contains(&&base.name),
-                            IntegritySnafu { message: format!("circular reference in struct {}", &s.name) });
+                            IntegritySnafu { message: format!("circular reference in struct `{}`", &s.name) });
                     types_seen.push(&base.name);
                     current = base;
                 }
@@ -401,11 +420,43 @@ impl ABI {
 
             // check all field types are valid types
             for field in &s.fields {
-                ensure!(self.is_type(TypeNameRef(&field.type_[..])),
-                        IntegritySnafu { message: format!("invalid type used in field `{}::{}`: {}",
+                ensure!(self.is_type(TypeNameRef(&field.type_[..]).remove_bin_extension()),
+                        IntegritySnafu { message: format!("invalid type used in field `{}::{}`: `{}`",
                                                           &s.name, &field.name, &field.type_) });
             }
         }
+
+        // check all types from a variant are valid types
+        for v in self.variants.values() {
+            for t in &v.types {
+                ensure!(self.is_type(t.into()),
+                        IntegritySnafu { message: format!("invalid type `{}` used in variant `{}`",
+                                                          t, v.name) });
+            }
+        }
+
+        // check all actions are valid types
+        for (name, type_) in &self.actions {
+            ensure!(self.is_type(type_.into()),
+                    IntegritySnafu { message: format!("invalid type `{}` used in action `{}`",
+                                                      type_, name) });
+        }
+
+        // check all tables are valid types
+        for (name, type_) in &self.tables {
+            ensure!(self.is_type(type_.into()),
+                    IntegritySnafu { message: format!("invalid type `{}` used in table `{}`",
+                                                      type_, name) });
+        }
+
+        // check all action results are valid types
+        // FIXME: implement me once we have a field for it
+        // for (name, type_) in &self.action_results {
+        //     ensure!(self.is_type(type_.into()),
+        //             IntegritySnafu { message: format!("invalid type `{}` used in action `{}`",
+        //                                               type_, name) });
+        // }
+
 
         Ok(())
     }

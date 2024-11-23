@@ -1,0 +1,18 @@
+{
+    "version": "eosio::abi/1.0",
+    "types": [{
+        "new_type_name": "name_arr",
+        "type": "name[]"
+    }],
+    "structs": [{
+        "name": "name_arr",
+        "base": "",
+        "fields": [{
+            "name": "a",
+            "type": "name"
+        }]
+    }],
+    "actions": [],
+    "tables": [],
+    "ricardian_clauses": []
+}

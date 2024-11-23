@@ -1,0 +1,14 @@
+{
+    "version": "eosio::abi/1.0",
+    "types": [{
+        "new_type_name": "A",
+        "type": "name"
+    },{
+        "new_type_name": "name",
+        "type": "A"
+    }],
+    "structs": [],
+    "actions": [],
+    "tables": [],
+    "ricardian_clauses": []
+}

@@ -20,6 +20,10 @@ fn test_serialize_array() {
     assert_eq!(ds.hex_data().to_uppercase(), "0303666F6F036261720362617A");
 
     ds.clear();
+    abi.encode_variant(&mut ds, "string[][]", &json!([a])).unwrap();
+    assert_eq!(ds.hex_data().to_uppercase(), "010303666F6F036261720362617A");
+
+    ds.clear();
     let v = vec!["foo", "bar", "baz"];
     abi.encode_variant(&mut ds, "string[]", &json!(v)).unwrap();
     assert_eq!(ds.hex_data().to_uppercase(), "0303666F6F036261720362617A");

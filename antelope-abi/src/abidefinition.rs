@@ -148,6 +148,7 @@ impl ABIDefinition {
         // FIXME: we should deserialize everything here, we have some fields missing...
         //        also, probably "variants" doesn't come first... we need to check this...
         // check here: https://github.com/wharfkit/antelope/blob/master/src/chain/abi.ts#L109
+        // see ref order here: https://github.com/AntelopeIO/spring/blob/main/libraries/chain/include/eosio/chain/abi_def.hpp#L179
         assert_eq!(data.leftover(), [0u8; 2]);
 
         Self::from_str(&abi.to_string())
@@ -207,8 +208,9 @@ fn bin_abi_parser() -> &'static ABI {
 
 #[with_location]
 #[derive(Debug, Snafu)]
+#[snafu(visibility(pub(crate)))]
 pub enum ABIError {
-    #[snafu(display("cannot deserialize {what} from stream"), visibility(pub(crate)))]
+    #[snafu(display("cannot deserialize {what} from stream"))]
     DeserializeError { what: String, source: SerializeError },
 
     #[snafu(display(r#"unsupported ABI version: "{version}""#))]
@@ -217,13 +219,13 @@ pub enum ABIError {
     #[snafu(display(r#"incompatible versions: "{a}" vs. "{b}""#))]
     IncompatibleVersionError { a: String, b: String },
 
-    #[snafu(display("integrity error: {message}"), visibility(pub(crate)))]
+    #[snafu(display("integrity error: {message}"))]
     IntegrityError { message: String },
 
-    #[snafu(display("encode error: {message}"), visibility(pub(crate)))]
+    #[snafu(display("encode error: {message}"))]
     EncodeError { message: String },
 
-    #[snafu(display("decode error: {message}"), visibility(pub(crate)))]
+    #[snafu(display("decode error: {message}"))]
     DecodeError { message: String },
 
     #[snafu(display("cannot deserialize ABIDefinition from JSON"))]
@@ -232,10 +234,10 @@ pub enum ABIError {
     #[snafu(display("cannot decode hex representation for hex ABI"))]
     HexABIError { source: FromHexError },
 
-    #[snafu(display("cannot convert variant to AntelopeValue: {v}"), visibility(pub(crate)))]
-    VariantConversionError { v: JsonValue, source: InvalidValue },
+    #[snafu(display("cannot convert variant to AntelopeValue: {v}"))]
+    VariantConversionError { v: Box<JsonValue>, source: InvalidValue },
 
-    #[snafu(display(r#"cannot convert given variant {value} to Antelope type "{typename}""#), visibility(pub(crate)))]
+    #[snafu(display(r#"cannot convert given variant {value} to Antelope type "{typename}""#))]
     IncompatibleVariantTypes {
         typename: String,
         value: Box<JsonValue>,

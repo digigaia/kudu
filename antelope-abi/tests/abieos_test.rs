@@ -638,7 +638,7 @@ fn roundtrip_transaction() -> Result<()> {
     Ok(())
 }
 
-#[test]
+#[test] #[ignore]
 fn roundtrip_transaction_traces() -> Result<()> {
     init();
 

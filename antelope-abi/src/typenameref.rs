@@ -3,7 +3,7 @@ use antelope_core::AntelopeType;
 
 // TODO: derive more? e.g. PartialEq, Eq, Hash, etc.
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub struct TypeNameRef<'a>(pub &'a str);
 
 impl<'a> TypeNameRef<'a> {
@@ -39,6 +39,15 @@ impl<'a> TypeNameRef<'a> {
         }
         else if self.is_optional() {
             TypeNameRef(&self.0[..self.0.len() - 1])
+        }
+        else {
+            *self
+        }
+    }
+
+    pub fn remove_bin_extension(&self) -> TypeNameRef<'a> {
+        if self.0.ends_with('$') {
+            TypeNameRef(&self.0[..self.0.len()-1])
         }
         else {
             *self
