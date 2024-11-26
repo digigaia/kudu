@@ -1,7 +1,12 @@
 use std::str::FromStr;
+use std::sync::Once;
 
 use color_eyre::eyre::Result;
 use serde_json::{json, Value as JsonValue};
+use tracing_subscriber::{
+    EnvFilter,
+    fmt::format::FmtSpan,
+};
 
 use antelope_abi::abidefinition::*;
 use antelope_abi::ABI;
@@ -17,12 +22,23 @@ use antelope_abi::ABI;
 //
 // =============================================================================
 
+static TRACING_INIT: Once = Once::new();
+
+fn init() {
+    TRACING_INIT.call_once(|| {
+        tracing_subscriber::fmt()
+            .with_env_filter(EnvFilter::from_default_env())
+            .with_span_events(FmtSpan::ACTIVE)
+            .init();
+    });
+}
+
 // -----------------------------------------------------------------------------
 //     Utility functions & macros
 // -----------------------------------------------------------------------------
 
 #[track_caller]
-fn verify_round_trip(abi: &ABI, typename: &str, value: &JsonValue) -> Result<()> {
+fn verify_byte_round_trip(abi: &ABI, typename: &str, value: &JsonValue) -> Result<()> {
     let encoded = abi.variant_to_binary(typename, value)?;
     let decoded = abi.binary_to_variant(typename, encoded.clone())?;
     let encoded2 = abi.variant_to_binary(typename, &decoded)?;
@@ -30,6 +46,24 @@ fn verify_round_trip(abi: &ABI, typename: &str, value: &JsonValue) -> Result<()>
     // assert_eq!(value, &decoded);
     assert_eq!(encoded, encoded2);
     Ok(())
+}
+
+#[track_caller]
+fn verify_round_trip2(abi: &ABI, typename: &str, value: &JsonValue,
+                      hex_repr: &str, expected_json: &str) -> Result<()> {
+    let encoded = abi.variant_to_binary(typename, value)?;
+    assert_eq!(hex::encode(&encoded), hex_repr);
+    let decoded = abi.binary_to_variant(typename, encoded.clone())?;
+    assert_eq!(&decoded.to_string(), expected_json);
+    let encoded2 = abi.variant_to_binary(typename, value)?;
+    assert_eq!(encoded, encoded2);
+    Ok(())
+}
+
+#[track_caller]
+fn verify_round_trip(abi: &ABI, typename: &str, value: &JsonValue,
+                     hex_repr: &str) -> Result<()> {
+    verify_round_trip2(abi, typename, value, hex_repr, &value.to_string())
 }
 
 macro_rules! check_error {
@@ -71,6 +105,8 @@ macro_rules! check_invalid_abi {
 
 #[test]
 fn uint_types() -> Result<()> {
+    init();
+
     let currency_abi = r#"
     {
         "version": "eosio::abi/1.0",
@@ -107,27 +143,32 @@ fn uint_types() -> Result<()> {
         "amount8": 8,
     });
 
-    verify_round_trip(&abi, "transfer", &test_data)
+    verify_byte_round_trip(&abi, "transfer", &test_data)
 }
 
 
 #[test]
 fn general() -> Result<()> {
+    init();
+
     let my_abi = ABIDefinition::from_str(include_str!("data/general_abi.json"))?;
     let abi = ABI::from_definition(&my_abi.with_contract_abi()?)?;
     let test_data = JsonValue::from_str(include_str!("data/general_data.json"))?;
 
-    verify_round_trip(&abi, "A", &test_data)
+    verify_byte_round_trip(&abi, "A", &test_data)
 }
 
 #[test]
 fn duplicate_types() -> Result<()> {
+    init();
     check_invalid_abi!("data/duplicate_types_abi.json", "type already exists");
     Ok(())
 }
 
 #[test]
 fn nested_types() -> Result<()> {
+    init();
+
     use antelope_abi::ByteStream;
 
     let indirectly_nested_abi = r#"
@@ -181,6 +222,7 @@ fn nested_types() -> Result<()> {
 
 #[test]
 fn abi_cycle() -> Result<()> {
+    init();
     // NOTE: we'd like "circular reference" here in the message but the issue is caught before
     //       by a different integrity check (namely: we can define the same type twice)
     check_invalid_abi!("data/typedef_cycle_abi.json", "type already exists");
@@ -190,36 +232,43 @@ fn abi_cycle() -> Result<()> {
 
 #[test]
 fn abi_type_repeat() -> Result<()> {
+    init();
     check_invalid_abi!("data/abi_type_repeat.json", "type already exists");
     Ok(())
 }
 
 #[test]
 fn abi_struct_repeat() -> Result<()> {
+    init();
     check_invalid_abi!("data/abi_struct_repeat.json", "duplicate struct definition");
     Ok(())
 }
 
 #[test]
 fn abi_action_repeat() -> Result<()> {
+    init();
     check_invalid_abi!("data/abi_action_repeat.json", "duplicate action definition");
     Ok(())
 }
 
 #[test]
 fn abi_table_repeat() -> Result<()> {
+    init();
     check_invalid_abi!("data/abi_table_repeat.json", "duplicate table definition");
     Ok(())
 }
 
 #[test]
 fn abi_type_redefine() -> Result<()> {
+    init();
     check_invalid_abi!("data/abi_type_redefine.json", "circular reference in type");
     Ok(())
 }
 
 #[test]
 fn abi_type_redefine_to_name() -> Result<()> {
+    init();
+
     let abi = r#"
     {
         "version": "eosio::abi/1.0",
@@ -243,6 +292,8 @@ fn abi_type_redefine_to_name() -> Result<()> {
 // TODO: report bug!!
 #[test] #[ignore]
 fn abi_type_nested_in_vector() -> Result<()> {
+    init();
+
     let abi = r#"
     {
         "version": "eosio::abi/1.0",
@@ -272,6 +323,8 @@ fn abi_type_nested_in_vector() -> Result<()> {
 
 #[test]
 fn abi_account_name_in_eosio_abi() -> Result<()> {
+    init();
+
     let abi_def = include_str!("data/abi_account_name_in_eosio_abi.json");
 
     let abi = ABI::from_definition(&ABIDefinition::from_str(abi_def)?.with_contract_abi()?);
@@ -282,6 +335,144 @@ fn abi_account_name_in_eosio_abi() -> Result<()> {
 
 #[test]
 fn abi_is_type_recursion() -> Result<()> {
+    init();
     check_invalid_abi!("data/abi_is_type_recursion.json", "invalid type");
+    Ok(())
+}
+
+#[test]
+fn abi_serialize_incomplete_json_array() -> Result<()> {
+    init();
+
+    let abi = r#"{
+        "version": "eosio::abi/1.0",
+        "structs": [
+            {"name": "s", "base": "", "fields": [
+                {"name": "i0", "type": "int8"},
+                {"name": "i1", "type": "int8"},
+                {"name": "i2", "type": "int8"}
+            ]}
+        ]
+    }"#;
+    let abi = ABI::from_str(abi)?;
+
+    let result = abi.variant_to_binary("s", &json!([]));
+    check_error!(result, ABIError::EncodeError { .. },
+                 "early end to input array specifying the fields of struct");
+
+    let result = abi.variant_to_binary("s", &json!([1, 2]));
+    check_error!(result, ABIError::EncodeError { .. },
+                 "early end to input array specifying the fields of struct");
+
+    verify_round_trip2(&abi, "s", &json!([1,2,3]), "010203", r#"{"i0":1,"i1":2,"i2":3}"#)?;
+
+    Ok(())
+}
+
+// FIXME: json in spring source code is incorrect, report bug
+#[test]
+fn abi_serialize_incomplete_json_object() -> Result<()> {
+    init();
+
+    let abi = r#"
+    {
+        "version": "eosio::abi/1.0",
+        "structs": [
+            {"name": "s1", "base": "", "fields": [
+                {"name": "i0", "type": "int8"},
+                {"name": "i1", "type": "int8"}
+            ]},
+            {"name": "s2", "base": "", "fields": [
+                {"name": "f0", "type": "s1"},
+                {"name": "i2", "type": "int8"}
+            ]}
+        ]
+    }
+    "#;
+    let abi = ABI::from_str(abi)?;
+
+    let result = abi.variant_to_binary("s2", &json!({}));
+    check_error!(result, ABIError::EncodeError { .. }, "missing field 'f0' in input object");
+
+    let result = abi.variant_to_binary("s2", &json!({"f0":{"i0":1}}));
+    check_error!(result, ABIError::EncodeError { .. }, "missing field 'i1' in input object");
+
+    verify_round_trip(&abi, "s2", &json!({"f0":{"i0":1,"i1":2},"i2":3}), "010203")?;
+
+    Ok(())
+}
+
+#[test]
+fn abi_serialize_json_mismatched_type() -> Result<()> {
+    init();
+
+    let abi = r#"
+    {
+        "version": "eosio::abi/1.0",
+        "structs": [
+            {"name": "s1", "base": "", "fields": [
+                {"name": "i0", "type": "int8"}
+            ]},
+            {"name": "s2", "base": "", "fields": [
+                {"name": "f0", "type": "s1"},
+                {"name": "i1", "type": "int8"}
+            ]}
+        ]
+    }
+    "#;
+    let abi  = ABI::from_str(abi)?;
+
+    let result = abi.variant_to_binary("s2", &json!({"f0":1,"i1":2}));
+    // FIXME: add context for ABI traversal so we can have the better error message
+    // check_error!(result, ABIError::EncodeError { .. }, "unexpected input encountered while encoding struct 's2.f0'");
+    check_error!(result, ABIError::EncodeError { .. }, "unexpected input while encoding struct 's1'");
+
+    verify_round_trip(&abi, "s2", &json!({"f0":{"i0":1},"i1":2}), "0102")?;
+
+    Ok(())
+}
+
+#[test]
+fn abi_serialize_json_empty_name() -> Result<()> {
+    let abi = r#"
+    {
+        "version": "eosio::abi/1.0",
+        "structs": [
+            {"name": "s1", "base": "", "fields": [
+                {"name": "", "type": "int8"}
+            ]}
+        ]
+    }
+    "#;
+    let abi = ABI::from_str(abi)?;
+
+    let result = abi.variant_to_binary("s1", &json!({"": 1}));
+    assert!(result.is_ok());
+
+    // check_error!(result, ABIError::EncodeError { .. }, "blip");
+
+    verify_round_trip(&abi, "s1", &json!({"": 1}), "01")?;
+
+
+    Ok(())
+}
+
+#[test]
+fn serialize_optional_struct_type() -> Result<()> {
+    let abi = r#"
+    {
+        "version": "eosio::abi/1.0",
+        "structs": [
+            {"name": "s", "base": "", "fields": [
+                {"name": "i0", "type": "int8"}
+            ]}
+        ]
+    }
+    "#;
+    let abi = ABI::from_str(abi)?;
+
+    verify_round_trip(&abi, "s?", &json!({"i0": 5}), "0105")?;
+    verify_round_trip(&abi, "s?", &JsonValue::Null, "00")?;
+
     Ok(())
 }

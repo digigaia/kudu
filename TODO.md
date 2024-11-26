@@ -14,7 +14,8 @@ file once they are implemented.
 ## API DESIGN
 
 - clean abi.rs
-  move ABIError from ABIDefinition to ABI.rs
+  - move ABIError from ABIDefinition to ABI.rs
+  - check use and handling of binary extension
 
 - check FIXME in TypeNameRef
 
@@ -106,6 +107,10 @@ file once they are implemented.
 
 
 ## MISSING FEATURES
+
+- add note that the execution time of the various methods is not time bounded and recursive
+  functions do not have a max depth that is checked either.
+  This could be something added at a later time via a feature flag
 
 - crypto primitives do not implement WebAuthn key and signatures yet
 

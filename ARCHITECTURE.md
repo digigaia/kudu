@@ -121,9 +121,10 @@ ABIProviderTrait or something similar.
 - our own crate imports
 
 
-## Error messages are not capitalized
+## Error and logging messages style
 
-logging messages should not be capitalized either
+- error and logging messages should be lower case (ie: not be capitalized)
+- TODO! decide whether we want to quote values and types using single-quotes, double-quotes or backticks
 
 
 ## Hex literals are written in lower-case

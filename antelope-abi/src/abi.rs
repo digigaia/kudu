@@ -271,29 +271,55 @@ impl ABI {
                 }
             }
             else if let Some(struct_def) = self.structs.get(rtype.0) {
-                if object.is_object() {
+                // we want to serialize a struct...
+                if let Some(obj) = object.as_object() {
+                    // ...and we are given an object -> serialize fields using their name
                     if !struct_def.base.is_empty() {
                         self.encode_variant(ds, TypeNameRef(&struct_def.base), object)?;
                     }
-                    let obj = object.as_object().unwrap();
 
                     for field in &struct_def.fields {
                         let present: bool = obj.contains_key(&field.name);
                         ensure!(present,
                                 EncodeSnafu {
-                                    message: format!(r#"missing field "{}" in input object while processing struct "{}""#,
+                                    message: format!(r#"missing field '{}' in input object while processing struct "{}""#,
                                                      &field.name, &struct_def.name)
                                 });
                         self.encode_variant(ds, TypeNameRef(&field.type_), obj.get(&field.name).unwrap())?;
                     }
                 }
-                else if object.is_array() {
+                else if let Some(arr) = object.as_array() {
+                    // ..and we are given an array -> serialize fields using their position
                     warn!(t=rtype.0, obj=object.to_string());
-                    unimplemented!();
+                    ensure!(struct_def.base.is_empty(),
+                            EncodeSnafu { message: format!(concat!(
+                                "using input array to specify the fields of the derived struct '{}'; ",
+                                "input arrays are currently only allowed for structs without a base"
+                            ), struct_def.name) });
+
+                    let mut allow_extensions = false;
+                    for i in 0..struct_def.fields.len() {
+                        let field = &struct_def.fields[i];
+                        let ftype = TypeNameRef(&field.type_);
+                        if i < arr.len() {
+                            allow_extensions = i == struct_def.fields.len();  // allow on the last field
+                            self.encode_variant(ds, ftype.remove_bin_extension(), &arr[i])?;
+                        }
+                        else if ftype.has_bin_extension() && allow_extensions {
+                            break;
+                        }
+                        else {
+                            EncodeSnafu { message: format!(concat!(
+                                "early end to input array specifying the fields of struct '{}'; ",
+                                "require input for field '{}'"
+                            ), struct_def.name, field.name) }.fail()?;
+                        }
+                    }
                 }
                 else {
-                    // error
-                    unimplemented!();
+                    EncodeSnafu { message: format!(
+                        "unexpected input while encoding struct '{}': {}",
+                        struct_def.name, object) }.fail()?;
                 }
             }
             else {

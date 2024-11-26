@@ -29,6 +29,10 @@ impl<'a> TypeNameRef<'a> {
         self.0.ends_with('?')
     }
 
+    pub fn has_bin_extension(&self) -> bool {
+        self.0.ends_with('$')
+    }
+
     // FIXME: should this be recursive? ie: what is `fundamental_type("int[]?")` ?
     pub fn fundamental_type(&self) -> TypeNameRef<'a> {
         if self.is_array() {
