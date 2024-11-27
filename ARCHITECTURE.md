@@ -125,6 +125,13 @@ ABIProviderTrait or something similar.
 
 - error and logging messages should be lower case (ie: not be capitalized)
 - TODO! decide whether we want to quote values and types using single-quotes, double-quotes or backticks
+  proposal:
+   double quotes for strings
+   backquotes for types
+   single quotes for identifiers
+
+   "expected type `int8` for field 'quantity' on struct 's1'"
+   r#"value for 'obj.name' is "obj1" and its type is `str`"#
 
 
 ## Hex literals are written in lower-case

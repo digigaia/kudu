@@ -29,8 +29,8 @@ impl<'a> TypeNameRef<'a> {
         self.0.ends_with('?')
     }
 
-    pub fn has_bin_extension(&self) -> bool {
-        self.0.ends_with('$')
+    pub fn is_integer(&self) -> bool {
+        self.0.starts_with("int") || self.0.starts_with("uint")
     }
 
     // FIXME: should this be recursive? ie: what is `fundamental_type("int[]?")` ?
@@ -47,6 +47,10 @@ impl<'a> TypeNameRef<'a> {
         else {
             *self
         }
+    }
+
+    pub fn has_bin_extension(&self) -> bool {
+        self.0.ends_with('$')
     }
 
     pub fn remove_bin_extension(&self) -> TypeNameRef<'a> {

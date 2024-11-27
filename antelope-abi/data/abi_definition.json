@@ -51,7 +51,7 @@
             "name": "variant",
             "base": "",
             "fields": [
-                { "name": "name",  "type": "name" },
+                { "name": "name",  "type": "string" },
                 { "name": "types", "type": "string[]" }
             ]
         }

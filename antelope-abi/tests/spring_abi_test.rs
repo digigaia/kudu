@@ -5,11 +5,11 @@ use color_eyre::eyre::Result;
 use serde_json::{json, Value as JsonValue};
 use tracing_subscriber::{
     EnvFilter,
-    fmt::format::FmtSpan,
+    // fmt::format::FmtSpan,
 };
 
-use antelope_abi::abidefinition::*;
-use antelope_abi::ABI;
+use antelope_abi::*;
+
 
 // =============================================================================
 //
@@ -20,6 +20,13 @@ use antelope_abi::ABI;
 //     low value:
 //      - linkauth_test, unlinkauth_test, updateauth_test, deleteauth_test, ...
 //
+//     skipping the following tests:
+//     Incomplete:
+//      - abi_very_deep_structs, abi_very_deep_structs_1us, abi_deep_structs_validate
+//        they use the `deep_nested_abi` and `large_nested_abis` that are inexistent
+//      - abi_large_signature
+//        use webauthn signatures which are not yet implemented
+//
 // =============================================================================
 
 static TRACING_INIT: Once = Once::new();
@@ -28,10 +35,11 @@ fn init() {
     TRACING_INIT.call_once(|| {
         tracing_subscriber::fmt()
             .with_env_filter(EnvFilter::from_default_env())
-            .with_span_events(FmtSpan::ACTIVE)
+            // .with_span_events(FmtSpan::ACTIVE)
             .init();
     });
 }
+
 
 // -----------------------------------------------------------------------------
 //     Utility functions & macros
@@ -91,6 +99,18 @@ macro_rules! check_error {
     };
 }
 
+macro_rules! check_encode_error {
+    ($t:ident, $msg:literal) => {
+        check_error!($t, ABIError::EncodeError { .. }, $msg);
+    }
+}
+
+macro_rules! check_integrity_error {
+    ($t:ident, $msg:literal) => {
+        check_error!($t, ABIError::IntegrityError { .. }, $msg);
+    }
+}
+
 macro_rules! check_invalid_abi {
     ($path:literal, $msg:literal) => {
         let abi_def = include_str!($path);
@@ -98,6 +118,7 @@ macro_rules! check_invalid_abi {
         check_error!(abi, ABIError::IntegrityError { .. }, $msg);
     }
 }
+
 
 // -----------------------------------------------------------------------------
 //     Unittests
@@ -165,6 +186,7 @@ fn duplicate_types() -> Result<()> {
     Ok(())
 }
 
+// FIXME: review me!
 #[test]
 fn nested_types() -> Result<()> {
     init();
@@ -238,6 +260,13 @@ fn abi_type_repeat() -> Result<()> {
 }
 
 #[test]
+fn abi_type_loop() -> Result<()> {
+    init();
+    check_invalid_abi!("data/abi_type_loop.json", "type already exists");
+    Ok(())
+}
+
+#[test]
 fn abi_struct_repeat() -> Result<()> {
     init();
     check_invalid_abi!("data/abi_struct_repeat.json", "duplicate struct definition");
@@ -259,6 +288,117 @@ fn abi_table_repeat() -> Result<()> {
 }
 
 #[test]
+fn abi_type_def() -> Result<()> {
+    init();
+
+    let abi = ABI::from_str(r#"
+    {
+        "version": "eosio::abi/1.0",
+        "types": [{
+            "new_type_name": "account_name",
+            "type": "name"
+        }],
+        "structs": [{
+            "name": "transfer",
+            "base": "",
+            "fields": [{
+                "name": "from",
+                "type": "account_name"
+            },{
+                "name": "to",
+                "type": "name"
+            },{
+                "name": "amount",
+                "type": "uint64"
+            }]
+        }],
+        "actions": [{
+            "name": "transfer",
+            "type": "transfer",
+            "ricardian_contract": "transfer contract"
+        }],
+        "tables": []
+    }
+    "#)?;
+
+    assert!(abi.is_type("name".into()));
+    assert!(abi.is_type("account_name".into()));
+
+    let data = json!({
+        "from": "kevin",
+        "to": "dan",
+        "amount": 16
+    });
+
+    verify_byte_round_trip(&abi, "transfer", &data)
+}
+
+#[test]
+fn abi_std_optional() -> Result<()> {
+    init();
+
+    let abi = ABI::from_str(r#"
+    {
+        "version": "eosio::abi/1.2",
+        "types": [],
+        "structs": [{
+            "name": "fees",
+            "base": "",
+            "fields": [{
+                "name": "gas_price",
+                "type": "uint64?"
+            },{
+                "name": "miner_cut",
+                "type": "uint32?"
+            },{
+                "name": "bridge_fee",
+                "type": "uint32?"
+            }]
+        }],
+        "actions": [{
+            "name": "fees",
+            "type": "fees",
+            "ricardian_contract": ""
+        }],
+        "tables": [],
+        "ricardian_clauses": [],
+        "variants": [],
+        "action_results": []
+    }
+    "#)?;
+
+    // check conversion when all members are provided
+    verify_byte_round_trip(&abi, "fees", &json!({
+        "gas_price": "42",
+        "miner_cut": "2",
+        "bridge_fee": "2",
+    }))?;
+
+    // check conversion when the first optional member is missing
+    verify_byte_round_trip(&abi, "fees", &json!({
+        "miner_cut": "2",
+        "bridge_fee": "2",
+    }))?;
+
+    // check conversion when the second optional member is missing
+    verify_byte_round_trip(&abi, "fees", &json!({
+        "gas_price": "42",
+        "bridge_fee": "2",
+    }))?;
+
+    // check conversion when the last optional member is missing
+    verify_byte_round_trip(&abi, "fees", &json!({
+        "gas_price": "42",
+        "miner_cut": "2",
+    }))?;
+
+    // check conversion when all optional members are missing
+    verify_byte_round_trip(&abi, "fees", &json!({}))?;
+
+    Ok(())
+}
+
+#[test]
 fn abi_type_redefine() -> Result<()> {
     init();
     check_invalid_abi!("data/abi_type_redefine.json", "circular reference in type");
@@ -268,23 +408,7 @@ fn abi_type_redefine() -> Result<()> {
 #[test]
 fn abi_type_redefine_to_name() -> Result<()> {
     init();
-
-    let abi = r#"
-    {
-        "version": "eosio::abi/1.0",
-        "types": [{
-            "new_type_name": "name",
-            "type": "name"
-        }],
-        "structs": [],
-        "actions": [],
-        "tables": []
-    }
-    "#;
-
-    let abi = ABI::from_str(abi);
-    check_error!(abi, ABIError::IntegrityError { .. }, "type already exists");
-
+    check_invalid_abi!("data/abi_type_redefine_to_name.json", "type already exists");
     Ok(())
 }
 
@@ -315,7 +439,7 @@ fn abi_type_nested_in_vector() -> Result<()> {
     "#;
 
     let abi = ABI::from_str(abi);
-    check_error!(abi, ABIError::IntegrityError { .. }, "duplicate table definition");
+    check_integrity_error!(abi, "duplicate table definition");
 
     Ok(())
 }
@@ -328,7 +452,38 @@ fn abi_account_name_in_eosio_abi() -> Result<()> {
     let abi_def = include_str!("data/abi_account_name_in_eosio_abi.json");
 
     let abi = ABI::from_definition(&ABIDefinition::from_str(abi_def)?.with_contract_abi()?);
-    check_error!(abi, ABIError::IntegrityError { .. }, "type already exists");
+    check_integrity_error!(abi, "type already exists");
+
+    Ok(())
+}
+
+// Unlimited array size during abi serialization can exhaust memory and crash the process
+#[test] #[ignore]
+fn abi_large_array() -> Result<()> {
+    init();
+
+    let abi = ABI::from_str(r#"
+    {
+        "version": "eosio::abi/1.0",
+        "types": [],
+        "structs": [{
+            "name": "hi",
+            "base": "",
+            "fields": []
+        }],
+        "actions": [{
+            "name": "hi",
+            "type": "hi[]",
+            "ricardian_contract": ""
+        }],
+        "tables": []
+    }
+    "#)?;
+
+    let data = b"\xff\xff\xff\xff\x08";
+
+    let result = abi.binary_to_variant("hi[]", data.to_vec());
+    check_encode_error!(result, "ht");
 
     Ok(())
 }
@@ -340,11 +495,235 @@ fn abi_is_type_recursion() -> Result<()> {
     Ok(())
 }
 
+#[test] #[ignore]
+fn abi_recursive_structs() -> Result<()> {
+    init();
+
+    let abi = ABI::from_str(include_str!("data/abi_recursive_structs.json"))?;
+
+    let data = json!({"user": "eosio"});
+    let encoded = abi.variant_to_binary("hi2", &data)?;
+
+    let result = abi.binary_to_variant("hi", encoded);
+    check_encode_error!(result, "yep");
+
+    Ok(())
+}
+
+#[test]
+fn variants() -> Result<()> {
+    init();
+
+    let duplicate_variant_abi = r#"
+    {
+        "version": "eosio::abi/1.1",
+        "variants": [
+            {"name": "v1", "types": ["int8", "string", "bool"]},
+            {"name": "v1", "types": ["int8", "string", "bool"]}
+        ]
+    }
+    "#;
+
+    let variant_abi_invalid_type = r#"
+    {
+        "version": "eosio::abi/1.1",
+        "variants": [
+            {"name": "v1", "types": ["int91", "string", "bool"]}
+        ]
+    }
+    "#;
+
+    let variant_abi = r#"
+    {
+        "version": "eosio::abi/1.1",
+        "types": [
+            {"new_type_name": "foo", "type": "s"},
+            {"new_type_name": "bar", "type": "s"}
+        ],
+        "structs": [
+            {"name": "s", "base": "", "fields": [
+                {"name": "i0", "type": "int8"},
+                {"name": "i1", "type": "int8"}
+            ]}
+        ],
+        "variants": [
+            {"name": "v1", "types": ["int8", "string", "int16"]},
+            {"name": "v2", "types": ["foo", "bar"]}
+        ]
+    }
+    "#;
+
+    let result = ABI::from_str(duplicate_variant_abi);
+    check_integrity_error!(result, "duplicate variants definition");
+
+    let result = ABI::from_str(variant_abi_invalid_type);
+    check_integrity_error!(result, "invalid type `int91` used in variant 'v1'");
+
+    // round-trip abi through multiple formats
+    // json -> variant -> abi_def -> bin
+    let mut stream = ByteStream::new();
+    ABIDefinition::from_str(variant_abi)?.encode(&mut stream);
+    // bin -> abi_def -> variant -> abi_def
+    let abi = ABI::from_str(&json!(ABIDefinition::decode(&mut stream)?).to_string())?;
+
+
+    // expected array containing variant
+    let result = abi.variant_to_binary("v1", &json!(9));
+    check_encode_error!(result, "expected input to be an array of 2 elements while processing variant: 9");
+
+    let result = abi.variant_to_binary("v1", &json!([4]));
+    check_encode_error!(result, "expected input to be an array of 2 elements while processing variant: [4]");
+
+    let result = abi.variant_to_binary("v1", &json!([4, 5]));
+    check_encode_error!(result, "expected variant typename to be a string: 4");
+
+    let result = abi.variant_to_binary("v1", &json!([4, 5, 6]));
+    check_encode_error!(result, "expected input to be an array of 2 elements while processing variant: [4,5,6]");
+
+    // type is not valid within this variant
+    let result = abi.variant_to_binary("v1", &json!(["int9", 21]));
+    check_encode_error!(result, "specified type `int9` is not valid within the variant 'v1'");
+
+    verify_round_trip(&abi, "v1", &json!(["int8",21]), "0015")?;
+    verify_round_trip(&abi, "v1", &json!(["string","abcd"]), "010461626364")?;
+    verify_round_trip(&abi, "v1", &json!(["int16",3]), "020300")?;
+    verify_round_trip(&abi, "v1", &json!(["int16",4]), "020400")?;
+    verify_round_trip(&abi, "v2", &json!(["foo",{"i0":5,"i1":6}]), "000506")?;
+    verify_round_trip(&abi, "v2", &json!(["bar",{"i0":5,"i1":6}]), "010506")?;
+
+    Ok(())
+}
+
+#[test]
+fn aliased_variants() -> Result<()> {
+    init();
+
+    let aliased_variant = r#"
+    {
+        "version": "eosio::abi/1.1",
+        "types": [
+            { "new_type_name": "foo", "type": "foo_variant" }
+        ],
+        "variants": [
+            {"name": "foo_variant", "types": ["int8", "string"]}
+        ]
+    }
+    "#;
+
+    // round-trip abi through multiple formats
+    // json -> variant -> abi_def -> bin
+    let mut stream = ByteStream::new();
+    ABIDefinition::from_str(aliased_variant)?.encode(&mut stream);
+    // bin -> abi_def -> variant -> abi_def
+    let abi = ABI::from_str(&json!(ABIDefinition::decode(&mut stream)?).to_string())?;
+
+    verify_round_trip(&abi, "foo", &json!(["int8",21]), "0015")
+}
+
+#[test]
+fn variant_of_aliases() -> Result<()> {
+    init();
+
+    let aliased_variant = r#"
+    {
+        "version": "eosio::abi/1.1",
+        "types": [
+            { "new_type_name": "foo_0", "type": "int8" },
+            { "new_type_name": "foo_1", "type": "string" }
+        ],
+        "variants": [
+            {"name": "foo", "types": ["foo_0", "foo_1"]}
+        ]
+    }
+    "#;
+    let abi = ABI::from_str(aliased_variant)?;
+
+    verify_round_trip(&abi, "foo", &json!(["foo_0",21]), "0015")
+}
+
+#[test]
+fn extend() -> Result<()> {
+    init();
+
+    // NOTE: Ideally this ABI would be rejected during validation for an improper definition for struct "s2".
+    //       Such a check is not yet implemented during validation, but it can check during serialization.
+    let abi = ABI::from_str(r#"
+    {
+        "version": "eosio::abi/1.1",
+        "structs": [
+            {"name": "s", "base": "", "fields": [
+                {"name": "i0", "type": "int8"},
+                {"name": "i1", "type": "int8"},
+                {"name": "i2", "type": "int8$"},
+                {"name": "a", "type": "int8[]$"},
+                {"name": "o", "type": "int8?$"}
+            ]},
+            {"name": "s2", "base": "", "fields": [
+                {"name": "i0", "type": "int8"},
+                {"name": "i1", "type": "int8$"},
+                {"name": "i2", "type": "int8"}
+            ]}
+        ]
+    }
+    "#)?;
+
+    // missing i1
+    let result = abi.variant_to_binary("s", &json!({"i0":5}));
+    check_encode_error!(result, "missing field 'i1' in input object while processing struct 's'");
+
+    // Unexpected 'a'
+    let result = abi.variant_to_binary("s", &json!({"i0":5,"i1":6,"a":[8,9,10]}));
+    check_encode_error!(result, "Unexpected field 'a' found in input object while processing struct");
+
+    verify_round_trip(&abi, "s", &json!({"i0":5,"i1":6}), "0506")?;
+    verify_round_trip(&abi, "s", &json!({"i0":5,"i1":6,"i2":7}), "050607")?;
+    verify_round_trip(&abi, "s", &json!({"i0":5,"i1":6,"i2":7,"a":[8,9,10]}), "0506070308090a")?;
+    verify_round_trip(&abi, "s", &json!({"i0":5,"i1":6,"i2":7,"a":[8,9,10],"o":null}), "0506070308090a00")?;
+    verify_round_trip(&abi, "s", &json!({"i0":5,"i1":6,"i2":7,"a":[8,9,10],"o":31}), "0506070308090a011f")?;
+
+    verify_round_trip(&abi, "s", &json!([5,6]), "0506")?; //, &json!({"i0":5,"i1":6})");
+    verify_round_trip(&abi, "s", &json!([5,6,7]), "050607")?; //, &json!({"i0":5,"i1":6,"i2":7})");
+    verify_round_trip2(&abi, "s", &json!([5,6,7,[8,9,10]]), "0506070308090a", r#"{"i0":5,"i1":6,"i2":7,"a":[8,9,10]}"#)?;
+    verify_round_trip(&abi, "s", &json!([5,6,7,[8,9,10],null]), "0506070308090a00")?; //, &json!({"i0":5,"i1":6,"i2":7,"a":[8,9,10],"o":null})");
+    verify_round_trip(&abi, "s", &json!([5,6,7,[8,9,10],31]), "0506070308090a011f")?; //, &json!({"i0":5,"i1":6,"i2":7,"a":[8,9,10],"o":31})");
+
+    let result = abi.variant_to_binary("s2", &json!({"i0":1}));
+    check_encode_error!(result, "Encountered field 'i2' without binary extension designation while processing struct");
+
+    Ok(())
+}
+
+#[test]
+fn version() -> Result<()> {
+    init();
+
+    let abi = ABI::from_str("{}");
+    check_error!(abi, ABIError::JsonError { .. }, "cannot deserialize ABIDefinition from JSON");
+    // check_integrity_error!(abi, "yepyep");
+
+    let abi = ABI::from_str(r#"{"version": ""}"#);
+    check_error!(abi, ABIError::VersionError { .. }, "unsupported ABI version");
+
+    let abi = ABI::from_str(r#"{"version": "eosio::abi/9.0"}"#);
+    check_error!(abi, ABIError::VersionError { .. }, "unsupported ABI version");
+
+    let abi = ABI::from_str(r#"{"version": "eosio::abi/1.0"}"#);
+    assert!(abi.is_ok());
+
+    let abi = ABI::from_str(r#"{"version": "eosio::abi/1.1"}"#);
+    assert!(abi.is_ok());
+
+    let abi = ABI::from_str(r#"{"version": "eosio::abi/1.2"}"#);
+    assert!(abi.is_ok());
+
+    Ok(())
+}
+
 #[test]
 fn abi_serialize_incomplete_json_array() -> Result<()> {
     init();
 
-    let abi = r#"{
+    let abi = ABI::from_str(r#"{
         "version": "eosio::abi/1.0",
         "structs": [
             {"name": "s", "base": "", "fields": [
@@ -353,16 +732,13 @@ fn abi_serialize_incomplete_json_array() -> Result<()> {
                 {"name": "i2", "type": "int8"}
             ]}
         ]
-    }"#;
-    let abi = ABI::from_str(abi)?;
+    }"#)?;
 
     let result = abi.variant_to_binary("s", &json!([]));
-    check_error!(result, ABIError::EncodeError { .. },
-                 "early end to input array specifying the fields of struct");
+    check_encode_error!(result, "early end to input array specifying the fields of struct");
 
     let result = abi.variant_to_binary("s", &json!([1, 2]));
-    check_error!(result, ABIError::EncodeError { .. },
-                 "early end to input array specifying the fields of struct");
+    check_encode_error!(result, "early end to input array specifying the fields of struct");
 
     verify_round_trip2(&abi, "s", &json!([1,2,3]), "010203", r#"{"i0":1,"i1":2,"i2":3}"#)?;
 
@@ -374,7 +750,7 @@ fn abi_serialize_incomplete_json_array() -> Result<()> {
 fn abi_serialize_incomplete_json_object() -> Result<()> {
     init();
 
-    let abi = r#"
+    let abi = ABI::from_str(r#"
     {
         "version": "eosio::abi/1.0",
         "structs": [
@@ -388,14 +764,13 @@ fn abi_serialize_incomplete_json_object() -> Result<()> {
             ]}
         ]
     }
-    "#;
-    let abi = ABI::from_str(abi)?;
+    "#)?;
 
     let result = abi.variant_to_binary("s2", &json!({}));
-    check_error!(result, ABIError::EncodeError { .. }, "missing field 'f0' in input object");
+    check_encode_error!(result, "missing field 'f0' in input object");
 
     let result = abi.variant_to_binary("s2", &json!({"f0":{"i0":1}}));
-    check_error!(result, ABIError::EncodeError { .. }, "missing field 'i1' in input object");
+    check_encode_error!(result, "missing field 'i1' in input object");
 
     verify_round_trip(&abi, "s2", &json!({"f0":{"i0":1,"i1":2},"i2":3}), "010203")?;
 
@@ -406,7 +781,7 @@ fn abi_serialize_incomplete_json_object() -> Result<()> {
 fn abi_serialize_json_mismatched_type() -> Result<()> {
     init();
 
-    let abi = r#"
+    let abi = ABI::from_str(r#"
     {
         "version": "eosio::abi/1.0",
         "structs": [
@@ -419,13 +794,12 @@ fn abi_serialize_json_mismatched_type() -> Result<()> {
             ]}
         ]
     }
-    "#;
-    let abi  = ABI::from_str(abi)?;
+    "#)?;
 
     let result = abi.variant_to_binary("s2", &json!({"f0":1,"i1":2}));
     // FIXME: add context for ABI traversal so we can have the better error message
     // check_error!(result, ABIError::EncodeError { .. }, "unexpected input encountered while encoding struct 's2.f0'");
-    check_error!(result, ABIError::EncodeError { .. }, "unexpected input while encoding struct 's1'");
+    check_encode_error!(result, "unexpected input while encoding struct 's1'");
 
     verify_round_trip(&abi, "s2", &json!({"f0":{"i0":1},"i1":2}), "0102")?;
 
@@ -434,7 +808,7 @@ fn abi_serialize_json_mismatched_type() -> Result<()> {
 
 #[test]
 fn abi_serialize_json_empty_name() -> Result<()> {
-    let abi = r#"
+    let abi = ABI::from_str(r#"
     {
         "version": "eosio::abi/1.0",
         "structs": [
@@ -443,8 +817,7 @@ fn abi_serialize_json_empty_name() -> Result<()> {
             ]}
         ]
     }
-    "#;
-    let abi = ABI::from_str(abi)?;
+    "#)?;
 
     let result = abi.variant_to_binary("s1", &json!({"": 1}));
     assert!(result.is_ok());
@@ -459,7 +832,7 @@ fn abi_serialize_json_empty_name() -> Result<()> {
 
 #[test]
 fn serialize_optional_struct_type() -> Result<()> {
-    let abi = r#"
+    let abi = ABI::from_str(r#"
     {
         "version": "eosio::abi/1.0",
         "structs": [
@@ -468,8 +841,7 @@ fn serialize_optional_struct_type() -> Result<()> {
             ]}
         ]
     }
-    "#;
-    let abi = ABI::from_str(abi)?;
+    "#)?;
 
     verify_round_trip(&abi, "s?", &json!({"i0": 5}), "0105")?;
     verify_round_trip(&abi, "s?", &JsonValue::Null, "00")?;

@@ -1,22 +1,24 @@
 use std::collections::HashMap;
 
-use antelope_core::{
-    AntelopeType, AntelopeValue, Name, VarUint32,
-};
+use hex::FromHexError;
 use serde_json::{
     json,
+    Error as JsonError,
     Map as JsonMap,
     Value as JsonValue,
 };
-use snafu::{ensure, ResultExt};
+use snafu::{ensure, Snafu, IntoError, ResultExt};
 use strum::VariantNames;
 use tracing::{debug, warn, instrument};
 
+use antelope_core::{
+    AntelopeType, AntelopeValue, Name, VarUint32, InvalidValue, impl_auto_error_conversion
+};
+use antelope_macros::with_location;
+
 use crate::{
-    ABIDefinition, ABISerializable, ByteStream, BinarySerializable,
+    ABIDefinition, ABISerializable, ByteStream, BinarySerializable, SerializeError,
     abidefinition::{
-        ABIError, IntegritySnafu, DeserializeSnafu, EncodeSnafu, DecodeSnafu,
-        IncompatibleVariantTypesSnafu, VariantConversionSnafu, VersionSnafu,
         TypeName, TypeNameRef, Struct, Variant
     },
 };
@@ -35,6 +37,7 @@ pub struct ABI {
     actions: HashMap<Name, TypeName>,
     tables: HashMap<Name, TypeName>,
     variants: HashMap<TypeName, Variant>,
+    action_results: HashMap<Name, TypeName>,
 
     // TODO: missing https://github.com/AntelopeIO/leap/blob/6817911900a088c60f91563995cf482d6b380b2d/libraries/chain/abi_serializer.cpp#L149-L151
 
@@ -49,6 +52,7 @@ impl ABI {
             actions: HashMap::new(),
             tables: HashMap::new(),
             variants: HashMap::new(),
+            action_results: HashMap::new(),
         }
     }
 
@@ -80,30 +84,28 @@ impl ABI {
         self.actions.clear();
         self.tables.clear();
         self.variants.clear();
+        self.action_results.clear();
 
-        // for s in &abi.structs { self.structs.insert(s.name.to_string(), s.clone()); }
         self.structs.extend(abi.structs.iter().map(|s| (s.name.to_string(), s.clone())));
 
         for td in &abi.types {
-            // TODO: this check is redundant with the circular reference detection
-            //       in `validate()` (right?), so we should remove it
-            //       BUT! we also check this way the we have no duplicates between
-            //       the previously defined structs and the typedefs
+            // note: this check seems redundant with the circular reference detection
+            //       in `validate()` but this also checks that we have no duplicates
+            //       between the previously defined structs and the typedefs
             ensure!(!self.is_type(TypeNameRef(&td.new_type_name)),
                     IntegritySnafu { message: format!("type already exists: {}",
                                                       td.new_type_name) });
             self.typedefs.insert(td.new_type_name.clone(), td.type_.clone());
         }
 
-        for a in &abi.actions {
-            self.actions.insert(a.name, a.type_.clone());
-        }
-        for t in &abi.tables {
-            self.tables.insert(t.name, t.type_.clone());
-        }
-        for v in &abi.variants {
-            self.variants.insert(v.name.clone(), v.clone());
-        }
+        self.actions.extend(abi.actions.iter()
+                            .map(|a| (a.name, a.type_.clone())));
+        self.tables.extend(abi.tables.iter()
+                           .map(|t| (t.name, t.type_.clone())));
+        self.variants.extend(abi.variants.iter()
+                             .map(|v| (v.name.clone(), v.clone())));
+        self.action_results.extend(abi.action_results.iter()
+                                   .map(|a| (a.name, a.result_type.clone())));
 
         // The ABIDefinition vectors may contain duplicates which would make it an invalid ABI
         ensure!(self.typedefs.len() == abi.types.len(),
@@ -180,11 +182,13 @@ impl ABI {
     where
         T: Into<TypeNameRef<'a>>
     {
-        self.encode_variant_(ds, typename.into(), object)
+        self.encode_variant_(&mut VariantToBinaryContext::new(), ds, typename.into(), object)
     }
 
-    #[instrument(skip(self, ds))]
-    fn encode_variant_(&self, ds: &mut ByteStream, typename: TypeNameRef, object: &JsonValue) -> Result<(), ABIError> {
+    #[instrument(skip(self, ctx, ds))]
+    fn encode_variant_(&self, ctx: &mut VariantToBinaryContext, ds: &mut ByteStream,
+                       typename: TypeNameRef, object: &JsonValue)
+                       -> Result<(), ABIError> {
         // see C++ implementation here: https://github.com/AntelopeIO/leap/blob/main/libraries/chain/abi_serializer.cpp#L491
         let rtype = self.resolve_type(typename);
         let ftype = rtype.fundamental_type();
@@ -234,14 +238,14 @@ impl ABI {
                 let a = object.as_array().ok_or_else(incompatible_types)?;
                 VarUint32::from(a.len()).encode(ds);
                 for v in a {
-                    self.encode_variant(ds, ftype, v)?;
+                    self.encode_variant_(ctx, ds, ftype, v)?;
                 }
             }
             else if rtype.is_optional() {
                 match !object.is_null() {
                     true => {
                         true.encode(ds);
-                        self.encode_variant(ds, ftype, object)?;
+                        self.encode_variant_(ctx, ds, ftype, object)?;
                     },
                     false => false.encode(ds),
                 }
@@ -261,73 +265,105 @@ impl ABI {
                 let variant_type = TypeNameRef(object[0].as_str().unwrap());
                 if let Some(vpos) = variant_def.types.iter().position(|v| v == variant_type.0) {
                     VarUint32::from(vpos).encode(ds);
-                    self.encode_variant(ds, variant_type, &object[1])?;
+                    self.encode_variant_(ctx, ds, variant_type, &object[1])?;
                 }
                 else {
                     EncodeSnafu {
-                        message: format!("specified type {} is not valid within the variant {}",
+                        message: format!("specified type `{}` is not valid within the variant '{}'",
                                          variant_type, rtype)
                     }.fail()?;
                 }
             }
             else if let Some(struct_def) = self.structs.get(rtype.0) {
-                // we want to serialize a struct...
-                if let Some(obj) = object.as_object() {
-                    // ...and we are given an object -> serialize fields using their name
-                    if !struct_def.base.is_empty() {
-                        self.encode_variant(ds, TypeNameRef(&struct_def.base), object)?;
-                    }
-
-                    for field in &struct_def.fields {
-                        let present: bool = obj.contains_key(&field.name);
-                        ensure!(present,
-                                EncodeSnafu {
-                                    message: format!(r#"missing field '{}' in input object while processing struct "{}""#,
-                                                     &field.name, &struct_def.name)
-                                });
-                        self.encode_variant(ds, TypeNameRef(&field.type_), obj.get(&field.name).unwrap())?;
-                    }
-                }
-                else if let Some(arr) = object.as_array() {
-                    // ..and we are given an array -> serialize fields using their position
-                    warn!(t=rtype.0, obj=object.to_string());
-                    ensure!(struct_def.base.is_empty(),
-                            EncodeSnafu { message: format!(concat!(
-                                "using input array to specify the fields of the derived struct '{}'; ",
-                                "input arrays are currently only allowed for structs without a base"
-                            ), struct_def.name) });
-
-                    let mut allow_extensions = false;
-                    for i in 0..struct_def.fields.len() {
-                        let field = &struct_def.fields[i];
-                        let ftype = TypeNameRef(&field.type_);
-                        if i < arr.len() {
-                            allow_extensions = i == struct_def.fields.len();  // allow on the last field
-                            self.encode_variant(ds, ftype.remove_bin_extension(), &arr[i])?;
-                        }
-                        else if ftype.has_bin_extension() && allow_extensions {
-                            break;
-                        }
-                        else {
-                            EncodeSnafu { message: format!(concat!(
-                                "early end to input array specifying the fields of struct '{}'; ",
-                                "require input for field '{}'"
-                            ), struct_def.name, field.name) }.fail()?;
-                        }
-                    }
-                }
-                else {
-                    EncodeSnafu { message: format!(
-                        "unexpected input while encoding struct '{}': {}",
-                        struct_def.name, object) }.fail()?;
-                }
+                warn!(t=rtype.0, obj=object.to_string());
+                self.encode_struct(ctx, ds, struct_def, object)?;
             }
             else {
-                EncodeSnafu { message: format!("do not know how to serialize type: {}", rtype) }.fail()?;
+                EncodeSnafu { message: format!("do not know how to serialize type: `{}`", rtype) }.fail()?;
             }
         }
 
         Ok(())
+    }
+
+    fn encode_struct(&self, ctx: &mut VariantToBinaryContext, ds: &mut ByteStream,
+                     struct_def: &Struct, object: &JsonValue)
+                     -> Result<(), ABIError> {
+        // we want to serialize a struct...
+        if let Some(obj) = object.as_object() {
+            // ...and we are given an object -> serialize fields using their name
+            if !struct_def.base.is_empty() {
+                let _ = ctx.disallow_extensions_unless(false);
+                self.encode_variant(ds, TypeNameRef(&struct_def.base), object)?;
+            }
+
+            let mut allow_additional_fields = true;
+            for (i, field) in struct_def.fields.iter().enumerate() {
+                let ftype = TypeNameRef(&field.type_);
+                let nfields = struct_def.fields.len();
+                let present: bool = obj.contains_key(&field.name);
+                if present || ftype.is_optional() {
+                    ensure!(allow_additional_fields,
+                            EncodeSnafu { message: format!(
+                                "Unexpected field '{}' found in input object while processing struct '{}'",
+                                &field.name, &struct_def.name) });
+                    let value = if present { obj.get(&field.name).unwrap() }  // safe unwrap
+                    else                   { &JsonValue::Null };
+                    // TODO: ctx.push_to_path
+                    ctx.disallow_extensions_unless(i == nfields-1); // disallow except for the last field
+                    self.encode_variant(ds, ftype.remove_bin_extension(), value)?;
+                }
+                else if ftype.has_bin_extension() && ctx.allow_extensions {
+                    allow_additional_fields = false;
+                }
+                else if !allow_additional_fields {
+                    EncodeSnafu { message: format!(
+                        "Encountered field '{}' without binary extension designation while processing struct '{}'",
+                        &field.name, &struct_def.name) }.fail()?;
+                }
+                else {
+                    EncodeSnafu { message: format!(
+                        "missing field '{}' in input object while processing struct '{}'",
+                        &field.name, &struct_def.name) }.fail()?;
+                }
+            }
+        }
+        else if let Some(arr) = object.as_array() {
+            // ..and we are given an array -> serialize fields using their position
+            ensure!(struct_def.base.is_empty(),
+                    EncodeSnafu { message: format!(concat!(
+                        "using input array to specify the fields of the derived struct '{}'; ",
+                        "input arrays are currently only allowed for structs without a base"
+                    ), struct_def.name) });
+
+            for (i, field) in struct_def.fields.iter().enumerate() {
+                // let field = &struct_def.fields[i];
+                let ftype = TypeNameRef(&field.type_);
+                let nfields = struct_def.fields.len();
+                if i < arr.len() {
+                    // TODO: ctx.push_to_path
+                    ctx.disallow_extensions_unless(i == nfields-1);
+                    self.encode_variant(ds, ftype.remove_bin_extension(), &arr[i])?;
+                }
+                else if ftype.has_bin_extension() && ctx.allow_extensions {
+                    break;
+                }
+                else {
+                    EncodeSnafu { message: format!(concat!(
+                        "early end to input array specifying the fields of struct '{}'; ",
+                        "require input for field '{}'"
+                    ), struct_def.name, field.name) }.fail()?;
+                }
+            }
+        }
+        else {
+            EncodeSnafu { message: format!(
+                "unexpected input while encoding struct '{}': {}",
+                struct_def.name, object) }.fail()?;
+        }
+
+        Ok(())
+
     }
 
     #[inline]
@@ -350,8 +386,11 @@ impl ABI {
             // from the stream
             if rtype.is_array() {
                 let item_count = decode_usize(ds, "item_count (as varuint32)")?;
-                debug!(r#"reading array of {item_count} elements of type "{ftype}""#);
-                let mut a = Vec::with_capacity(item_count);
+                debug!(r#"reading array of {item_count} elements11 of type "{ftype}""#);
+                // limit the maximum size that can be reserved before data is read
+                let initial_capacity = item_count; //.min(1024);
+                let mut a = Vec::with_capacity(initial_capacity);
+                // loop {}
                 for _ in 0..item_count {
                     a.push(read_value(ds, type_, "array item")?);
                 }
@@ -373,8 +412,11 @@ impl ABI {
             if rtype.is_array() {
                 // not a builtin type, we have to recurse down
                 let item_count = decode_usize(ds, "item_count (as varuint32)")?;
-                debug!(r#"reading array of {item_count} elements of type "{ftype}""#);
-                let mut a = Vec::with_capacity(item_count);
+                debug!(r#"reading array of {item_count} elements22 of type "{ftype}""#);
+                // limit the maximum size that can be reserved before data is read
+                let initial_capacity = item_count; //.min(1024);
+                let mut a = Vec::with_capacity(initial_capacity);
+                // loop {}
                 for _ in 0..item_count {
                     a.push(self.decode_variant(ds, ftype)?);
                 }
@@ -438,7 +480,7 @@ impl ABI {
                 while !current.base.is_empty() {
                     let base = self.structs.get(&current.base).unwrap();  // safe unwrap
                     ensure!(!types_seen.contains(&&base.name),
-                            IntegritySnafu { message: format!("circular reference in struct `{}`", &s.name) });
+                            IntegritySnafu { message: format!("circular reference in struct '{}'", &s.name) });
                     types_seen.push(&base.name);
                     current = base;
                 }
@@ -447,7 +489,7 @@ impl ABI {
             // check all field types are valid types
             for field in &s.fields {
                 ensure!(self.is_type(TypeNameRef(&field.type_[..]).remove_bin_extension()),
-                        IntegritySnafu { message: format!("invalid type used in field `{}::{}`: `{}`",
+                        IntegritySnafu { message: format!("invalid type used in field '{}::{}': `{}`",
                                                           &s.name, &field.name, &field.type_) });
             }
         }
@@ -456,7 +498,7 @@ impl ABI {
         for v in self.variants.values() {
             for t in &v.types {
                 ensure!(self.is_type(t.into()),
-                        IntegritySnafu { message: format!("invalid type `{}` used in variant `{}`",
+                        IntegritySnafu { message: format!("invalid type `{}` used in variant '{}'",
                                                           t, v.name) });
             }
         }
@@ -464,25 +506,24 @@ impl ABI {
         // check all actions are valid types
         for (name, type_) in &self.actions {
             ensure!(self.is_type(type_.into()),
-                    IntegritySnafu { message: format!("invalid type `{}` used in action `{}`",
+                    IntegritySnafu { message: format!("invalid type `{}` used in action '{}'",
                                                       type_, name) });
         }
 
         // check all tables are valid types
         for (name, type_) in &self.tables {
             ensure!(self.is_type(type_.into()),
-                    IntegritySnafu { message: format!("invalid type `{}` used in table `{}`",
+                    IntegritySnafu { message: format!("invalid type `{}` used in table '{}'",
                                                       type_, name) });
         }
 
         // check all action results are valid types
         // FIXME: implement me once we have a field for it
-        // for (name, type_) in &self.action_results {
-        //     ensure!(self.is_type(type_.into()),
-        //             IntegritySnafu { message: format!("invalid type `{}` used in action `{}`",
-        //                                               type_, name) });
-        // }
-
+        for (name, type_) in &self.action_results {
+            ensure!(self.is_type(type_.into()),
+                    IntegritySnafu { message: format!("invalid type `{}` used in action result '{}'",
+                                                      type_, name) });
+        }
 
         Ok(())
     }
@@ -528,4 +569,84 @@ fn read_value(stream: &mut ByteStream, type_: AntelopeType, what: &str) ->  Resu
 fn decode_usize(stream: &mut ByteStream, what: &str) -> Result<usize, ABIError> {
     let n = VarUint32::decode(stream).context(DeserializeSnafu { what })?;
     Ok(n.into())
+}
+
+
+#[with_location]
+#[derive(Debug, Snafu)]
+#[snafu(visibility(pub(crate)))]
+pub enum ABIError {
+    #[snafu(display("cannot deserialize {what} from stream"))]
+    DeserializeError { what: String, source: SerializeError },
+
+    #[snafu(display(r#"unsupported ABI version: "{version}""#))]
+    VersionError { version: String },
+
+    #[snafu(display(r#"incompatible versions: "{a}" vs. "{b}""#))]
+    IncompatibleVersionError { a: String, b: String },
+
+    #[snafu(display("integrity error: {message}"))]
+    IntegrityError { message: String },
+
+    #[snafu(display("encode error: {message}"))]
+    EncodeError { message: String },
+
+    #[snafu(display("decode error: {message}"))]
+    DecodeError { message: String },
+
+    #[snafu(display("cannot deserialize ABIDefinition from JSON"))]
+    JsonError { source: JsonError },
+
+    #[snafu(display("cannot decode hex representation for hex ABI"))]
+    HexABIError { source: FromHexError },
+
+    #[snafu(display("cannot convert variant to AntelopeValue: {v}"))]
+    VariantConversionError { v: Box<JsonValue>, source: InvalidValue },
+
+    #[snafu(display(r#"cannot convert given variant {value} to Antelope type "{typename}""#))]
+    IncompatibleVariantTypes {
+        typename: String,
+        value: Box<JsonValue>,
+    },
+}
+
+impl_auto_error_conversion!(FromHexError, ABIError, HexABISnafu);
+
+
+struct ScopeExit<T>
+where
+    T: FnMut()
+{
+    callback: T,
+}
+
+impl<T: FnMut()> ScopeExit<T> {
+    pub fn new(f: T) -> ScopeExit<T> {
+        ScopeExit { callback: f }
+    }
+}
+
+impl<T: FnMut()> Drop for ScopeExit<T> {
+    fn drop(&mut self) {
+        (self.callback)()
+    }
+}
+
+struct VariantToBinaryContext {
+    allow_extensions: bool,
+}
+
+impl VariantToBinaryContext {
+    pub fn new() -> VariantToBinaryContext {
+        VariantToBinaryContext { allow_extensions: true }
+    }
+
+    pub fn disallow_extensions_unless(&mut self, cond: bool) -> ScopeExit<impl FnMut() + '_> {
+        let old_allow_extensions = self.allow_extensions;
+
+        if !cond { self.allow_extensions = false }
+
+        let callback = move || { self.allow_extensions = old_allow_extensions; };
+        ScopeExit::new(callback)
+    }
 }

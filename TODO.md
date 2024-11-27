@@ -14,12 +14,9 @@ file once they are implemented.
 ## API DESIGN
 
 - clean abi.rs
-  - move ABIError from ABIDefinition to ABI.rs
   - check use and handling of binary extension
 
 - check FIXME in TypeNameRef
-
-- check nomenclature about ABI: ABIDefinition, ABI, ABIEncoder, etc.
 
 - try defining the `ABISerializable` trait and implement it for all types, then replace
   the `AntelopeValue` struct with just the implementation of the base types
@@ -79,9 +76,15 @@ file once they are implemented.
 
 - replace links and refs from `AntelopeIO/leap` to `AntelopeIO/spring`
 
-## MISC
+
+## PERFORMANCE
 
 - use a small string library so that ABIs have a much better cache locality
+
+- try using a `BTreeMap` or some other map that has better cache locality
+
+
+## MISC
 
 - include `ARCHITECTURE.md` somewhere in the docs
 
@@ -110,7 +113,7 @@ file once they are implemented.
 
 - add note that the execution time of the various methods is not time bounded and recursive
   functions do not have a max depth that is checked either.
-  This could be something added at a later time via a feature flag
+  This could be something added at a later time via a feature flag (eg: `hardened`)
 
 - crypto primitives do not implement WebAuthn key and signatures yet
 

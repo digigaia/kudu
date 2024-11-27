@@ -9,7 +9,7 @@ use antelope_core::{
     crypto::{CryptoData, CryptoDataType, KeyType},
     impl_auto_error_conversion,
 };
-use crate::{ByteStream, StreamError};
+use crate::{ByteStream, StreamError, ABIError};
 
 
 #[with_location]
@@ -29,6 +29,12 @@ pub enum SerializeError {
 
     #[snafu(display("{msg}"))]
     InvalidData { msg: String },  // acts as a generic error type with a given message
+
+    #[snafu(display("ABI error"), visibility(pub(crate)))]
+    ABIError {
+        #[snafu(source(from(ABIError, Box::new)))]
+        source: Box<ABIError>
+    },
 }
 
 impl_auto_error_conversion!(StreamError, SerializeError, StreamSnafu);

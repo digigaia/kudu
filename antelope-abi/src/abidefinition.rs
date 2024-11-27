@@ -1,17 +1,18 @@
 use std::sync::OnceLock;
 
-use hex::FromHexError;
 use serde::{Deserialize, Serialize};
-use serde_json::{json, Error as JsonError};
-use snafu::{ensure, Snafu, IntoError, ResultExt};
+use serde_json::json;
+use snafu::{ensure, ResultExt};
 
 use antelope_core::{
-    JsonValue, InvalidValue, ActionName, TableName, impl_auto_error_conversion,
+    JsonValue, ActionName, TableName
 };
-use antelope_macros::with_location;
 
-use crate::binaryserializable::BinarySerializable;
-use crate::{ABI, ByteStream, SerializeError, data::{ABI_SCHEMA, CONTRACT_ABI}};
+use crate::binaryserializable::{BinarySerializable, ABISnafu};
+use crate::{
+    ByteStream, SerializeError,
+    abi::{ABI, ABIError, JsonSnafu, DeserializeSnafu, VersionSnafu, IncompatibleVersionSnafu},
+    data::{ABI_SCHEMA, CONTRACT_ABI}};
 
 pub use crate::typenameref::TypeNameRef;
 
@@ -116,6 +117,8 @@ pub struct ABIDefinition {
     pub error_messages: Vec<ErrorMessage>,
     #[serde(default)]
     pub variants: Vec<Variant>,
+    #[serde(default)]
+    pub action_results: Vec<ActionResult>,
 
     // TODO: implement ricardian_clauses and abi_extensions
 }
@@ -127,10 +130,11 @@ impl ABIDefinition {
     }
 
     pub fn from_variant(v: &JsonValue) -> Result<Self> {
-        serde_json::from_str(&v.to_string()).context(JsonSnafu)
+        ABIDefinition::from_str(&v.to_string())
     }
 
     pub fn from_bin(data: &mut ByteStream) -> Result<Self> {
+        // FIXME: check how to deserialize properly the different versions: 1.0, 1.1, 1.2, ...
         let version = String::decode(data).context(DeserializeSnafu { what: "version" })?;
 
         ensure!(version.starts_with("eosio::abi/1."), VersionSnafu { version });
@@ -142,7 +146,7 @@ impl ABIDefinition {
             "structs":  parser.decode_variant(data, "struct[]")?,
             "actions":  parser.decode_variant(data, "action[]")?,
             "tables":   parser.decode_variant(data, "table[]")?,
-            "variants": parser.decode_variant(data, "variants[]")?,
+            "variants": parser.decode_variant(data, "variant[]")?,
         });
 
         // FIXME: we should deserialize everything here, we have some fields missing...
@@ -151,8 +155,25 @@ impl ABIDefinition {
         // see ref order here: https://github.com/AntelopeIO/spring/blob/main/libraries/chain/include/eosio/chain/abi_def.hpp#L179
         assert_eq!(data.leftover(), [0u8; 2]);
 
-        Self::from_str(&abi.to_string())
+        Self::from_variant(&abi)
     }
+
+    pub fn to_bin(&self, stream: &mut ByteStream) -> Result<()> {
+        let parser = bin_abi_parser();
+        parser.encode(stream, &self.version);
+        parser.encode_variant(stream, "typedef[]", &json!(self.types))?;
+        parser.encode_variant(stream, "struct[]", &json!(self.structs))?;
+        parser.encode_variant(stream, "action[]", &json!(self.actions))?;
+        parser.encode_variant(stream, "table[]", &json!(self.tables))?;
+        parser.encode_variant(stream, "variant[]", &json!(self.variants))?;
+
+        stream.write_byte(0);
+        stream.write_byte(0);
+
+        Ok(())
+    }
+
+
 
     pub fn update(&mut self, other: &ABIDefinition) -> Result<()> {
         ensure!(self.version.is_empty() || other.version.is_empty() ||
@@ -189,9 +210,20 @@ impl Default for ABIDefinition {
             ricardian_clauses: vec![],
             error_messages: vec![],
             variants: vec![],
+            action_results: vec![],
         }
     }
 }
+
+impl BinarySerializable for ABIDefinition {
+    fn encode(&self, stream: &mut ByteStream) {
+        self.to_bin(stream).unwrap()  // safe unwrap
+    }
+    fn decode(stream: &mut ByteStream) -> Result<Self, SerializeError> {
+        ABIDefinition::from_bin(stream).context(ABISnafu)
+    }
+}
+
 
 pub fn abi_schema() -> &'static ABIDefinition {
     static ABI_SCHEMA_ONCE: OnceLock<ABIDefinition> = OnceLock::new();
@@ -206,49 +238,10 @@ fn bin_abi_parser() -> &'static ABI {
 }
 
 
-#[with_location]
-#[derive(Debug, Snafu)]
-#[snafu(visibility(pub(crate)))]
-pub enum ABIError {
-    #[snafu(display("cannot deserialize {what} from stream"))]
-    DeserializeError { what: String, source: SerializeError },
-
-    #[snafu(display(r#"unsupported ABI version: "{version}""#))]
-    VersionError { version: String },
-
-    #[snafu(display(r#"incompatible versions: "{a}" vs. "{b}""#))]
-    IncompatibleVersionError { a: String, b: String },
-
-    #[snafu(display("integrity error: {message}"))]
-    IntegrityError { message: String },
-
-    #[snafu(display("encode error: {message}"))]
-    EncodeError { message: String },
-
-    #[snafu(display("decode error: {message}"))]
-    DecodeError { message: String },
-
-    #[snafu(display("cannot deserialize ABIDefinition from JSON"))]
-    JsonError { source: JsonError },
-
-    #[snafu(display("cannot decode hex representation for hex ABI"))]
-    HexABIError { source: FromHexError },
-
-    #[snafu(display("cannot convert variant to AntelopeValue: {v}"))]
-    VariantConversionError { v: Box<JsonValue>, source: InvalidValue },
-
-    #[snafu(display(r#"cannot convert given variant {value} to Antelope type "{typename}""#))]
-    IncompatibleVariantTypes {
-        typename: String,
-        value: Box<JsonValue>,
-    },
-}
-
-impl_auto_error_conversion!(FromHexError, ABIError, HexABISnafu);
-
 
 #[cfg(test)]
 mod tests {
+    use serde_json::Error as JsonError;
     use crate::data::ABI_EXAMPLE;
     use super::*;
 
