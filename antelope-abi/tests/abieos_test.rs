@@ -390,6 +390,19 @@ fn roundtrip_floats() -> Result<()> {
     Ok(())
 }
 
+#[test]
+#[cfg(feature = "float128")]
+fn roundtrip_float128() -> Result<()> {
+    init();
+
+    let abi = transaction_abi();
+
+    check_round_trip(abi, "float128", r#""00000000000000000000000000000000""#, "00000000000000000000000000000000");
+    check_round_trip(abi, "float128", r#""FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF""#, "FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF");
+    check_round_trip(abi, "float128", r#""12345678ABCDEF12345678ABCDEF1234""#, "12345678ABCDEF12345678ABCDEF1234");
+
+    Ok(())
+}
 
 #[test]
 fn roundtrip_datetimes() -> Result<()> {

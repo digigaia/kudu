@@ -158,6 +158,7 @@ impl_pod_serialization!(u128, 16);
 
 impl_pod_serialization!(f32, 4);
 impl_pod_serialization!(f64, 8);
+#[cfg(feature = "float128")]
 impl_pod_serialization!(f128, 16);
 
 

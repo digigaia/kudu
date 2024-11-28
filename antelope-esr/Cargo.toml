@@ -24,7 +24,7 @@ flate2 = "1.0"
 flagset = "0.4.5"
 
 [features]
-default = ["float128"]
+default = []
 float128 = [
     "antelope-core/float128",
     "antelope-abi/float128",

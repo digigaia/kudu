@@ -1,5 +1,3 @@
-#![cfg_attr(feature = "float128", feature(f128))]
-
 use std::sync::Once;
 
 use color_eyre::eyre::Result;
@@ -49,10 +47,6 @@ fn main() -> Result<()> {
 
     let i = i16::from_str_radix("7FFF", 16);
     println!("{i:?}");
-
-    let x: f128 = 1.2345678901234567890123456789;
-    let x64 = x as f64;
-    info!("{:?}", x64);
 
     Ok(())
 }

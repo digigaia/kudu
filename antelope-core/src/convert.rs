@@ -30,6 +30,12 @@ pub enum ConversionError {
         target: &'static str,
     },
 
+    #[snafu(display("invalid hex representation"))]
+    HexDecode {
+        repr: String,
+        source: FromHexError,
+    },
+
     #[snafu(display("integer out of range: cannot fit {value} in a `{target_type}`"))]
     IntPrecision {
         value: i128,  // i128 allows to represent both i64 and u64
@@ -62,11 +68,18 @@ type Result<T, E = ConversionError> = std::result::Result<T, E>;
 //     Hex conversion functions
 // -----------------------------------------------------------------------------
 
-pub fn hex_to_boxed_array<const N: usize>(s: &str) -> Result<Box<[u8; N]>, FromHexError> {
+#[inline]
+pub fn hex_to_byte_array<const N: usize>(s: &str) -> Result<[u8; N], FromHexError> {
     let mut result = [0_u8; N];
     hex::decode_to_slice(s, &mut result)?;
-    Ok(Box::new(result))
+    Ok(result)
 }
+
+#[inline]
+pub fn hex_to_boxed_array<const N: usize>(s: &str) -> Result<Box<[u8; N]>, FromHexError> {
+    hex_to_byte_array(s).map(Box::new)
+}
+
 
 /// Trait for signed integers that allows parsing negative integers
 /// from their hex representation
@@ -173,7 +186,8 @@ where
 #[cfg(feature = "float128")]
 pub fn variant_to_f128(v: &JsonValue) -> Result<f128> {
     if let Some(x) = v.as_f64()      { Ok(x.into()) }
-    else if let Some(s) = v.as_str() { str_to_f128(s) }
+    else if let Some(s) = v.as_str() { Ok(f128::from_ne_bytes(hex_to_byte_array(s)
+                                                              .context(HexDecodeSnafu { repr: s })?)) }
     else {
         IncompatibleVariantTypesSnafu { typename: "f128", value: v.clone() }.fail()
     }

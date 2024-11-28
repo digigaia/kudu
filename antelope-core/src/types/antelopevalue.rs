@@ -156,7 +156,7 @@ impl AntelopeValue {
             Self::Float32(x) => json!(x),
             Self::Float64(x) => json!(x),
             #[cfg(feature = "float128")]
-            Self::Float128(x) => json!(*x as f64),
+            Self::Float128(x) => json!(hex::encode_upper(x.to_ne_bytes())),
             Self::Bytes(b) => json!(hex::encode_upper(b)),
             Self::String(s) => json!(s),
             Self::TimePoint(t) => t.to_json(),
