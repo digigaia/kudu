@@ -1,4 +1,6 @@
 use tracing::instrument;
+#[cfg(feature = "float128")]
+use f128::f128;
 
 use antelope_core::types::*;
 
@@ -60,6 +62,8 @@ impl ABISerializable for AntelopeValue {
             Self::VarUint32(n) => n.encode(stream),
             Self::Float32(x) => x.encode(stream),
             Self::Float64(x) => x.encode(stream),
+            #[cfg(feature = "float128")]
+            Self::Float128(x) => x.encode(stream),
             Self::Bytes(b) => b.encode(stream),
             Self::String(s) => s.encode(stream),
             Self::TimePoint(t) => t.encode(stream),
@@ -97,6 +101,8 @@ impl ABISerializable for AntelopeValue {
             AntelopeType::VarUint32 => Self::VarUint32(VarUint32::decode(stream)?),
             AntelopeType::Float32 => Self::Float32(f32::decode(stream)?),
             AntelopeType::Float64 => Self::Float64(f64::decode(stream)?),
+            #[cfg(feature = "float128")]
+            AntelopeType::Float128 => Self::Float128(f128::decode(stream)?),
             AntelopeType::Bytes => Self::Bytes(Bytes::decode(stream)?),
             AntelopeType::String => Self::String(String::decode(stream)?),
             AntelopeType::TimePoint => Self::TimePoint(TimePoint::decode(stream)?),

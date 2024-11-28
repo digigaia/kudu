@@ -2,6 +2,8 @@ use std::str::{from_utf8, Utf8Error};
 
 use bytemuck::{cast_ref, pod_read_unaligned};
 use snafu::{ensure, Snafu, IntoError, ResultExt};
+#[cfg(feature = "float128")]
+use f128::f128;
 
 use antelope_macros::with_location;
 use antelope_core::{
@@ -158,6 +160,7 @@ impl_pod_serialization!(u128, 16);
 
 impl_pod_serialization!(f32, 4);
 impl_pod_serialization!(f64, 8);
+impl_pod_serialization!(f128, 16);
 
 
 impl BinarySerializable for VarInt32 {

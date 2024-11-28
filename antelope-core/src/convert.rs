@@ -175,7 +175,11 @@ where
 }
 
 pub fn variant_to_f128(v: &JsonValue) -> Result<f128> {
-
+    if let Some(x) = v.as_f64()      { Ok(x.into()) }
+    else if let Some(s) = v.as_str() { str_to_f128(s) }
+    else {
+        IncompatibleVariantTypesSnafu { typename: "f128", value: v.clone() }.fail()
+    }
 }
 
 

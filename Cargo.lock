@@ -105,6 +105,7 @@ dependencies = [
  "bytemuck",
  "chrono",
  "color-eyre",
+ "f128",
  "hex",
  "serde",
  "serde_json",

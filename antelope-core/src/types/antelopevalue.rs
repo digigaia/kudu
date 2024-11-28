@@ -36,7 +36,7 @@ use crate::convert::{
     ConversionError,
 };
 #[cfg(feature = "float128")]
-use crate::convert::str_to_f128;
+use crate::convert::{str_to_f128, variant_to_f128};
 
 // see full list in: https://github.com/AntelopeIO/leap/blob/main/libraries/chain/abi_serializer.cpp#L89
 #[derive(Debug, AsRefStr, EnumDiscriminants, VariantNames, Clone, PartialEq)]
