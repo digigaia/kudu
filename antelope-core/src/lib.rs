@@ -17,9 +17,7 @@
 // our types, which wouldn't be very convenient and isn't very discoverable
 #![allow(clippy::should_implement_trait)]
 
-#![cfg_attr(feature = "float128", feature(dec2flt))]
-
-// #![feature(dec2flt)]
+#![cfg_attr(feature = "float128", feature(f128))]
 
 pub mod api;
 pub mod config;

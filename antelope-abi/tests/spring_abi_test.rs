@@ -495,20 +495,18 @@ fn abi_large_array() -> Result<()> {
     Ok(())
 }
 
+// Unlimited array size during abi serialization can exhaust memory and crash the process
+// a non-zero struct would fail early like in the test before, but a zero-sized struct
+// will seemingly loop forever (as it is deserializing them it doesn't exhaust the stream
+// so can go on for a very long time)
 #[test]
-fn abi_is_type_recursion() -> Result<()> {
-    init();
-    check_invalid_abi!("data/abi_is_type_recursion.json", "invalid type");
-    Ok(())
-}
-
-#[test]
-fn abi_empty_struct() -> Result<()> {
+#[cfg(feature = "hardened")]
+fn abi_large_array_hardened() -> Result<()> {
     init();
 
     let abi = ABI::from_str(r#"
     {
-        "version": "eosio::abi/1.0",
+        "version": "eosio::abi/1.1",
         "types": [],
         "structs": [{
             "name": "hi",
@@ -522,10 +520,20 @@ fn abi_empty_struct() -> Result<()> {
         }],
         "tables": []
     }
-    "#);
+    "#)?;
 
-    check_integrity_error!(abi, "struct 'hi' has no base and no fields");
+    let data = b"\xff\xff\xff\xff\x08";
 
+    let result = abi.binary_to_variant("hi[]", data.to_vec());
+    check_error!(result, ABIError::DecodeError { .. }, "timeout or something like that");
+
+    Ok(())
+}
+
+#[test]
+fn abi_is_type_recursion() -> Result<()> {
+    init();
+    check_invalid_abi!("data/abi_is_type_recursion.json", "invalid type");
     Ok(())
 }
 

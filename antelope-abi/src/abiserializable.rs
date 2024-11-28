@@ -1,6 +1,4 @@
 use tracing::instrument;
-#[cfg(feature = "float128")]
-use f128::f128;
 
 use antelope_core::types::*;
 

@@ -1,3 +1,5 @@
+#![cfg_attr(feature = "float128", feature(f128))]
+
 use std::sync::Once;
 
 use color_eyre::eyre::Result;
@@ -7,8 +9,6 @@ use tracing_subscriber::{
     EnvFilter,
     // fmt::format::FmtSpan,
 };
-
-use f128::f128;
 
 use antelope_abi::{abidefinition::abi_schema, ABIDefinition};
 use antelope_core::convert::{variant_to_int, variant_to_uint};
@@ -50,8 +50,9 @@ fn main() -> Result<()> {
     let i = i16::from_str_radix("7FFF", 16);
     println!("{i:?}");
 
-    let x = f128!(1.2345678901234567890123456789);
-    info!("{x:?}");
+    let x: f128 = 1.2345678901234567890123456789;
+    let x64 = x as f64;
+    info!("{:?}", x64);
 
     Ok(())
 }

@@ -2,8 +2,6 @@ use std::str::{from_utf8, Utf8Error};
 
 use bytemuck::{cast_ref, pod_read_unaligned};
 use snafu::{ensure, Snafu, IntoError, ResultExt};
-#[cfg(feature = "float128")]
-use f128::f128;
 
 use antelope_macros::with_location;
 use antelope_core::{

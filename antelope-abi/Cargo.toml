@@ -21,12 +21,11 @@ antelope-macros    = { workspace = true }
 antelope-core = { path="../antelope-core" }
 bytemuck = "1"
 chrono = { version = "0.4", features = ["serde"] }
-f128 = { version = "0.2.9", optional = true }
 
 [features]
 default = []
 hardened = []
-float128 = ["dep:f128", "antelope-core/float128"]
+float128 = ["antelope-core/float128", "bytemuck/nightly_float"]
 detailed-error = [
     "antelope-macros/detailed-error",
     "antelope-core/detailed-error",

@@ -197,11 +197,6 @@ impl ABI {
                 }
             }
 
-            // make sure we are not defining a 0-size struct
-            ensure!(!s.base.is_empty() || !s.fields.is_empty(),
-                    IntegritySnafu { message: format!(
-                        "struct '{}' has no base and no fields, 0-size structs are not allowed", &s.name) });
-
             // check all field types are valid types
             for field in &s.fields {
                 ensure!(self.is_type(TypeNameRef(&field.type_[..]).remove_bin_extension()),

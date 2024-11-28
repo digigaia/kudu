@@ -10,9 +10,6 @@ use snafu::{Snafu, IntoError, ResultExt, OptionExt};
 use strum::{Display, AsRefStr, EnumDiscriminants, EnumString, VariantNames};
 use tracing::instrument;
 
-#[cfg(feature = "float128")]
-use f128::f128;
-
 use antelope_macros::with_location;
 
 use crate::{
@@ -159,7 +156,7 @@ impl AntelopeValue {
             Self::Float32(x) => json!(x),
             Self::Float64(x) => json!(x),
             #[cfg(feature = "float128")]
-            Self::Float128(x) => json!(x.to_string()),
+            Self::Float128(x) => json!(*x as f64),
             Self::Bytes(b) => json!(hex::encode_upper(b)),
             Self::String(s) => json!(s),
             Self::TimePoint(t) => t.to_json(),
