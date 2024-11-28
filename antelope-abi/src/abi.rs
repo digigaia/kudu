@@ -56,6 +56,11 @@ impl ABI {
         }
     }
 
+    // -----------------------------------------------------------------------------
+    //     Constructors and validation of ABI
+    // -----------------------------------------------------------------------------
+
+
     pub fn from_definition(abi: &ABIDefinition) -> Result<Self> {
         let mut result = Self::new();
         result.set_abi(abi)?;
@@ -152,6 +157,98 @@ impl ABI {
         }
     }
 
+    pub fn validate(&self) -> Result<(), ABIError> {
+        // FIXME: implement me!
+        // see: https://github.com/AntelopeIO/leap/blob/6817911900a088c60f91563995cf482d6b380b2d/libraries/chain/abi_serializer.cpp#L273
+        // https://github.com/AntelopeIO/leap/blob/main/libraries/chain/abi_serializer.cpp#L282
+
+        // check there are no circular references in the typedefs definition
+        for t in &self.typedefs {
+            let mut types_seen = vec![t.0, t.1];
+            let mut itr = self.typedefs.get(&t.1[..]);
+            while itr.is_some() {
+                let it = itr.unwrap();
+                ensure!(!types_seen.contains(&it),
+                        IntegritySnafu { message: format!("circular reference in type `{}`", t.0) });
+                types_seen.push(it);
+                itr = self.typedefs.get(it);
+            }
+        }
+
+        // check all types used in typedefs are valid types
+        for t in &self.typedefs {
+            ensure!(self.is_type(t.1.into()),
+                    IntegritySnafu { message: format!("invalid type used in typedef `{}`", t.1) });
+        }
+
+        // check there are no circular references in the structs definition
+        for s in self.structs.values() {
+            if !s.base.is_empty() {
+                let mut current = s;
+                let mut types_seen = vec![&current.name];
+                while !current.base.is_empty() {
+                    ensure!(self.structs.contains_key(&current.base),
+                            IntegritySnafu { message: format!("invalid type used in '{}::base': `{}`", &s.name, &current.base) });
+                    let base = self.structs.get(&current.base).unwrap();  // safe unwrap
+                    ensure!(!types_seen.contains(&&base.name),
+                            IntegritySnafu { message: format!("circular reference in struct '{}'", &s.name) });
+                    types_seen.push(&base.name);
+                    current = base;
+                }
+            }
+
+            // make sure we are not defining a 0-size struct
+            ensure!(!s.base.is_empty() || !s.fields.is_empty(),
+                    IntegritySnafu { message: format!(
+                        "struct '{}' has no base and no fields, 0-size structs are not allowed", &s.name) });
+
+            // check all field types are valid types
+            for field in &s.fields {
+                ensure!(self.is_type(TypeNameRef(&field.type_[..]).remove_bin_extension()),
+                        IntegritySnafu { message: format!("invalid type used in field '{}::{}': `{}`",
+                                                          &s.name, &field.name, &field.type_) });
+            }
+        }
+
+        // check all types from a variant are valid types
+        for v in self.variants.values() {
+            for t in &v.types {
+                ensure!(self.is_type(t.into()),
+                        IntegritySnafu { message: format!("invalid type `{}` used in variant '{}'",
+                                                          t, v.name) });
+            }
+        }
+
+        // check all actions are valid types
+        for (name, type_) in &self.actions {
+            ensure!(self.is_type(type_.into()),
+                    IntegritySnafu { message: format!("invalid type `{}` used in action '{}'",
+                                                      type_, name) });
+        }
+
+        // check all tables are valid types
+        for (name, type_) in &self.tables {
+            ensure!(self.is_type(type_.into()),
+                    IntegritySnafu { message: format!("invalid type `{}` used in table '{}'",
+                                                      type_, name) });
+        }
+
+        // check all action results are valid types
+        // FIXME: implement me once we have a field for it
+        for (name, type_) in &self.action_results {
+            ensure!(self.is_type(type_.into()),
+                    IntegritySnafu { message: format!("invalid type `{}` used in action result '{}'",
+                                                      type_, name) });
+        }
+
+        Ok(())
+    }
+
+    // -----------------------------------------------------------------------------
+    //     Encoding of variant -> binary
+    // -----------------------------------------------------------------------------
+
+
     pub fn variant_to_binary<'a, T>(&self, typename: T, obj: &JsonValue)
                                     -> Result<Vec<u8>>
     where
@@ -160,15 +257,6 @@ impl ABI {
         let mut ds = ByteStream::new();
         self.encode_variant(&mut ds, typename.into(), obj)?;
         Ok(ds.pop())
-    }
-
-    pub fn binary_to_variant<'a, T>(&self, typename: T, bytes: Vec<u8>)
-                                    -> Result<JsonValue>
-    where
-        T: Into<TypeNameRef<'a>>
-    {
-        let mut ds = ByteStream::from(bytes);
-        self.decode_variant_(&mut ds, typename.into())
     }
 
     #[inline]
@@ -363,8 +451,22 @@ impl ABI {
         }
 
         Ok(())
-
     }
+
+
+    // -----------------------------------------------------------------------------
+    //     Decoding of binary data -> variant
+    // -----------------------------------------------------------------------------
+
+    pub fn binary_to_variant<'a, T>(&self, typename: T, bytes: Vec<u8>)
+                                    -> Result<JsonValue>
+    where
+        T: Into<TypeNameRef<'a>>
+    {
+        let mut ds = ByteStream::from(bytes);
+        self.decode_variant_(&mut ds, typename.into())
+    }
+
 
     #[inline]
     pub fn decode_variant<'a, T>(&self, ds: &mut ByteStream, typename: T) -> Result<JsonValue, ABIError>
@@ -388,7 +490,7 @@ impl ABI {
                 let item_count = decode_usize(ds, "item_count (as varuint32)")?;
                 debug!(r#"reading array of {item_count} elements11 of type "{ftype}""#);
                 // limit the maximum size that can be reserved before data is read
-                let initial_capacity = item_count; //.min(1024);
+                let initial_capacity = item_count.min(1024);
                 let mut a = Vec::with_capacity(initial_capacity);
                 // loop {}
                 for _ in 0..item_count {
@@ -405,7 +507,7 @@ impl ABI {
                 }
             }
             else {
-                read_value(ds, type_, "single AntelopeValue")?
+                read_value(ds, type_, "single `AntelopeValue`")?
             }
         }
         else {
@@ -414,7 +516,7 @@ impl ABI {
                 let item_count = decode_usize(ds, "item_count (as varuint32)")?;
                 debug!(r#"reading array of {item_count} elements22 of type "{ftype}""#);
                 // limit the maximum size that can be reserved before data is read
-                let initial_capacity = item_count; //.min(1024);
+                let initial_capacity = item_count.min(1024);
                 let mut a = Vec::with_capacity(initial_capacity);
                 // loop {}
                 for _ in 0..item_count {
@@ -448,87 +550,6 @@ impl ABI {
         })
     }
 
-    pub fn validate(&self) -> Result<(), ABIError> {
-        // FIXME: implement me!
-        // see: https://github.com/AntelopeIO/leap/blob/6817911900a088c60f91563995cf482d6b380b2d/libraries/chain/abi_serializer.cpp#L273
-        // https://github.com/AntelopeIO/leap/blob/main/libraries/chain/abi_serializer.cpp#L282
-
-        // check there are no circular references in the typedefs definition
-        for t in &self.typedefs {
-            let mut types_seen = vec![t.0, t.1];
-            let mut itr = self.typedefs.get(&t.1[..]);
-            while itr.is_some() {
-                let it = itr.unwrap();
-                ensure!(!types_seen.contains(&it),
-                        IntegritySnafu { message: format!("circular reference in type `{}`", t.0) });
-                types_seen.push(it);
-                itr = self.typedefs.get(it);
-            }
-        }
-
-        // check all types used in typedefs are valid types
-        for t in &self.typedefs {
-            ensure!(self.is_type(t.1.into()),
-                    IntegritySnafu { message: format!("invalid type used in typedef `{}`", t.1) });
-        }
-
-        // check there are no circular references in the structs definition
-        for s in self.structs.values() {
-            if !s.base.is_empty() {
-                let mut current = s;
-                let mut types_seen = vec![&current.name];
-                while !current.base.is_empty() {
-                    let base = self.structs.get(&current.base).unwrap();  // safe unwrap
-                    ensure!(!types_seen.contains(&&base.name),
-                            IntegritySnafu { message: format!("circular reference in struct '{}'", &s.name) });
-                    types_seen.push(&base.name);
-                    current = base;
-                }
-            }
-
-            // check all field types are valid types
-            for field in &s.fields {
-                ensure!(self.is_type(TypeNameRef(&field.type_[..]).remove_bin_extension()),
-                        IntegritySnafu { message: format!("invalid type used in field '{}::{}': `{}`",
-                                                          &s.name, &field.name, &field.type_) });
-            }
-        }
-
-        // check all types from a variant are valid types
-        for v in self.variants.values() {
-            for t in &v.types {
-                ensure!(self.is_type(t.into()),
-                        IntegritySnafu { message: format!("invalid type `{}` used in variant '{}'",
-                                                          t, v.name) });
-            }
-        }
-
-        // check all actions are valid types
-        for (name, type_) in &self.actions {
-            ensure!(self.is_type(type_.into()),
-                    IntegritySnafu { message: format!("invalid type `{}` used in action '{}'",
-                                                      type_, name) });
-        }
-
-        // check all tables are valid types
-        for (name, type_) in &self.tables {
-            ensure!(self.is_type(type_.into()),
-                    IntegritySnafu { message: format!("invalid type `{}` used in table '{}'",
-                                                      type_, name) });
-        }
-
-        // check all action results are valid types
-        // FIXME: implement me once we have a field for it
-        for (name, type_) in &self.action_results {
-            ensure!(self.is_type(type_.into()),
-                    IntegritySnafu { message: format!("invalid type `{}` used in action result '{}'",
-                                                      type_, name) });
-        }
-
-        Ok(())
-    }
-
-
     fn decode_struct(&self, ds: &mut ByteStream, struct_def: &Struct) -> Result<JsonValue, ABIError> {
         debug!(r#"reading struct with name "{}" and base "{}""#, struct_def.name, struct_def.base);
 
@@ -543,17 +564,31 @@ impl ABI {
             result.append(base.as_object_mut().unwrap());
         }
 
+        let mut encountered_extension = false;
         let nfields = struct_def.fields.len();
         debug!("reading {nfields} fields");
         for field in &struct_def.fields {
-            // let present: bool = obj.contains_key(&field.name);
-            // assert!(present, "Missing field {} in input object while processing struct {}", &field.name, &struct_def.name);
+            let fname = &field.name;
+            let ftype = TypeNameRef(&field.type_);
+            encountered_extension |= ftype.has_bin_extension();
+            if ds.leftover().is_empty() {
+                if ftype.has_bin_extension() {
+                    continue;
+                }
+                ensure!(!encountered_extension,
+                        DecodeSnafu { message: format!(
+                            "encountered field '{}' without binary extension designation while processing struct '{}'",
+                            fname, &struct_def.name) });
 
-            let name = &field.name;
-            let type_ = TypeNameRef(&field.type_);
-            let value = self.decode_variant(ds, type_)?;
-            debug!(r#"decoded field "{name}" with type "{type_}": {value}"#);
-            result.insert(name.to_string(), value);
+                DecodeSnafu { message: format!(
+                    "stream ended unexpectedly; unable to unpack field '{}' of struct '{}'",
+                    fname, struct_def.name) }.fail()?
+            }
+
+            let rtype = self.resolve_type(ftype.remove_bin_extension());
+            let value = self.decode_variant(ds, rtype)?;
+            debug!(r#"decoded field '{fname}' with type `{ftype}`: {value}"#);
+            result.insert(fname.to_string(), value);
         }
 
         debug!("fully decoded `{}` struct: {:#?}", struct_def.name, result);

@@ -22,8 +22,10 @@ use antelope_abi::data::{
     TEST_ABI,
     TOKEN_HEX_ABI,
     TRANSACTION_ABI, PACKED_TRANSACTION_ABI,
-    STATE_HISTORY_PLUGIN_ABI,
 };
+
+#[cfg(feature = "float128")]
+use antelope_abi::data::STATE_HISTORY_PLUGIN_ABI;
 
 // FIXME: hex literals should be lowercase
 
@@ -638,7 +640,8 @@ fn roundtrip_transaction() -> Result<()> {
     Ok(())
 }
 
-#[test] #[ignore]
+#[test]
+#[cfg(feature = "float128")]
 fn roundtrip_transaction_traces() -> Result<()> {
     init();
 

@@ -22,8 +22,15 @@ antelope-core = { path = "../antelope-core" }
 antelope-abi = { path = "../antelope-abi" }
 flate2 = "1.0"
 flagset = "0.4.5"
+f128 = { version = "0.2.9", optional = true }
 
 [features]
+default = ["float128"]
+float128 = [
+    "dep:f128",
+    "antelope-core/float128",
+    "antelope-abi/float128",
+]
 detailed-error = [
     "antelope-macros/detailed-error",
     "antelope-core/detailed-error",

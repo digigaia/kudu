@@ -1,6 +1,11 @@
 //!
 //! This crate provides tools to encode/decode `Antelope` types into/from an ABI.
 //!
+//! ## Feature flags
+//!
+//! - `hardened`: implement safeguards to check for execution time and recursion depth
+//! - `float128`: add support for the `float128` type
+
 
 // disable this lint to allow our types to implement a `from_str` constructor
 // without implement the `std::str::FromStr` trait

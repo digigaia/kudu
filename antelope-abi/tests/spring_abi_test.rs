@@ -16,16 +16,21 @@ use antelope_abi::*;
 //     Unittests coming from the reference Spring implementation
 //     https://github.com/AntelopeIO/spring/blob/main/unittests/abi_tests.cpp
 //
-//     skipping the following tests because they seem to provide relatively
-//     low value:
-//      - linkauth_test, unlinkauth_test, updateauth_test, deleteauth_test, ...
-//
 //     skipping the following tests:
-//     Incomplete:
+//      - linkauth_test, unlinkauth_test, updateauth_test, deleteauth_test,
+//        newaccount_test, setcode_test, setabi_test, packed_transaction
+//        -> they seem to provide relatively low value
+//      - abi_serialize_detailed_error_message, abi_serialize_short_error_message,
+//        abi_deserialize_detailed_error_messsage
+//        -> can come at a later stage under the `detailed-error` feature flag
 //      - abi_very_deep_structs, abi_very_deep_structs_1us, abi_deep_structs_validate
-//        they use the `deep_nested_abi` and `large_nested_abis` that are inexistent
+//        -> they use the `deep_nested_abi` and `large_nested_abis` that are inexistent
 //      - abi_large_signature
-//        use webauthn signatures which are not yet implemented
+//        -> use webauthn signatures which are not yet implemented
+//      - abi_to_variant__add_action__good_return_value,
+//        abi_to_variant__add_action__bad_return_value,
+//        abi_to_variant__add_action__no_return_value,
+//        -> 'action_results' not implemented yet
 //
 // =============================================================================
 
@@ -260,13 +265,6 @@ fn abi_type_repeat() -> Result<()> {
 }
 
 #[test]
-fn abi_type_loop() -> Result<()> {
-    init();
-    check_invalid_abi!("data/abi_type_loop.json", "type already exists");
-    Ok(())
-}
-
-#[test]
 fn abi_struct_repeat() -> Result<()> {
     init();
     check_invalid_abi!("data/abi_struct_repeat.json", "duplicate struct definition");
@@ -331,6 +329,13 @@ fn abi_type_def() -> Result<()> {
     });
 
     verify_byte_round_trip(&abi, "transfer", &data)
+}
+
+#[test]
+fn abi_type_loop() -> Result<()> {
+    init();
+    check_invalid_abi!("data/abi_type_loop.json", "type already exists");
+    Ok(())
 }
 
 #[test]
@@ -414,7 +419,9 @@ fn abi_type_redefine_to_name() -> Result<()> {
 
 // NOTE: the JSON in Spring is not correct, hence the test either can't be correct
 // TODO: report bug!!
-#[test] #[ignore]
+// NOTE: we change the behavior of this test as we can and actually want to allow
+//       recursive structs like this, can be useful eg. to represent trees
+#[test]
 fn abi_type_nested_in_vector() -> Result<()> {
     init();
 
@@ -439,7 +446,7 @@ fn abi_type_nested_in_vector() -> Result<()> {
     "#;
 
     let abi = ABI::from_str(abi);
-    check_integrity_error!(abi, "duplicate table definition");
+    assert!(abi.is_ok());
 
     Ok(())
 }
@@ -458,8 +465,45 @@ fn abi_account_name_in_eosio_abi() -> Result<()> {
 }
 
 // Unlimited array size during abi serialization can exhaust memory and crash the process
-#[test] #[ignore]
+#[test]
 fn abi_large_array() -> Result<()> {
+    init();
+
+    let abi = ABI::from_str(r#"
+    {
+        "version": "eosio::abi/1.1",
+        "types": [],
+        "structs": [{
+            "name": "hi",
+            "base": "",
+            "fields": [{"name": "a", "type": "int8"}]
+        }],
+        "actions": [{
+            "name": "hi",
+            "type": "hi[]",
+            "ricardian_contract": ""
+        }],
+        "tables": []
+    }
+    "#)?;
+
+    let data = b"\xff\xff\xff\xff\x08";
+
+    let result = abi.binary_to_variant("hi[]", data.to_vec());
+    check_error!(result, ABIError::DecodeError { .. }, "stream ended unexpectedly; unable to unpack field 'a' of struct 'hi'");
+
+    Ok(())
+}
+
+#[test]
+fn abi_is_type_recursion() -> Result<()> {
+    init();
+    check_invalid_abi!("data/abi_is_type_recursion.json", "invalid type");
+    Ok(())
+}
+
+#[test]
+fn abi_empty_struct() -> Result<()> {
     init();
 
     let abi = ABI::from_str(r#"
@@ -478,24 +522,15 @@ fn abi_large_array() -> Result<()> {
         }],
         "tables": []
     }
-    "#)?;
+    "#);
 
-    let data = b"\xff\xff\xff\xff\x08";
-
-    let result = abi.binary_to_variant("hi[]", data.to_vec());
-    check_encode_error!(result, "ht");
+    check_integrity_error!(abi, "struct 'hi' has no base and no fields");
 
     Ok(())
 }
 
 #[test]
-fn abi_is_type_recursion() -> Result<()> {
-    init();
-    check_invalid_abi!("data/abi_is_type_recursion.json", "invalid type");
-    Ok(())
-}
-
-#[test] #[ignore]
+#[cfg(feature = "hardened")]
 fn abi_recursive_structs() -> Result<()> {
     init();
 
@@ -565,7 +600,6 @@ fn variants() -> Result<()> {
     ABIDefinition::from_str(variant_abi)?.encode(&mut stream);
     // bin -> abi_def -> variant -> abi_def
     let abi = ABI::from_str(&json!(ABIDefinition::decode(&mut stream)?).to_string())?;
-
 
     // expected array containing variant
     let result = abi.variant_to_binary("v1", &json!(9));
@@ -681,11 +715,11 @@ fn extend() -> Result<()> {
     verify_round_trip(&abi, "s", &json!({"i0":5,"i1":6,"i2":7,"a":[8,9,10],"o":null}), "0506070308090a00")?;
     verify_round_trip(&abi, "s", &json!({"i0":5,"i1":6,"i2":7,"a":[8,9,10],"o":31}), "0506070308090a011f")?;
 
-    verify_round_trip(&abi, "s", &json!([5,6]), "0506")?; //, &json!({"i0":5,"i1":6})");
-    verify_round_trip(&abi, "s", &json!([5,6,7]), "050607")?; //, &json!({"i0":5,"i1":6,"i2":7})");
+    verify_round_trip2(&abi, "s", &json!([5,6]), "0506", r#"{"i0":5,"i1":6}"#)?;
+    verify_round_trip2(&abi, "s", &json!([5,6,7]), "050607", r#"{"i0":5,"i1":6,"i2":7}"#)?;
     verify_round_trip2(&abi, "s", &json!([5,6,7,[8,9,10]]), "0506070308090a", r#"{"i0":5,"i1":6,"i2":7,"a":[8,9,10]}"#)?;
-    verify_round_trip(&abi, "s", &json!([5,6,7,[8,9,10],null]), "0506070308090a00")?; //, &json!({"i0":5,"i1":6,"i2":7,"a":[8,9,10],"o":null})");
-    verify_round_trip(&abi, "s", &json!([5,6,7,[8,9,10],31]), "0506070308090a011f")?; //, &json!({"i0":5,"i1":6,"i2":7,"a":[8,9,10],"o":31})");
+    verify_round_trip2(&abi, "s", &json!([5,6,7,[8,9,10],null]), "0506070308090a00", r#"{"i0":5,"i1":6,"i2":7,"a":[8,9,10],"o":null}"#)?;
+    verify_round_trip2(&abi, "s", &json!([5,6,7,[8,9,10],31]), "0506070308090a011f", r#"{"i0":5,"i1":6,"i2":7,"a":[8,9,10],"o":31}"#)?;
 
     let result = abi.variant_to_binary("s2", &json!({"i0":1}));
     check_encode_error!(result, "Encountered field 'i2' without binary extension designation while processing struct");
@@ -707,14 +741,9 @@ fn version() -> Result<()> {
     let abi = ABI::from_str(r#"{"version": "eosio::abi/9.0"}"#);
     check_error!(abi, ABIError::VersionError { .. }, "unsupported ABI version");
 
-    let abi = ABI::from_str(r#"{"version": "eosio::abi/1.0"}"#);
-    assert!(abi.is_ok());
-
-    let abi = ABI::from_str(r#"{"version": "eosio::abi/1.1"}"#);
-    assert!(abi.is_ok());
-
-    let abi = ABI::from_str(r#"{"version": "eosio::abi/1.2"}"#);
-    assert!(abi.is_ok());
+    assert!(ABI::from_str(r#"{"version": "eosio::abi/1.0"}"#).is_ok());
+    assert!(ABI::from_str(r#"{"version": "eosio::abi/1.1"}"#).is_ok());
+    assert!(ABI::from_str(r#"{"version": "eosio::abi/1.2"}"#).is_ok());
 
     Ok(())
 }
@@ -745,7 +774,6 @@ fn abi_serialize_incomplete_json_array() -> Result<()> {
     Ok(())
 }
 
-// FIXME: json in spring source code is incorrect, report bug
 #[test]
 fn abi_serialize_incomplete_json_object() -> Result<()> {
     init();
@@ -798,7 +826,7 @@ fn abi_serialize_json_mismatched_type() -> Result<()> {
 
     let result = abi.variant_to_binary("s2", &json!({"f0":1,"i1":2}));
     // FIXME: add context for ABI traversal so we can have the better error message
-    // check_error!(result, ABIError::EncodeError { .. }, "unexpected input encountered while encoding struct 's2.f0'");
+    // check_encode_error!(result, "unexpected input encountered while encoding struct 's2.f0'");
     check_encode_error!(result, "unexpected input while encoding struct 's1'");
 
     verify_round_trip(&abi, "s2", &json!({"f0":{"i0":1},"i1":2}), "0102")?;

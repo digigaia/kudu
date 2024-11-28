@@ -10,6 +10,9 @@ use snafu::{Snafu, IntoError, ResultExt, OptionExt};
 use strum::{Display, AsRefStr, EnumDiscriminants, EnumString, VariantNames};
 use tracing::instrument;
 
+#[cfg(feature = "float128")]
+use f128::f128;
+
 use antelope_macros::with_location;
 
 use crate::{
@@ -30,9 +33,10 @@ use crate::types::{self,
 use crate::convert::{
     variant_to_int, variant_to_uint, variant_to_float, variant_to_str,
     str_to_int, str_to_float, hex_to_boxed_array,
-    ConversionError
+    ConversionError,
 };
-
+#[cfg(feature = "float128")]
+use crate::convert::str_to_f128;
 
 // see full list in: https://github.com/AntelopeIO/leap/blob/main/libraries/chain/abi_serializer.cpp#L89
 #[derive(Debug, AsRefStr, EnumDiscriminants, VariantNames, Clone, PartialEq)]
@@ -64,7 +68,8 @@ pub enum AntelopeValue {
 
     Float32(f32),
     Float64(f64),
-    // Float128(??),
+    #[cfg(feature = "float128")]
+    Float128(f128),
 
     Bytes(Bytes),
     String(types::String),
@@ -114,6 +119,8 @@ impl AntelopeValue {
             AntelopeType::VarUint32 => Self::VarUint32(str_to_int::<u32>(repr)?.into()),
             AntelopeType::Float32 => Self::Float32(str_to_float(repr)?),
             AntelopeType::Float64 => Self::Float64(str_to_float(repr)?),
+            #[cfg(feature = "float128")]
+            AntelopeType::Float128 => Self::Float128(str_to_f128(repr)?),
             AntelopeType::Bytes => Self::Bytes(hex::decode(repr).context(FromHexSnafu)?),
             AntelopeType::String => Self::String(repr.to_owned()),
             AntelopeType::TimePoint => Self::TimePoint(TimePoint::from_str(repr)?),
@@ -151,6 +158,8 @@ impl AntelopeValue {
             Self::VarUint32(n) => json!(u32::from(*n)),
             Self::Float32(x) => json!(x),
             Self::Float64(x) => json!(x),
+            #[cfg(feature = "float128")]
+            Self::Float128(x) => json!(x.to_string()),
             Self::Bytes(b) => json!(hex::encode_upper(b)),
             Self::String(s) => json!(s),
             Self::TimePoint(t) => t.to_json(),
@@ -198,6 +207,8 @@ impl AntelopeValue {
             AntelopeType::VarUint32 => Self::VarUint32(variant_to_uint::<u32>(v)?.into()),
             AntelopeType::Float32 => Self::Float32(variant_to_float(v)?),
             AntelopeType::Float64 => Self::Float64(variant_to_float(v)?),
+            #[cfg(feature = "float128")]
+            AntelopeType::Float128 => Self::Float128(variant_to_f128(v)?),
             AntelopeType::Bytes => Self::Bytes(hex::decode(
                 v.as_str().with_context(incompatible_types)?
             ).context(FromHexSnafu)?),

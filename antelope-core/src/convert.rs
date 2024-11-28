@@ -1,3 +1,4 @@
+use core::num::dec2flt::pfe_invalid;
 use std::any::type_name;
 use std::str::FromStr;
 use std::num::{ParseFloatError, ParseIntError, TryFromIntError};
@@ -6,6 +7,9 @@ use hex::FromHexError;
 use num::{Integer, Signed, Unsigned, Float};
 use serde_json::Value as JsonValue;
 use snafu::prelude::*;
+
+#[cfg(feature = "float128")]
+use f128::f128;
 
 use antelope_macros::with_location;
 
@@ -118,6 +122,11 @@ where
     s.parse().context(FloatSnafu { repr: s })
 }
 
+#[cfg(feature = "float128")]
+pub fn str_to_f128(s: &str) -> Result<f128> {
+    f128::parse(s).map_err(|_| pfe_invalid()).context(FloatSnafu { repr: s })
+}
+
 pub fn variant_to_int<T>(v: &JsonValue) -> Result<T>
 where
     T: TryFromInt64 + FromStr<Err = ParseIntError> + NegativeHex,
@@ -163,6 +172,10 @@ where
     else {
         IncompatibleVariantTypesSnafu { typename: type_name::<T>(), value: v.clone() }.fail()
     }
+}
+
+pub fn variant_to_f128(v: &JsonValue) -> Result<f128> {
+
 }
 
 
