@@ -16,10 +16,6 @@ file once they are implemented.
 - clean abi.rs
   - check use and handling of binary extension
 
-- check FIXME in TypeNameRef
-
-- remove `hex::encode_upper` in favor of `hex::encode`
-
 - try defining the `ABISerializable` trait and implement it for all types, then replace
   the `AntelopeValue` struct with just the implementation of the base types
   (note: we might still need AntelopeValue, maybe rename it to AntelopeVariant)
@@ -37,7 +33,9 @@ file once they are implemented.
 
 - check <https://rust-lang.github.io/api-guidelines/checklist.html>
 
-- investigate the following as alternative to `ByteStream`: <https://graphallthethings.com/posts/better-buf-read>
+### Naming
+
+- rename `TypeNameRef` to `TypeName` (?)
 
 ### Error Handling
 

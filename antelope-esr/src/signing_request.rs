@@ -48,7 +48,7 @@ impl Serialize for ChainId {
             },
             ChainId::Id(id) => {
                 tup.serialize_element("chain_id")?;
-                tup.serialize_element(&hex::encode_upper(**id))?;
+                tup.serialize_element(&hex::encode(**id))?;
             },
         }
         tup.end()
@@ -237,7 +237,7 @@ impl SigningRequest {
             dec2 = dec;
         }
 
-        trace!("uncompressed payload = {}", hex::encode_upper(&dec2));
+        trace!("uncompressed payload = {}", hex::encode(&dec2));
 
 
         let abi = get_signing_request_abi();

@@ -53,6 +53,13 @@ However, we ran into the following issues:
 
 So for now, `ByteStream` stays as a normal struct.
 
+### Possible alternatives to `ByteStream`
+
+- investigate the following as potential alternatives to the `ByteStream` struct:
+  - <https://graphallthethings.com/posts/better-buf-read>
+  - `std::io::Cursor`
+  - something based on the `bytes` crate?
+
 
 ## Error handling
 
@@ -100,14 +107,12 @@ It should still be possible to extend this and implement new external ABIProvide
 using a custom variant that takes ownership of a struct implementing a new
 ABIProviderTrait or something similar.
 
+
 ## Voluntarily unsupported features
 
-## `f128`
+## `WebAuthn` signatures
 
-`f128` is unsupported for the following reasons:
-
-- `f128` support is experimental in Rust
-- most importantly, we believe `f128` is completely unused in the EOS ecosystem
+TODO: write why
 
 
 # STYLE
@@ -123,15 +128,19 @@ ABIProviderTrait or something similar.
 
 ## Error and logging messages style
 
-- error and logging messages should be lower case (ie: not be capitalized)
-- TODO! decide whether we want to quote values and types using single-quotes, double-quotes or backticks
-  proposal:
-   double quotes for strings
-   backquotes for types
-   single quotes for identifiers
+- error and logging messages should be lower-case (ie: not be capitalized)
+- TODO: decide whether we want to quote values and types using single-quotes, double-quotes or backticks
 
-   "expected type `int8` for field 'quantity' on struct 's1'"
-   r#"value for 'obj.name' is "obj1" and its type is `str`"#
+### Proposal (to be finalized)
+
+- single quotes (`'`) for identifiers
+- double quotes (`"`) for strings
+- backticks (`` ` ``) for types
+
+### Examples
+
+- `` "expected type `int8` for field 'quantity' on struct 's1'" ``
+- `` r#"value for 'obj.name' is "obj1" and its type is `str`"# ``
 
 
 ## Hex literals are written in lower-case

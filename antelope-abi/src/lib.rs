@@ -32,3 +32,4 @@ pub use abiserializable::ABISerializable;
 pub use bytestream::{ByteStream, StreamError};
 pub use binaryserializable::{BinarySerializable, SerializeError};
 pub use provider::ABIProvider;
+pub use typenameref::TypeNameRef;

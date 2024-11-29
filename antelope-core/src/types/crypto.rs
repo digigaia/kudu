@@ -186,7 +186,7 @@ fn string_to_key_data(enc_data: &str, prefix: Option<&str>) -> Result<Vec<u8>, I
 
     assert_eq!(actual, expected,
                "hash don't match, actual: {:?} - expected {:?}",
-               hex::encode_upper(actual), hex::encode_upper(expected));
+               hex::encode(actual), hex::encode(expected));
 
     Ok(data[..data.len() - 4].to_owned())
 }
@@ -208,7 +208,7 @@ fn from_wif(enc_data: &str) -> Result<Vec<u8>, InvalidCryptoData> {
 
     assert!(actual == expected || actual2 == expected,
             "hash don't match, actual: {:?} - expected {:?}",
-            hex::encode_upper(actual2), hex::encode_upper(expected));
+            hex::encode(actual2), hex::encode(expected));
 
     Ok(data[1..data.len() - 4].to_owned())
 }

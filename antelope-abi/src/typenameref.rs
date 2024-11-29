@@ -33,7 +33,21 @@ impl<'a> TypeNameRef<'a> {
         self.0.starts_with("int") || self.0.starts_with("uint")
     }
 
-    // FIXME: should this be recursive? ie: what is `fundamental_type("int[]?")` ?
+    /// Return the fundamental type for the given type, ie: the type with a
+    /// special designator (?/optional, []/array) removed.
+    ///
+    /// Note that this doesn't work recursively and only work by removing the last
+    /// suffix, if you want the base type you have to call this method recursively
+    /// yourself.
+    ///
+    /// ## Examples
+    ///
+    /// ```
+    /// assert_eq!(TypeNameRef("int8"), TypeNameRef("int8"));
+    /// assert_eq!(TypeNameRef("int8[]"), TypeNameRef("int8"));
+    /// assert_eq!(TypeNameRef("int8[][]"), TypeNameRef("int8[]"));
+    /// assert_eq!(TypeNameRef("int8[][]?"), TypeNameRef("int8[][]"));
+    /// ```
     pub fn fundamental_type(&self) -> TypeNameRef<'a> {
         if self.is_array() {
             TypeNameRef(&self.0[..self.0.len() - 2])
@@ -63,35 +77,17 @@ impl<'a> TypeNameRef<'a> {
     }
 }
 
-impl<'a> fmt::Debug for TypeNameRef<'a> {
+impl fmt::Debug for TypeNameRef<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.0.fmt(f)
     }
 }
 
-impl<'a> fmt::Display for TypeNameRef<'a> {
+impl fmt::Display for TypeNameRef<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.0.fmt(f)
     }
 }
-
-// impl<'a, T> TryFrom<T> for TypeNameRef<'a> {
-//     type Error = ();
-//
-//     fn try_from(value: T) -> Result<Self, Self::Error> {
-//         &str::try_from(value)
-//     }
-//
-// }
-
-// impl<'a> From<TypeNameRef<'a>> for AntelopeType {
-//     // type Error = ();
-
-//     fn from(value: TypeNameRef<'a>) -> Self {
-//         AntelopeType::from(value)
-//     }
-
-// }
 
 impl<'a> From<&'a String> for TypeNameRef<'a> {
     fn from(t: &String) -> TypeNameRef {

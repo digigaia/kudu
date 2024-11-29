@@ -76,7 +76,7 @@ impl ByteStream {
         let pos = self.read_pos;
         ensure!(pos != self.data.len(), EndedSnafu { wanted: 1_usize, available: 0_usize });
 
-        trace!("read 1 byte - hex: {}", hex::encode_upper(&self.data[pos..pos + 1]));
+        trace!("read 1 byte - hex: {}", hex::encode(&self.data[pos..pos + 1]));
         self.read_pos += 1;
         Ok(self.data[pos])
     }
@@ -86,7 +86,7 @@ impl ByteStream {
         ensure!(n <= available, EndedSnafu { wanted: n, available });
 
         let result = &self.data[self.read_pos..self.read_pos + n];
-        trace!("read {n} bytes - hex: {}", hex::encode_upper(result));
+        trace!("read {n} bytes - hex: {}", hex::encode(result));
         self.read_pos += n;
         Ok(result)
     }
