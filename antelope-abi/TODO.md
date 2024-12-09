@@ -1,0 +1,65 @@
+# TODO / FIXME
+
+## API DESIGN
+
+- clean abi.rs
+  - check use and handling of binary extension
+
+- try defining the `ABISerializable` trait and implement it for all types, then replace
+  the `AntelopeValue` struct with just the implementation of the base types
+  (note: we might still need AntelopeValue, maybe rename it to AntelopeVariant)
+
+  for ESR: <https://github.com/AntelopeIO/spring/blob/main/libraries/chain/include/eosio/chain/transaction.hpp#L53>
+  ```
+  pub struct TransactionHeader {
+      expiration: TimePointSec,
+      ref_block_num: u16,
+      ref_block_prefix: u32,
+      max_net_usage_words: usize, // FIXME: check this type
+      // etc...
+  }
+  ```
+
+### Naming
+
+- rename `TypeNameRef` to `TypeName` (?)
+
+
+### Investigate Serde
+
+- check whether ABIEncoder would be better written as a Serde serializer
+
+- rename ABISerializable to ABISerialize to be consistent with `serde`. Check other nomenclature as well.
+  are we sure about this?
+  Also: make sure we have a trait for this and implement it on all types? for now Name implements decode/encode as normal methods, not as trait methods
+
+
+## CORRECTNESS / TESTING
+
+- check abieos/test.cpp to ensure we cover also all the error cases with proper error messages
+
+- check tests in <https://github.com/AntelopeIO/spring/blob/main/unittests/abi_tests.cpp>
+  - at the end, there are tests about action results
+
+
+## PERFORMANCE
+
+- use a small string library so that ABIs have a much better cache locality
+
+- try using a `BTreeMap` or some other map that has better cache locality
+
+- check if anything from this [reddit thread about `serde_json`](https://www.reddit.com/r/rust/comments/w3q1oq/things_i_wish_i_had_known_about_serde_json/) applies
+
+
+## MISC
+
+- investigate <https://github.com/eosrio/rs-abieos>
+
+
+## MISSING FEATURES
+
+- add note that the execution time of the various methods is not time bounded and recursive
+  functions do not have a max depth that is checked either.
+  This could be something added at a later time via a feature flag (eg: `hardened`)
+
+- implement action_result in abi and abi_parser

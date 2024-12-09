@@ -4,9 +4,11 @@
 //! ## Feature flags
 //!
 //! - `hardened`: implement safeguards to check for execution time and recursion depth
+//!               (NOT IMPLEMENTED YET!)
 //! - `float128`: add support for the `float128` type, needs a nightly Rust version
 //!               as `f128` support in is still experimental
 
+#![doc = include_str!("../TODO.md")]
 
 // disable this lint to allow our types to implement a `from_str` constructor
 // without implement the `std::str::FromStr` trait

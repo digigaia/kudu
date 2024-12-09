@@ -6,7 +6,9 @@
 
 - check experimental packages for leap (arm64) (see: bootstrap_leap.sh)
 
-- check some use cases from here: https://docs.eosnetwork.com/docs/latest/node-operation/api-node/
+- update from Leap to Spring
+
+- check some use cases from here: <https://docs.eosnetwork.com/docs/latest/node-operation/api-node/>
   can we fulfill them?
 
 - embed deploy_eos_image.py in the binary so we can run "dune build-image" from anywhere
@@ -29,7 +31,7 @@ By default, we run nodeos in a docker container with the name `eos_container`
 
 ## build a base image to be used for creating containers with all the tools installed
 
-```{sh}
+```sh
 dune build-image                # use a default Ubuntu base image
 dune build-image wackou:devbox  # use a provided image
 ```
@@ -37,14 +39,14 @@ dune build-image wackou:devbox  # use a provided image
 
 ## build a new container from scratch
 
-```{sh}
+```sh
 dune destroy    # ensure that we don't have a lingering docker container
 dune start-node
 ```
 
 ## build a new container with a given config file
 
-```{sh}
+```sh
 dune destroy    # ensure that we don't have a lingering docker container
 dune start-node --config <CONFIG_FILE.INI>
 ```
@@ -53,11 +55,11 @@ dune start-node --config <CONFIG_FILE.INI>
 
 in particular, we want to expose the http port to all listeners, not only localhost
 
-```{sh}
+```sh
 dune set-config default
 ```
 
 you can set specific values like so:
-```{sh}
+```sh
 dune set-config http-server-address=0.0.0.0:8888 chain-state-db-size-mb=65536 contracts-console=true
 ```
