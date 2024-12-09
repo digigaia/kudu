@@ -94,7 +94,7 @@ impl Symbol {
 //     helper functions
 // -----------------------------------------------------------------------------
 
-// see ref implementation in AntelopeIO/leap/libraries/chain/symbol.{hpp,cpp}
+// see ref implementation in AntelopeIO/spring/libraries/chain/symbol.{hpp,cpp}
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct SymbolCode(u64);

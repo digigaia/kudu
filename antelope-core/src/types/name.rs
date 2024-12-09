@@ -121,7 +121,7 @@ fn char_to_symbol(c: u8) -> u64 {
 }
 
 
-// see ref implementation in AntelopeIO/leap/libraries/chain/name.{hpp,cpp}
+// see ref implementation in AntelopeIO/spring/libraries/chain/name.{hpp,cpp}
 fn string_to_u64(s: &[u8]) -> u64 {
     let mut n: u64 = 0;
     // for i in 0..s.len().min(12) {

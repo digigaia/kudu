@@ -15,16 +15,16 @@ Tests are sourced from the following locations:
 ## Antelope source files locations
 
 Types:
-- <https://github.com/AntelopeIO/leap/blob/main/libraries/chain/include/eosio/chain/name.hpp>
-- <https://github.com/AntelopeIO/leap/blob/main/libraries/chain/include/eosio/chain/symbol.hpp>
+- <https://github.com/AntelopeIO/spring/blob/main/libraries/chain/include/eosio/chain/name.hpp>
+- <https://github.com/AntelopeIO/spring/blob/main/libraries/chain/include/eosio/chain/symbol.hpp>
 - etc.
 
 Crypto types:
-- <https://github.com/AntelopeIO/leap/blob/main/libraries/libfc/src/crypto/>
+- <https://github.com/AntelopeIO/spring/blob/main/libraries/libfc/src/crypto/>
 
 ### ABI related files
 
-- <https://github.com/AntelopeIO/leap/blob/main/libraries/chain/include/eosio/chain/abi_def.hpp>
+- <https://github.com/AntelopeIO/spring/blob/main/libraries/chain/include/eosio/chain/abi_def.hpp>
 
 TODO! check with
 

@@ -61,14 +61,12 @@ file once they are implemented.
 
 - have some tests for `APIClient`, think how to do this smartly to not pound the API server
 
-- check tests in <https://github.com/AntelopeIO/leap/blob/main/unittests/abi_tests.cpp>
+- check tests in <https://github.com/AntelopeIO/spring/blob/main/unittests/abi_tests.cpp>
   - at the end, there are tests about action results
 
 - do the other tests from here: <https://github.com/FACINGS/pyntelope/blob/main/tests/unit/types_test.py>
 
 - check other tests and ideas from: <https://github.com/wharfkit/antelope>
-
-- replace links and refs from `AntelopeIO/leap` to `AntelopeIO/spring`
 
 
 ## PERFORMANCE

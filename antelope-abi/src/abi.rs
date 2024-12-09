@@ -38,9 +38,6 @@ pub struct ABI {
     tables: HashMap<Name, TypeName>,
     variants: HashMap<TypeName, Variant>,
     action_results: HashMap<Name, TypeName>,
-
-    // TODO: missing https://github.com/AntelopeIO/leap/blob/6817911900a088c60f91563995cf482d6b380b2d/libraries/chain/abi_serializer.cpp#L149-L151
-
 }
 
 
@@ -158,10 +155,6 @@ impl ABI {
     }
 
     pub fn validate(&self) -> Result<(), ABIError> {
-        // FIXME: implement me!
-        // see: https://github.com/AntelopeIO/leap/blob/6817911900a088c60f91563995cf482d6b380b2d/libraries/chain/abi_serializer.cpp#L273
-        // https://github.com/AntelopeIO/leap/blob/main/libraries/chain/abi_serializer.cpp#L282
-
         // check there are no circular references in the typedefs definition
         for t in &self.typedefs {
             let mut types_seen = vec![t.0, t.1];
@@ -272,7 +265,7 @@ impl ABI {
     fn encode_variant_(&self, ctx: &mut VariantToBinaryContext, ds: &mut ByteStream,
                        typename: TypeNameRef, object: &JsonValue)
                        -> Result<(), ABIError> {
-        // see C++ implementation here: https://github.com/AntelopeIO/leap/blob/main/libraries/chain/abi_serializer.cpp#L491
+        // see C++ implementation here: https://github.com/AntelopeIO/spring/blob/main/libraries/chain/abi_serializer.cpp#L493
         let rtype = self.resolve_type(typename);
         let ftype = rtype.fundamental_type();
 

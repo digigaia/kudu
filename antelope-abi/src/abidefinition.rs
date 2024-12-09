@@ -26,7 +26,6 @@ pub use crate::typenameref::TypeNameRef;
 
 type Result<T, E = ABIError> = core::result::Result<T, E>;
 
-// from https://github.com/AntelopeIO/leap/blob/main/libraries/chain/include/eosio/chain/abi_def.hpp#L7
 pub type TypeName = String;
 pub type FieldName = String;
 

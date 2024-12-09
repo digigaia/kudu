@@ -186,7 +186,7 @@ fn test_type_properties() -> Result<()> {
     // check_error(|| try_encode(abi, "int8?[]", "[]"), "failed test type properties");
     // FIXME: check more tests at: test.cpp:1007
     //        these seem to be only implemented in abieos, but we can find no
-    //        trace of equivalent checks in Leap...
+    //        trace of equivalent checks in Spring...
     //        Leaving empty for now
 
     Ok(())

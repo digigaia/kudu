@@ -15,7 +15,7 @@
 //!
 //! Other useful types include [`Action`], [`PermissionLevel`].
 //!
-//! [1]: <https://github.com/AntelopeIO/leap/blob/main/libraries/chain/abi_serializer.cpp#L89>
+//! [1]: <https://github.com/AntelopeIO/spring/blob/main/libraries/chain/abi_serializer.cpp#L90>
 
 pub mod action;
 pub mod antelopevalue;
