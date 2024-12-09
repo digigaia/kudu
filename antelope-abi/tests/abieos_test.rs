@@ -443,10 +443,10 @@ fn roundtrip_names() -> Result<()> {
     check_round_trip(abi, "name", r#""abcd""#, "000000000090d031");
     check_round_trip(abi, "name", r#""ab.cd.ef""#, "0000004b8184c031");
     check_round_trip(abi, "name", r#""ab.cd.ef.1234""#, "3444004b8184c031");
-    // check_round_trip2(abi, "name", r#""..ab.cd.ef..""#, "00C0522021700C00", r#""..ab.cd.ef""#);
     check_round_trip(abi, "name", r#""zzzzzzzzzzzz""#, "f0ffffffffffffff");
 
     check_error(|| try_encode(abi, "name", "true"), "cannot convert given variant");
+    check_error(|| try_encode(abi, "name", r#""..ab.cd.ef..""#), "Name not properly normalized");
 
     Ok(())
 }

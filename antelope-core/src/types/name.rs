@@ -20,13 +20,25 @@ pub enum InvalidName {
     },
 }
 
-
+/// Represent an immutable name in the Antelope data model and is encoded as a `uint64`.
 #[derive(Eq, Hash, PartialEq, Debug, Copy, Clone)]
 pub struct Name {
     value: u64,
 }
 
 impl Name {
+    /// Build a `Name` from its string representation.
+    ///
+    /// ## Example
+    /// ```
+    /// # use antelope_core::{Name, InvalidName};
+    /// assert!(Name::from_str("nico").is_ok());
+    /// assert_eq!(Name::from_str("eosio.token")?.to_string(), "eosio.token");
+    /// assert_eq!(Name::from_str("a.b.c.d.e")?.to_string(), "a.b.c.d.e");
+    /// assert_eq!(Name::from_str("")?.as_u64(), 0);
+    /// # Ok::<(), InvalidName>(())
+    /// ```
+    ///
     pub fn from_str(s: &str) -> Result<Self, InvalidName> {
         ensure!(s.len() <= 13, TooLongSnafu { name: s.to_owned() });
 
@@ -42,13 +54,24 @@ impl Name {
         }
     }
 
+    /// Build a `Name` from its `u64` representation.
     pub const fn from_u64(n: u64) -> Self {
-        // FIXME: do some validation?
+        // NOTE: no validation here, all u64 are valid names
         Self { value: n }
     }
 
+    /// Return the name `u64` representation.
     pub fn as_u64(&self) -> u64 { self.value }
 
+    /// Return the prefix.
+    ///
+    /// # Example
+    /// ```
+    /// # use antelope_core::{Name, InvalidName};
+    /// assert_eq!(Name::from_str("eosio.any")?.prefix(), Name::from_str("eosio")?);
+    /// assert_eq!(Name::from_str("eosio")?.prefix(), Name::from_str("eosio")?);
+    /// # Ok::<(), InvalidName>(())
+    /// ```
     pub fn prefix(&self) -> Name {
         // note: antelope C++ has a more efficient implementation based on direct bit twiddling,
         //       but we're going for a simpler implementation here
@@ -56,61 +79,10 @@ impl Name {
     }
 }
 
-impl TryFrom<&str> for Name {
-    type Error = InvalidName;
 
-    fn try_from(s: &str) -> Result<Name, InvalidName> {
-        Name::from_str(s)
-    }
-}
-
-impl From<u64> for Name {
-    fn from(n: u64) -> Name {
-        Name::from_u64(n)
-    }
-}
-
-impl Serialize for Name {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        self.to_string().serialize(serializer)
-    }
-}
-
-struct NameVisitor;
-
-impl<'de> Visitor<'de> for NameVisitor {
-    type Value = Name;
-
-    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-        write!(formatter, "a string that is a valid EOS name")
-    }
-
-    fn visit_str<E>(self, s: &str) -> Result<Name, E>
-    where
-        E: de::Error,
-    {
-        Name::from_str(s).map_err(|e| de::Error::custom(e.to_string()))
-    }
-}
-impl<'de> Deserialize<'de> for Name {
-    fn deserialize<D>(deserializer: D) -> Result<Name, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        deserializer.deserialize_str(NameVisitor)
-    }
-}
-
-
-impl fmt::Display for Name {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", u64_to_string(self.value))
-    }
-}
-
+// -----------------------------------------------------------------------------
+//     Helper functions
+// -----------------------------------------------------------------------------
 
 fn char_to_symbol(c: u8) -> u64 {
     match c {
@@ -119,7 +91,6 @@ fn char_to_symbol(c: u8) -> u64 {
         _ => 0,
     }
 }
-
 
 // see ref implementation in AntelopeIO/spring/libraries/chain/name.{hpp,cpp}
 fn string_to_u64(s: &[u8]) -> u64 {
@@ -165,6 +136,75 @@ fn u64_to_bytes(n: u64) -> Vec<u8> {
 
 fn u64_to_string(n: u64) -> String {
     String::from_utf8(u64_to_bytes(n)).unwrap()  // safe unwrap
+}
+
+
+// -----------------------------------------------------------------------------
+//     Conversion traits
+// -----------------------------------------------------------------------------
+
+impl TryFrom<&str> for Name {
+    type Error = InvalidName;
+
+    fn try_from(s: &str) -> Result<Name, InvalidName> {
+        Name::from_str(s)
+    }
+}
+
+impl From<u64> for Name {
+    fn from(n: u64) -> Name {
+        Name::from_u64(n)
+    }
+}
+
+
+// -----------------------------------------------------------------------------
+//     `Display` implementation
+// -----------------------------------------------------------------------------
+
+impl fmt::Display for Name {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", u64_to_string(self.value))
+    }
+}
+
+
+// -----------------------------------------------------------------------------
+//     `Serde` traits implementation
+// -----------------------------------------------------------------------------
+
+impl Serialize for Name {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        self.to_string().serialize(serializer)
+    }
+}
+
+struct NameVisitor;
+
+impl Visitor<'_> for NameVisitor {
+    type Value = Name;
+
+    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+        write!(formatter, "a string that is a valid EOS name")
+    }
+
+    fn visit_str<E>(self, s: &str) -> Result<Name, E>
+    where
+        E: de::Error,
+    {
+        Name::from_str(s).map_err(|e| de::Error::custom(e.to_string()))
+    }
+}
+impl<'de> Deserialize<'de> for Name {
+    fn deserialize<D>(deserializer: D) -> Result<Name, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        deserializer.deserialize_str(NameVisitor)
+    }
 }
 
 
@@ -215,16 +255,6 @@ mod tests {
         for n in names {
             assert!(Name::from_str(n).is_err(), "Name \"{}\" should fail constructing but does not", n);
         }
-    }
-
-    #[test]
-    fn prefix() -> Result<()> {
-        assert_eq!(Name::from_str("eosio.any")?.prefix(),
-                   Name::from_str("eosio")?);
-        assert_eq!(Name::from_str("eosio")?.prefix(),
-                   Name::from_str("eosio")?);
-
-        Ok(())
     }
 
     #[test]

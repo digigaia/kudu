@@ -8,10 +8,6 @@
   - invalid values
   - (de)serialization to JSON
 
-- do we allow constructing non-normalized names?
-  see: tests/abieos_test.rs:402 vs.
-  for Name type: check unittests and validity of non-normalized names
-
 - have some tests for `APIClient`, think how to do this smartly to not pound the API server
 
 - do the other tests from here: <https://github.com/FACINGS/pyntelope/blob/main/tests/unit/types_test.py>
