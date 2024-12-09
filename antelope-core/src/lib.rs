@@ -9,6 +9,17 @@
 
 //! ----
 
+//! # Antelope data model
+//!
+//! ![Antelope data model][datamodel]
+//!
+#![cfg_attr(
+    all(),
+    doc = ::embed_doc_image::embed_image!("datamodel", "doc/antelope_data_model.drawio.svg")
+)]
+//!
+//! ----
+
 #![doc = include_str!("../../NOTES.md")]
 
 // disable this lint to allow our types to implement a `from_str` constructor
@@ -18,6 +29,7 @@
 #![allow(clippy::should_implement_trait)]
 
 #![cfg_attr(feature = "float128", feature(f128))]
+
 
 pub mod api;
 pub mod config;

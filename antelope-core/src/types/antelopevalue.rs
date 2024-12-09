@@ -272,6 +272,8 @@ impl From<AntelopeValue> for i32 {
             AntelopeValue::Int32(n) => n,
             AntelopeValue::Uint8(n) => n as i32,
             AntelopeValue::Uint16(n) => n as i32,
+            // we are not interested in covering the range of values where this conversion
+            // fails, so we just unwrap the value to have the convenient u32 -> i32 into() conversion
             AntelopeValue::Uint32(n) => n.try_into().unwrap(),
             AntelopeValue::VarUint32(n) => u32::from(n).try_into().unwrap(),
             _ => todo!(),

@@ -53,7 +53,7 @@ impl<'a> TypeNameRef<'a> {
             TypeNameRef(&self.0[..self.0.len() - 2])
         }
         else if self.is_sized_array() {
-            TypeNameRef(&self.0[..self.0.rfind('[').unwrap()])  // unwrap is safe here
+            TypeNameRef(&self.0[..self.0.rfind('[').unwrap()])  // safe unwrap
         }
         else if self.is_optional() {
             TypeNameRef(&self.0[..self.0.len() - 1])

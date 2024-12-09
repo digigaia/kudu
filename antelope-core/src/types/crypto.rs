@@ -20,6 +20,9 @@ pub enum InvalidCryptoData {
     #[snafu(display("{msg}"))]
     InvalidDataSize { msg: String },
 
+    #[snafu(display("Hashes don't match: actual: {hash} - expected: {expected}"))]
+    InvalidHash { hash: String, expected: String },
+
     #[snafu(display("error while decoding base58 data"))]
     Base58Error { source: bs58::decode::Error },
 }
@@ -206,9 +209,10 @@ fn from_wif(enc_data: &str) -> Result<Vec<u8>, InvalidCryptoData> {
     let actual2 = &digest2[..4];
     let expected = &data[data.len() - 4..];
 
-    assert!(actual == expected || actual2 == expected,
-            "hash don't match, actual: {:?} - expected {:?}",
-            hex::encode(actual2), hex::encode(expected));
+    ensure!(actual == expected || actual2 == expected, InvalidHashSnafu {
+        hash: hex::encode(actual2),
+        expected: hex::encode(expected)
+    });
 
     Ok(data[1..data.len() - 4].to_owned())
 }

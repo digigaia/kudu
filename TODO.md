@@ -1,11 +1,5 @@
 # TODO / FIXME
 
-TODO IMPORTANT!!
-
-After splitting workspace into different crates, do the following:
-- review Cargo.toml for each of them and remove unused dependencies
-- check for minimum rust version (use `cargo-msrv`)
-- review each file individually
 
 Make sure that every item on this page gets a corresponding entry in the ARCHITECTURE.md
 file once they are implemented.
@@ -83,6 +77,8 @@ file once they are implemented.
 
 - try using a `BTreeMap` or some other map that has better cache locality
 
+- check if anything from this [reddit thread about `serde_json`](https://www.reddit.com/r/rust/comments/w3q1oq/things_i_wish_i_had_known_about_serde_json/) applies
+
 
 ## MISC
 
@@ -108,6 +104,40 @@ file once they are implemented.
   <https://github.com/wharfkit/signing-request/blob/master/src/signing-request.ts#L410>
   see tx def: <https://docs.eosnetwork.com/docs/latest/advanced-topics/transactions-protocol/>
 
+## ESR
+
+- check this for example of API:
+
+```typescript
+const expireSeconds = 300
+const abiResponse = await jungle4.v1.chain.get_abi('eosio.token')
+const info = await jungle4.v1.chain.get_info()
+const header = info.getTransactionHeader(expireSeconds)
+const action = Action.from(
+    {
+        authorization: [
+            {
+                actor: 'corecorecore',
+                permission: 'active',
+            },
+        ],
+        account: 'eosio.token',
+        name: 'transfer',
+        data: {
+            from: 'corecorecore',
+            to: 'teamgreymass',
+            quantity: '0.0042 EOS',
+            memo: '',
+        },
+    },
+    abiResponse.abi
+)
+const transaction = Transaction.from({
+    ...header,
+    actions: [action],
+})
+const result = await jungle4.v1.chain.compute_transaction(transaction)
+```
 
 ## MISSING FEATURES
 

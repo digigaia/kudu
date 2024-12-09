@@ -43,6 +43,7 @@ pub type Uint32 = u32;
 pub type Uint64 = u64;
 pub type Uint128 = u128;
 
+/// Newtype wrapper around an `i32` that has a different serialization implementation
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct VarInt32(pub i32);
 

@@ -143,6 +143,20 @@ TODO: write why
 - `` r#"value for 'obj.name' is "obj1" and its type is `str`"# ``
 
 
+## Usage of `unwrap`, `panic` and `assert`
+
+Usage of `unwrap` in particular should be commented when we know the unwrapping is safe,
+like so:
+
+```
+let v = vec![1, 2, 3];
+if (v.len() > 0 &&
+    v.get(0).unwrap() == 1)  // safe unwrap
+{
+    println!("yay!");
+}
+```
+
 ## Hex literals are written in lower-case
 
 That also means that we should use `hex::encode()` instead of `hex::encode_upper()`
