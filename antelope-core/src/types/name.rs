@@ -21,7 +21,7 @@ pub enum InvalidName {
 }
 
 /// Represent an immutable name in the Antelope data model and is encoded as a `uint64`.
-#[derive(Eq, Hash, PartialEq, Debug, Copy, Clone)]
+#[derive(Eq, Hash, PartialEq, Debug, Copy, Clone, Default)]
 pub struct Name {
     value: u64,
 }

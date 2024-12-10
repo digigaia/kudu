@@ -39,7 +39,7 @@ macro_rules! impl_time_display {
 //     TimePoint
 // -----------------------------------------------------------------------------
 
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Default)]
 pub struct TimePoint(i64);
 
 impl TimePoint {
@@ -73,7 +73,7 @@ impl_time_display!(TimePoint);
 //     TimePointSec
 // -----------------------------------------------------------------------------
 
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Default)]
 pub struct TimePointSec(u32);
 
 impl TimePointSec {
@@ -111,7 +111,7 @@ impl fmt::Display for TimePointSec {
 //     BlockTimestampType
 // -----------------------------------------------------------------------------
 
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Default)]
 pub struct BlockTimestampType(u32);
 
 impl BlockTimestampType {

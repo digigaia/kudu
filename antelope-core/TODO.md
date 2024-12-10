@@ -10,10 +10,8 @@
 
 - have some tests for `APIClient`, think how to do this smartly to not pound the API server
 
-- do the other tests from here: <https://github.com/FACINGS/pyntelope/blob/main/tests/unit/types_test.py>
-
-- check other tests and ideas from: <https://github.com/wharfkit/antelope>
-
+- check other tests and ideas from: <https://github.com/wharfkit/antelope>, e.g.:
+  <https://github.com/wharfkit/antelope/blob/master/test/chain.ts>
 
 ## MISSING FEATURES
 

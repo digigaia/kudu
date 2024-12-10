@@ -32,6 +32,7 @@
 
 
 pub mod api;
+pub mod chain;
 pub mod config;
 pub mod error;
 pub mod convert;
@@ -49,3 +50,4 @@ pub use serde_json::{
 pub use api::APIClient;
 
 pub use types::*;
+pub use chain::*;

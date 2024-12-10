@@ -5,7 +5,7 @@ use serde_json::json;
 use snafu::{ensure, ResultExt};
 
 use antelope_core::{
-    JsonValue, ActionName, TableName
+    JsonValue, ActionName, TableName,
 };
 
 use crate::binaryserializable::{BinarySerializable, ABISnafu};
@@ -140,19 +140,30 @@ impl ABIDefinition {
 
         let parser = bin_abi_parser();
         let abi = json!({
-            "version": version,
+            "version":  version,
             "types":    parser.decode_variant(data, "typedef[]")?,
             "structs":  parser.decode_variant(data, "struct[]")?,
             "actions":  parser.decode_variant(data, "action[]")?,
             "tables":   parser.decode_variant(data, "table[]")?,
-            "variants": parser.decode_variant(data, "variant[]")?,
+            "ricardian_clauses":  parser.decode_variant(data, "ricardian_clause[]")?,
+            "error_messages":     parser.decode_variant(data, "error_message[]")?,
+            "variants": if !data.leftover().is_empty() {
+                parser.decode_variant(data, "variant[]")?
+            } else { json!([]) },
+            "action_results": if !data.leftover().is_empty() {
+                parser.decode_variant(data, "action_result[]")?
+            } else { json!([]) },
         });
+
+        // error_messages, seems unused
+        // assert!(VarUint32::decode(data).unwrap().0 == 0);
 
         // FIXME: we should deserialize everything here, we have some fields missing...
         //        also, probably "variants" doesn't come first... we need to check this...
         // check here: https://github.com/wharfkit/antelope/blob/master/src/chain/abi.ts#L109
         // see ref order here: https://github.com/AntelopeIO/spring/blob/main/libraries/chain/include/eosio/chain/abi_def.hpp#L179
-        assert_eq!(data.leftover(), [0u8; 2]);
+        // assert_eq!(data.leftover(), [0u8; 2]);
+        assert!(data.leftover().is_empty());
 
         Self::from_variant(&abi)
     }
@@ -164,10 +175,11 @@ impl ABIDefinition {
         parser.encode_variant(stream, "struct[]", &json!(self.structs))?;
         parser.encode_variant(stream, "action[]", &json!(self.actions))?;
         parser.encode_variant(stream, "table[]", &json!(self.tables))?;
+        parser.encode_variant(stream, "ricardian_clause[]", &json!(self.ricardian_clauses))?;
+        parser.encode_variant(stream, "error_messages[]", &json!(self.error_messages))?;
+        // TODO: decide whether to encode this or not depending on version number
         parser.encode_variant(stream, "variant[]", &json!(self.variants))?;
-
-        stream.write_byte(0);
-        stream.write_byte(0);
+        parser.encode_variant(stream, "action_result[]", &json!(self.action_results))?;
 
         Ok(())
     }
@@ -186,6 +198,7 @@ impl ABIDefinition {
         self.ricardian_clauses.extend(other.ricardian_clauses.iter().map(Clone::clone));
         self.error_messages.extend(other.error_messages.iter().map(Clone::clone));
         self.variants.extend(other.variants.iter().map(Clone::clone));
+        self.action_results.extend(other.action_results.iter().map(Clone::clone));
 
         Ok(())
     }
@@ -229,6 +242,7 @@ pub fn abi_schema() -> &'static ABIDefinition {
     ABI_SCHEMA_ONCE.get_or_init(|| { ABIDefinition::from_str(ABI_SCHEMA).unwrap() })
 }
 
+// TODO: check if this is still needed once we have Serde de/serialization to/from a binary stream
 fn bin_abi_parser() -> &'static ABI {
     static BIN_ABI_PARSER: OnceLock<ABI> = OnceLock::new();
     BIN_ABI_PARSER.get_or_init(|| {

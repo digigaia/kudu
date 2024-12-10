@@ -10,7 +10,10 @@ Tests are sourced from the following locations:
 
 - <https://github.com/FACINGS/pyntelope/blob/main/tests/unit/types_test.py>
 
+- <https://github.com/wharfkit/antelope/blob/master/test/chain.ts>
+
 - <https://github.com/pinax-network/antelope.rs>
+
 
 ## Antelope source files locations
 

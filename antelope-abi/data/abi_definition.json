@@ -48,11 +48,27 @@
             ]
         },
         {
+            "name": "error_message",
+            "base": "",
+            "fields": [
+                { "name": "error_code", "type": "uint64" },
+                { "name": "error_msg",  "type": "string" }
+            ]
+        },
+        {
             "name": "variant",
             "base": "",
             "fields": [
                 { "name": "name",  "type": "string" },
                 { "name": "types", "type": "string[]" }
+            ]
+        },
+        {
+            "name": "action_result",
+            "base": "",
+            "fields": [
+                { "name": "name",        "type": "name" },
+                { "name": "result_type", "type": "string" }
             ]
         }
     ],

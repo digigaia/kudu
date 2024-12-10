@@ -17,7 +17,6 @@
 //!
 //! [1]: <https://github.com/AntelopeIO/spring/blob/main/libraries/chain/abi_serializer.cpp#L90>
 
-pub mod action;
 pub mod antelopevalue;
 pub mod asset;
 pub mod crypto;
@@ -44,10 +43,10 @@ pub type Uint64 = u64;
 pub type Uint128 = u128;
 
 /// Newtype wrapper around an `i32` that has a different serialization implementation
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Default)]
 pub struct VarInt32(pub i32);
 
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Default)]
 pub struct VarUint32(pub u32);
 
 impl From<i32> for VarInt32 {
@@ -124,12 +123,20 @@ pub type ExtendedAsset = (Asset, Name);
 //     Other base Antelope types
 // -----------------------------------------------------------------------------
 
-pub use action::{PermissionLevel, Action};
 pub use antelopevalue::{AntelopeType, AntelopeValue, InvalidValue};
 
-// from https://github.com/AntelopeIO/spring/blob/main/libraries/chain/include/eosio/chain/types.hpp#L119-L123
+// from https://github.com/AntelopeIO/spring/blob/main/libraries/chain/include/eosio/chain/types.hpp
 pub type ActionName = Name;
 pub type ScopeName = Name;
 pub type AccountName = Name;
 pub type PermissionName = Name;
 pub type TableName = Name;
+
+pub type BlockID = Checksum256;
+pub type Checksum = Checksum256;
+pub type TransactionID = Checksum256;
+pub type Digest = Checksum256;
+pub type Weight = u16;
+pub type BlockNum = u32;
+
+pub type MicroSeconds = i64;

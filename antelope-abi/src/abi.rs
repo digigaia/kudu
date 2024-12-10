@@ -120,6 +120,8 @@ impl ABI {
                 IntegritySnafu { message: "duplicate table definition detected" });
         ensure!(self.variants.len() == abi.variants.len(),
                 IntegritySnafu { message: "duplicate variants definition detected" });
+        ensure!(self.action_results.len() == abi.action_results.len(),
+                IntegritySnafu { message: "" });
 
         self.validate()
     }
@@ -222,7 +224,6 @@ impl ABI {
         }
 
         // check all action results are valid types
-        // FIXME: implement me once we have a field for it
         for (name, type_) in &self.action_results {
             ensure!(self.is_type(type_.into()),
                     IntegritySnafu { message: format!("invalid type `{}` used in action result '{}'",
