@@ -1,4 +1,3 @@
-use std::mem;
 use std::num::ParseIntError;
 
 use hex;
@@ -56,8 +55,8 @@ impl ByteStream {
         self.data.as_slice()
     }
 
-    pub fn pop(&mut self) -> Vec<u8> {
-        mem::take(&mut self.data)
+    pub fn into_bytes(self) -> Vec<u8> {
+        self.data
     }
 
     pub fn clear(&mut self) {

@@ -245,7 +245,7 @@ impl ABI {
     {
         let mut ds = ByteStream::new();
         self.encode_variant(&mut ds, typename.into(), obj)?;
-        Ok(ds.pop())
+        Ok(ds.into_bytes())
     }
 
     #[inline]

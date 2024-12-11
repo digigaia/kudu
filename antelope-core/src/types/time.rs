@@ -1,11 +1,11 @@
 use std::fmt;
 
 use chrono::{DateTime, NaiveDateTime, ParseError as ChronoParseError, TimeZone, Utc};
+use serde::{Serialize, Serializer};
 use serde_json::{json, Value as JsonValue};
 
 use crate::config;
 
-// FIXME: remove pub inner type
 
 const DATE_FORMAT: &str = "%Y-%m-%dT%H:%M:%S%.3f";
 const DATE_FORMAT_NO_SECS: &str = "%Y-%m-%dT%H:%M";
@@ -34,6 +34,23 @@ macro_rules! impl_time_display {
     }
 }
 
+macro_rules! impl_serialize {
+    ($typ:ty) => {
+        impl Serialize for $typ {
+            fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+            where S: Serializer
+            {
+                if serializer.is_human_readable() {
+                    self.to_string().serialize(serializer)
+                }
+                else {
+                    self.0.serialize(serializer)
+                }
+            }
+        }
+    }
+}
+
 
 // -----------------------------------------------------------------------------
 //     TimePoint
@@ -50,7 +67,7 @@ impl TimePoint {
         Utc.timestamp_micros(self.0).unwrap()  // safe unwrap
     }
     pub fn to_json(&self) -> JsonValue {
-        json!(format!("{}", self.to_datetime().format(DATE_FORMAT)))
+        json!(self.to_string())
     }
 }
 
@@ -67,6 +84,7 @@ impl From<TimePoint> for i64 {
 }
 
 impl_time_display!(TimePoint);
+impl_serialize!(TimePoint);
 
 
 // -----------------------------------------------------------------------------
@@ -101,11 +119,9 @@ impl From<TimePointSec> for u32 {
     }
 }
 
-impl fmt::Display for TimePointSec {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.to_datetime().format(DATE_FORMAT))
-    }
-}
+impl_time_display!(TimePointSec);
+impl_serialize!(TimePointSec);
+
 
 // -----------------------------------------------------------------------------
 //     BlockTimestampType
@@ -140,8 +156,5 @@ impl From<BlockTimestampType> for u32 {
     }
 }
 
-impl fmt::Display for BlockTimestampType {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.to_datetime().format(DATE_FORMAT))
-    }
-}
+impl_time_display!(BlockTimestampType);
+impl_serialize!(BlockTimestampType);

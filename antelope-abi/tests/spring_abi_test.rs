@@ -833,7 +833,7 @@ fn abi_serialize_json_mismatched_type() -> Result<()> {
     "#)?;
 
     let result = abi.variant_to_binary("s2", &json!({"f0":1,"i1":2}));
-    // FIXME: add context for ABI traversal so we can have the better error message
+    // FIXME: add context for ABI traversal so we can have the better error message
     // check_encode_error!(result, "unexpected input encountered while encoding struct 's2.f0'");
     check_encode_error!(result, "unexpected input while encoding struct 's1'");
 

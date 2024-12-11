@@ -22,6 +22,7 @@
 pub mod abi;
 pub mod abidefinition;
 pub mod abiserializable;
+pub mod abiserializer;
 pub mod binaryserializable;
 pub mod bytestream;
 pub mod provider;

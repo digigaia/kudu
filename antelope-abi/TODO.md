@@ -50,6 +50,15 @@
 
 - check if anything from this [reddit thread about `serde_json`](https://www.reddit.com/r/rust/comments/w3q1oq/things_i_wish_i_had_known_about_serde_json/) applies
 
+- serializing bytes into a binary stream with serde currently calls `serialize_seq` and `serialize_u8` for each byte.
+  make sure that this actually gets inlined properly so that for instance serializing a `Checksum256` doesn't end up
+  calling a function 256 times, and also we should be able to memcpy all of it as well instead of byte per byte
+
+  the alternative would be to make a newtype for `Bytes` instead of aliasing it to `Vec<u8>` and then we could have a
+  specific implementation of `Serialize` for it
+
+  use the Rust playground to check it: https://play.rust-lang.org/
+
 
 ## MISC
 

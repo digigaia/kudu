@@ -20,9 +20,11 @@
 pub mod antelopevalue;
 pub mod asset;
 pub mod crypto;
-pub mod name;
-pub mod symbol;
-pub mod time;
+mod name;
+mod symbol;
+mod time;
+
+use serde::{Serialize, Serializer};
 
 // -----------------------------------------------------------------------------
 //     Native POD and varint types
@@ -42,12 +44,9 @@ pub type Uint32 = u32;
 pub type Uint64 = u64;
 pub type Uint128 = u128;
 
-/// Newtype wrapper around an `i32` that has a different serialization implementation
+/// Newtype wrapper around a `i32` that has a different serialization implementation
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Default)]
 pub struct VarInt32(pub i32);
-
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Default)]
-pub struct VarUint32(pub u32);
 
 impl From<i32> for VarInt32 {
     fn from(n: i32) -> VarInt32 { VarInt32(n) }
@@ -56,6 +55,11 @@ impl From<i32> for VarInt32 {
 impl From<VarInt32> for i32 {
     fn from(n: VarInt32) -> i32 { n.0 }
 }
+
+
+/// Newtype wrapper around a `u32` that has a different serialization implementation
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Default)]
+pub struct VarUint32(pub u32);
 
 impl From<u32> for VarUint32 {
     fn from(n: u32) -> VarUint32 { VarUint32(n) }
@@ -77,6 +81,35 @@ impl From<VarUint32> for usize {
         n.0 as usize
     }
 }
+
+impl Serialize for VarUint32 {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where S: Serializer
+    {
+        if serializer.is_human_readable() {
+            self.0.serialize(serializer)
+        }
+        else {
+            let mut n = self.0;
+            let mut buf = [0u8; 5];
+            let mut size = 0;
+            loop {
+                if n >> 7 != 0 {
+                    buf[size] = (0x80 | (n & 0x7f)) as u8;
+                    size += 1;
+                    n >>= 7;
+                }
+                else {
+                    buf[size] = n as u8;
+                    size += 1;
+                    break;
+                }
+            }
+            serializer.serialize_bytes(&buf[..size])
+        }
+    }
+}
+
 
 pub type Float32 = f32;
 pub type Float64 = f64;

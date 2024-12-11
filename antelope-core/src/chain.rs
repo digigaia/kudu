@@ -1,7 +1,10 @@
 use std::collections::{BTreeMap, BTreeSet};
 
+use serde::Serialize;
+
 use crate::{
-    AccountName, ActionName, BlockID, BlockTimestampType, Digest, MicroSeconds, PermissionName, TransactionID, VarUint32
+    AccountName, ActionName, BlockID, BlockTimestampType, Digest, MicroSeconds, PermissionName, TransactionID,
+    TimePointSec, VarUint32
 };
 
 // =============================================================================
@@ -26,7 +29,7 @@ use crate::{
 
 // from: https://github.com/AntelopeIO/spring/blob/main/libraries/chain/include/eosio/chain/action.hpp
 
-#[derive(Eq, Hash, PartialEq, Debug, Copy, Clone, Default)]
+#[derive(Eq, Hash, PartialEq, Debug, Copy, Clone, Default, Serialize)]
 pub struct PermissionLevel {
     pub actor: AccountName,
     pub permission: PermissionName,
@@ -49,7 +52,7 @@ pub struct PermissionLevel {
 /// levels are declared on the action and validated independently of the executing
 /// application code. An application code will check to see if the required
 /// authorization were properly declared when it executes.
-#[derive(Eq, Hash, PartialEq, Debug, Clone, Default)]
+#[derive(Eq, Hash, PartialEq, Debug, Clone, Default, Serialize)]
 pub struct Action {
     pub account: AccountName,
     pub name: ActionName,
@@ -97,4 +100,39 @@ pub struct Trace {
       // std::optional<fc::exception>    except;  // TODO / FIXME
     error_code: Option<u64>,
     return_value: Vec<u8>,
+}
+
+
+#[derive(Eq, Hash, PartialEq, Debug, Clone, Default, Serialize)]
+pub struct Transaction {
+    // -----------------------------------------------------------------------------
+    //     TransactionHeader fields
+    // -----------------------------------------------------------------------------
+
+    /// The time at which a transaction expires.
+    expiration: TimePointSec,
+    /// Specifies a block num in the last 2^16 blocks.
+    ref_block_num: u16,
+    /// Specifies the lower 32 bits of the block id.
+    ref_block_prefix: u32,
+    /// Upper limit on total network bandwidth (in 8 byte words) billed for this transaction.
+    max_net_usage_words: VarUint32,
+    /// Upper limit on the total CPU time billed for this transaction.
+    max_cpu_usage_ms: u8,
+    /// Number of seconds to delay this transaction for during which it may be canceled.
+    delay_sec: VarUint32,
+
+    // -----------------------------------------------------------------------------
+    //     Transaction fields
+    // -----------------------------------------------------------------------------
+
+    context_free_actions: Vec<Action>,
+    actions: Vec<Action>,
+    // transaction_extensions: ExtensionsType ??
+}
+
+impl Transaction {
+    pub fn id() -> TransactionID {
+        todo!();  // sha256 hash of the serialized trx
+    }
 }

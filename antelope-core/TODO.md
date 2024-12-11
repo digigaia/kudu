@@ -1,5 +1,8 @@
 # TODO / FIXME
 
+- write `[tracing_test]` attr macro that makes a `[test]` and calls `tracing_init()` at the beginning
+- add `[derive(Serialize)]` to all base types
+
 ## CORRECTNESS / TESTING
 
 - IMPORTANT
