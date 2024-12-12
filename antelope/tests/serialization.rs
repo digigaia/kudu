@@ -4,11 +4,9 @@ use std::str::FromStr;
 use color_eyre::eyre::Result;
 use chrono::{NaiveDate, TimeZone, Utc};
 
-use antelope_abi::{
+use antelope::{
     ByteStream, BinarySerializable,
     abiserializable::ABISerializable,
-};
-use antelope_core::{
     convert::hex_to_boxed_array, AntelopeType, AntelopeValue, Asset, BlockTimestampType, Name, Symbol, SymbolCode, TimePoint, TimePointSec, VarInt32, VarUint32, PublicKey, PrivateKey, Signature,
 };
 

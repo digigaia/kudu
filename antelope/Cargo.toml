@@ -1,5 +1,5 @@
 [package]
-name = "antelope-core"
+name = "antelope"
 version      = { workspace = true }
 edition      = { workspace = true }
 license      = { workspace = true }
@@ -16,7 +16,9 @@ serde_json      = { workspace = true }
 snafu           = { workspace = true }
 strum           = { workspace = true }
 tracing         = { workspace = true }
+tracing-subscriber = { workspace = true }
 
+bytemuck = "1"
 chrono = { version = "0.4", features = ["serde"] }
 flate2 = "1.0"
 ripemd = "0.1"
@@ -29,4 +31,5 @@ embed-doc-image = "0.1.4"
 [features]
 # default = ["detailed-error"]
 detailed-error = ["antelope-macros/detailed-error"]
-float128 = []
+float128 = ["bytemuck/nightly_float"]
+hardened = []

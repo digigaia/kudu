@@ -11,12 +11,10 @@ use snafu::{ensure, Snafu, IntoError, ResultExt};
 use strum::VariantNames;
 use tracing::{debug, warn, instrument};
 
-use antelope_core::{
-    AntelopeType, AntelopeValue, Name, VarUint32, InvalidValue, impl_auto_error_conversion
-};
 use antelope_macros::with_location;
 
 use crate::{
+    AntelopeType, AntelopeValue, Name, VarUint32, InvalidValue, impl_auto_error_conversion,
     ABIDefinition, ABISerializable, ByteStream, BinarySerializable, SerializeError,
     abidefinition::{
         TypeName, TypeNameRef, Struct, Variant

@@ -8,17 +8,15 @@ use tracing_subscriber::{
 };
 
 // use antelope_abi::abidefinition::{ABIDefinition, TypeNameRef};
-use antelope_abi::{
+use antelope::{
     ABI, ByteStream, ABIDefinition, TypeNameRef,
+    JsonValue, InvalidValue,
+    data::{
+        TEST_ABI, TOKEN_HEX_ABI,
+        TRANSACTION_ABI, PACKED_TRANSACTION_ABI,
+    }
 };
 
-use antelope_core::{JsonValue, InvalidValue};
-
-use antelope_abi::data::{
-    TEST_ABI,
-    TOKEN_HEX_ABI,
-    TRANSACTION_ABI, PACKED_TRANSACTION_ABI,
-};
 
 #[cfg(feature = "float128")]
 use antelope_abi::data::STATE_HISTORY_PLUGIN_ABI;

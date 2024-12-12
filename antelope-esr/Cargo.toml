@@ -18,19 +18,14 @@ tracing            = { workspace = true }
 tracing-subscriber = { workspace = true }
 
 antelope-macros    = { workspace = true }
-antelope-core = { path = "../antelope-core" }
-antelope-abi = { path = "../antelope-abi" }
+antelope           = { path = "../antelope" }
 flate2 = "1.0"
 flagset = "0.4.5"
 
 [features]
 default = []
-float128 = [
-    "antelope-core/float128",
-    "antelope-abi/float128",
-]
+float128 = ["antelope/float128"]
 detailed-error = [
+    "antelope/detailed-error",
     "antelope-macros/detailed-error",
-    "antelope-core/detailed-error",
-    "antelope-abi/detailed-error",
 ]

@@ -8,7 +8,7 @@ use tracing_subscriber::{
     // fmt::format::FmtSpan,
 };
 
-use antelope_abi::*;
+use antelope::*;
 
 
 // =============================================================================
@@ -196,7 +196,7 @@ fn duplicate_types() -> Result<()> {
 fn nested_types() -> Result<()> {
     init();
 
-    use antelope_abi::ByteStream;
+    use antelope::ByteStream;
 
     let indirectly_nested_abi = r#"
     {

@@ -8,8 +8,8 @@ use tracing_subscriber::{
     // fmt::format::FmtSpan,
 };
 
-use antelope_abi::{abidefinition::abi_schema, ABIDefinition};
-use antelope_core::convert::{variant_to_int, variant_to_uint};
+use antelope::{abidefinition::abi_schema, ABIDefinition};
+use antelope::convert::{variant_to_int, variant_to_uint};
 
 static TRACING_INIT: Once = Once::new();
 

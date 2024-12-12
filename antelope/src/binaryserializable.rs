@@ -4,11 +4,12 @@ use bytemuck::{cast_ref, pod_read_unaligned};
 use snafu::{ensure, Snafu, IntoError, ResultExt};
 
 use antelope_macros::with_location;
-use antelope_core::{
+
+use crate::{
+    ByteStream, StreamError, ABIError,
     types::*,
     impl_auto_error_conversion,
 };
-use crate::{ByteStream, StreamError, ABIError};
 
 
 #[with_location]

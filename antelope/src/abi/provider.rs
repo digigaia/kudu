@@ -5,9 +5,7 @@ use std::sync::OnceLock;
 
 use serde_json::json;
 
-use antelope_core::APIClient;
-
-use crate::{ABI, ABIDefinition, ABIError};
+use crate::{ABI, ABIDefinition, ABIError, APIClient};
 
 
 //
@@ -15,7 +13,7 @@ use crate::{ABI, ABIDefinition, ABIError};
 //
 
 // FIXME: this is not proper... (the include ../..)
-pub static SIGNING_REQUEST_ABI: &str = include_str!("../../antelope-esr/src/signing_request_abi.json");
+pub static SIGNING_REQUEST_ABI: &str = include_str!("../../../antelope-esr/src/signing_request_abi.json");
 
 // FIXME: move this and line above inside the `antelope-esr` crate, there is no need to have it here
 // if we want we can use an `OverrideProvider`, see note at the end of the file

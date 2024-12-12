@@ -6,7 +6,7 @@ license.workspace = true
 rust-version.workspace = true
 
 [dependencies]
-antelope-core = { path="../antelope-core" }
+antelope = { path="../antelope" }
 color-eyre         = { workspace = true }
 serde_json         = { workspace = true }
 tracing            = { workspace = true }

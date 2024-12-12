@@ -1,5 +1,8 @@
 # TODO / FIXME
 
+- write `[tracing_test]` attr macro that makes a `[test]` and calls `tracing_init()` at the beginning
+- add `[derive(Serialize)]` to all base types
+
 ## API DESIGN
 
 - clean abi.rs
@@ -22,6 +25,8 @@
 
 ### Naming
 
+- rename `BlockTimestampType` to `BlockTimestamp` ?
+
 - rename `TypeNameRef` to `TypeName` (?)
 
 
@@ -34,13 +39,24 @@
   Also: make sure we have a trait for this and implement it on all types? for now Name implements decode/encode as normal methods, not as trait methods
 
 
+
 ## CORRECTNESS / TESTING
+
+- IMPORTANT
+  unittests for base types should have at least the following:
+  - basic functionality
+  - invalid values
+  - (de)serialization to JSON
+
+- have some tests for `APIClient`, think how to do this smartly to not pound the API server
 
 - check abieos/test.cpp to ensure we cover also all the error cases with proper error messages
 
 - check tests in <https://github.com/AntelopeIO/spring/blob/main/unittests/abi_tests.cpp>
   - at the end, there are tests about action results
 
+- check other tests and ideas from: <https://github.com/wharfkit/antelope>, e.g.:
+  <https://github.com/wharfkit/antelope/blob/master/test/chain.ts>
 
 ## PERFORMANCE
 
@@ -69,6 +85,8 @@
 
 
 ## MISSING FEATURES
+
+- crypto primitives do not implement WebAuthn key and signatures yet
 
 - add note that the execution time of the various methods is not time bounded and recursive
   functions do not have a max depth that is checked either.

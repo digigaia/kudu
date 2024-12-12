@@ -31,7 +31,7 @@ impl Name {
     ///
     /// ## Example
     /// ```
-    /// # use antelope_core::{Name, InvalidName};
+    /// # use antelope::{Name, InvalidName};
     /// assert!(Name::from_str("nico").is_ok());
     /// assert_eq!(Name::from_str("eosio.token")?.to_string(), "eosio.token");
     /// assert_eq!(Name::from_str("a.b.c.d.e")?.to_string(), "a.b.c.d.e");
@@ -67,7 +67,7 @@ impl Name {
     ///
     /// # Example
     /// ```
-    /// # use antelope_core::{Name, InvalidName};
+    /// # use antelope::{Name, InvalidName};
     /// assert_eq!(Name::from_str("eosio.any")?.prefix(), Name::from_str("eosio")?);
     /// assert_eq!(Name::from_str("eosio")?.prefix(), Name::from_str("eosio")?);
     /// # Ok::<(), InvalidName>(())

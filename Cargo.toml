@@ -1,9 +1,8 @@
 [workspace]
 resolver = "2"
 members = [
+    "antelope",
     "antelope-macros",
-    "antelope-abi",
-    "antelope-core",
     "antelope-esr",
     "dune",
 ]

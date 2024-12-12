@@ -4,14 +4,11 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 use snafu::{ensure, ResultExt};
 
-use antelope_core::{
-    JsonValue, ActionName, TableName,
-};
 
 use crate::binaryserializable::{BinarySerializable, ABISnafu};
 use crate::{
-    ByteStream, SerializeError,
-    abi::{ABI, ABIError, JsonSnafu, DeserializeSnafu, VersionSnafu, IncompatibleVersionSnafu},
+    ByteStream, SerializeError, JsonValue, ActionName, TableName,
+    abi::abi::{ABI, ABIError, JsonSnafu, DeserializeSnafu, VersionSnafu, IncompatibleVersionSnafu},
     data::{ABI_SCHEMA, CONTRACT_ABI}};
 
 pub use crate::typenameref::TypeNameRef;

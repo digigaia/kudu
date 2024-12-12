@@ -1,5 +1,6 @@
 use std::fmt;
-use antelope_core::AntelopeType;
+
+use crate::AntelopeType;
 
 // TODO: derive more? e.g. PartialEq, Eq, Hash, etc.
 
@@ -43,6 +44,7 @@ impl<'a> TypeNameRef<'a> {
     /// ## Examples
     ///
     /// ```
+    /// # use antelope::TypeNameRef;
     /// assert_eq!(TypeNameRef("int8"), TypeNameRef("int8"));
     /// assert_eq!(TypeNameRef("int8[]"), TypeNameRef("int8"));
     /// assert_eq!(TypeNameRef("int8[][]"), TypeNameRef("int8[]"));

@@ -1,10 +1,11 @@
 use tracing::instrument;
 
-use antelope_core::types::*;
 
 use crate::{
     ByteStream, BinarySerializable, SerializeError,
 };
+
+use crate::types::*;
 
 
 // FIXME: from_bin should take &str instead of AntelopeType, and we might need to register an ABI provider

@@ -7,8 +7,8 @@ use tracing_subscriber::{
 };
 use color_eyre::Result;
 
-use antelope_core::{json, Name};
-use antelope_abi::ABIProvider;
+use antelope::{json, Name};
+use antelope::ABIProvider;
 use antelope_esr::signing_request::*;
 
 

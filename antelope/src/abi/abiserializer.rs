@@ -4,9 +4,7 @@ use std::fmt::{self, Display};
 use serde::{ser, de, Serialize};
 use tracing::{info, warn};
 
-use antelope_core::VarUint32;
-
-use crate::{BinarySerializable, ByteStream};
+use crate::{BinarySerializable, ByteStream, VarUint32};
 
 // =============================================================================
 //
@@ -526,7 +524,7 @@ mod tests {
         // fmt::format::FmtSpan,
     };
 
-    use antelope_core::VarUint32;
+    use crate::VarUint32;
     use super::*;
 
     static TRACING_INIT: Once = Once::new();

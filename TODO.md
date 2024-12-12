@@ -17,6 +17,8 @@ file once they are implemented.
 - make modules private at the crate level so that items re-exported from them appear directly
   as top-level structs/traits/etc. instead of being listed in the "Re-exports" section
 
+  more generally, check all modules visibility
+
 
 ## CORRECTNESS / TESTING
 

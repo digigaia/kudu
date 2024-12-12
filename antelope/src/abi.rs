@@ -23,16 +23,10 @@ pub mod abi;
 pub mod abidefinition;
 pub mod abiserializable;
 pub mod abiserializer;
-pub mod binaryserializable;
-pub mod bytestream;
 pub mod provider;
 pub mod data;
-pub mod typenameref;
 
 pub use abi::{ABI, ABIError};
 pub use abidefinition::ABIDefinition;
 pub use abiserializable::ABISerializable;
-pub use bytestream::{ByteStream, StreamError};
-pub use binaryserializable::{BinarySerializable, SerializeError};
 pub use provider::ABIProvider;
-pub use typenameref::TypeNameRef;

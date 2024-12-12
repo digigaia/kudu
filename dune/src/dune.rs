@@ -8,7 +8,7 @@ use regex::Regex;
 use tracing::{debug, info, warn, trace};
 use serde_json::Value;
 
-use antelope_core::config::EOS_FEATURES;
+use antelope::config::EOS_FEATURES;
 use crate::docker::{Docker, DockerCommand};
 use crate::nodeconfig::NodeConfig;
 use crate::util::eyre_from_output;

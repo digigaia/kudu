@@ -1,8 +1,7 @@
 use serde_json::json;
 
-use antelope_abi::abidefinition::*;
-use antelope_abi::{
-    ABI, ByteStream,
+use antelope::{
+    ABI, ByteStream, abidefinition::*
 };
 
 // TODO: add tests for deserialization

@@ -1,6 +1,6 @@
 use serde_json::json;
 
-use antelope_core::api::APIClient;
+use antelope::api::APIClient;
 
 
 fn main() {

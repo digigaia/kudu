@@ -79,7 +79,7 @@ we switched to `snafu` for the following reasons:
 - context selectors are very ergonomic (when one understands them!) and they
   allow to have some fields filled in automatically (location, backtrace)
 - there is no automatic conversion from an error to another (easy to implement,
-  though, see: `antelope_core::impl_auto_error_conversion` macro) and require
+  though, see: `antelope::impl_auto_error_conversion` macro) and require
   to manually add a context every time we want to convert an error. This might
   seem overkill but is actually good practice: we get a full error stacktrace
   for every error, without "skipping" levels
