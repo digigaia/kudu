@@ -1,10 +1,17 @@
+//!
+//! this contains some basic types for the chain FIXME FIXME write me properly!!
+//!
+//! Other useful types include [`Action`], [`PermissionLevel`].
+//!
+
+
 use std::collections::{BTreeMap, BTreeSet};
 
 use serde::Serialize;
 
 use crate::{
-    AccountName, ActionName, BlockID, BlockTimestampType, Digest, MicroSeconds, PermissionName, TransactionID,
-    TimePointSec, VarUint32
+    AccountName, ActionName, BlockID, BlockTimestampType, Digest, Extensions, MicroSeconds,
+    PermissionName, TransactionID, TimePointSec, VarUint32
 };
 
 // =============================================================================
@@ -128,8 +135,10 @@ pub struct Transaction {
 
     context_free_actions: Vec<Action>,
     actions: Vec<Action>,
-    // transaction_extensions: ExtensionsType ??
+    transaction_extensions: Extensions,
 }
+
+
 
 impl Transaction {
     pub fn id() -> TransactionID {

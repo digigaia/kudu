@@ -46,6 +46,9 @@
 
 - use a small string library so that ABIs have a much better cache locality
 
+- try using smallvec/tinyvec for the same reasons as small string, esp. on vectors that are
+  empty most of the time, eg: extensions, etc.
+
 - try using a `BTreeMap` or some other map that has better cache locality
 
 - check if anything from this [reddit thread about `serde_json`](https://www.reddit.com/r/rust/comments/w3q1oq/things_i_wish_i_had_known_about_serde_json/) applies
@@ -57,7 +60,7 @@
   the alternative would be to make a newtype for `Bytes` instead of aliasing it to `Vec<u8>` and then we could have a
   specific implementation of `Serialize` for it
 
-  use the Rust playground to check it: https://play.rust-lang.org/
+  use the Rust playground to check it: <https://play.rust-lang.org/>
 
 
 ## MISC
@@ -72,4 +75,4 @@
   This could be something added at a later time via a feature flag (eg: `hardened`)
 
 - implement action_result in abi and abi_parser
-  see: https://github.com/AntelopeIO/spring/commit/7da37b6bc41a63a9eaef5e79ff7aaf2aea854826#diff-a7893952d8a2b33ddc5b3c89250729ea6961784c8b9300a39f187a7357cc3149R165
+  see: <https://github.com/AntelopeIO/spring/commit/7da37b6bc41a63a9eaef5e79ff7aaf2aea854826#diff-a7893952d8a2b33ddc5b3c89250729ea6961784c8b9300a39f187a7357cc3149R165>

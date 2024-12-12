@@ -61,6 +61,7 @@ pub struct ABISerializer {
     output: ByteStream,
 }
 
+// FIXME: can this fail? shouldn't we return Vec<u8> instead of Result<_>?
 pub fn to_bin<T>(value: &T) -> Result<Vec<u8>>
 where
     T: Serialize,

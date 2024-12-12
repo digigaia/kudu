@@ -13,13 +13,11 @@
 //! [`AntelopeType`] which contains the list of its discriminants (i.e.: the
 //! list of all built-in types).
 //!
-//! Other useful types include [`Action`], [`PermissionLevel`].
-//!
 //! [1]: <https://github.com/AntelopeIO/spring/blob/main/libraries/chain/abi_serializer.cpp#L90>
 
 pub mod antelopevalue;
 pub mod asset;
-pub mod crypto;
+mod crypto;
 mod name;
 mod symbol;
 mod time;
@@ -138,8 +136,10 @@ pub type Checksum160 = [u8; 20];
 pub type Checksum256 = [u8; 32];
 pub type Checksum512 = [u8; 64];
 
-pub use crate::types::crypto::{PrivateKey, PublicKey, Signature, InvalidCryptoData};
-
+pub use crate::types::crypto::{
+    CryptoData, CryptoDataType, InvalidCryptoData,
+    KeyType, PrivateKey, PublicKey, Signature,
+};
 
 // -----------------------------------------------------------------------------
 //     Other builtin Antelope types
@@ -173,3 +173,8 @@ pub type Weight = u16;
 pub type BlockNum = u32;
 
 pub type MicroSeconds = i64;
+
+
+/// Extensions are prefixed with type and are a buffer that can be
+/// interpreted by code that is aware and ignored by unaware code.
+pub type Extensions = Vec<(u16, Bytes)>;

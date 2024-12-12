@@ -6,7 +6,6 @@ use snafu::{ensure, Snafu, IntoError, ResultExt};
 use antelope_macros::with_location;
 use antelope_core::{
     types::*,
-    crypto::{CryptoData, CryptoDataType, KeyType},
     impl_auto_error_conversion,
 };
 use crate::{ByteStream, StreamError, ABIError};

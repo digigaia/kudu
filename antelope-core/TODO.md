@@ -3,6 +3,10 @@
 - write `[tracing_test]` attr macro that makes a `[test]` and calls `tracing_init()` at the beginning
 - add `[derive(Serialize)]` to all base types
 
+## NAMING
+
+- rename `BlockTimestampType` to `BlockTimestamp` ?
+
 ## CORRECTNESS / TESTING
 
 - IMPORTANT
