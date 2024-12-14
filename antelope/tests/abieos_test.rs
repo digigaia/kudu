@@ -1,16 +1,17 @@
 use std::sync::{Once, OnceLock};
 
 use color_eyre::eyre::Result;
+use serde::Serialize;
 use tracing::{debug, info, instrument};
 use tracing_subscriber::{
     EnvFilter,
-    fmt::format::FmtSpan,
+    // fmt::format::FmtSpan,
 };
 
 // use antelope_abi::abidefinition::{ABIDefinition, TypeNameRef};
 use antelope::{
     ABI, ByteStream, ABIDefinition, TypeNameRef,
-    JsonValue, InvalidValue,
+    JsonValue, InvalidValue, abiserializer::to_hex,
     data::{
         TEST_ABI, TOKEN_HEX_ABI,
         TRANSACTION_ABI, PACKED_TRANSACTION_ABI,
@@ -45,7 +46,7 @@ fn init() {
     TRACING_INIT.call_once(|| {
         tracing_subscriber::fmt()
             .with_env_filter(EnvFilter::from_default_env())
-            .with_span_events(FmtSpan::ACTIVE)
+            // .with_span_events(FmtSpan::ACTIVE)
             // .pretty()
             .init();
     });
@@ -138,6 +139,20 @@ fn check_round_trip2(abi: &ABI, typename: &str, data: &str, hex: &str, expected:
     round_trip(abi, typename, data, hex, expected).unwrap()
 }
 
+/// check lots of conversions! FIXME: describe them
+#[track_caller]
+fn check_cross_conversion(abi: &ABI, value: impl Serialize, typename: &str, data: &str, hex: &str) {
+    // 1- JSON -> variant -> bin -> variant -> JSON
+    check_round_trip(abi, typename, data, hex);
+
+    // FIXME: other direction too, please!
+    // 2- Rust -> bin -> Rust
+    assert_eq!(to_hex(&value).unwrap(), hex);
+
+    // FIXME: other direction too, please!
+    // 3- Rust -> JSON -> Rust
+    assert_eq!(serde_json::to_string(&value).unwrap(), data);
+}
 
 ///// FIXME FIXME: what about the expected hex?
 fn _check_error_trip(abi: &ABI, typename: &str, data: &str, error_msg: &str) {
@@ -196,13 +211,13 @@ fn roundtrip_bool() -> Result<()> {
 
     let abi = transaction_abi();
 
-    check_round_trip(abi, "bool", "true", "01");
-    check_round_trip(abi, "bool", "false", "00");
+    check_cross_conversion(abi, true,  "bool", "true",  "01");
+    check_cross_conversion(abi, false, "bool", "false", "00");
 
-    check_error(|| try_decode(abi, "bool", ""), "stream ended");
-    check_error(|| try_encode(abi, "bool", ""), "cannot parse JSON string");
+    check_error(|| try_decode(abi, "bool",      ""), "stream ended");
+    check_error(|| try_encode(abi, "bool",      ""), "cannot parse JSON string");
     check_error(|| try_encode(abi, "bool", "trues"), "cannot parse JSON string");
-    check_error(|| try_encode(abi, "bool", "null"), "cannot convert given variant");
+    check_error(|| try_encode(abi, "bool",  "null"), "cannot convert given variant");
     check_error(|| try_encode(abi, "bool", r#""foo""#), "cannot convert given variant");
 
     Ok(())
@@ -214,23 +229,27 @@ fn roundtrip_i8() -> Result<()> {
 
     let abi = transaction_abi();
 
-    check_round_trip(abi, "int8", "0", "00");
-    check_round_trip(abi, "int8", "127", "7f");
-    check_round_trip(abi, "int8", "-128", "80");
-    check_round_trip(abi, "uint8", "0", "00");
-    check_round_trip(abi, "uint8", "1", "01");
-    check_round_trip(abi, "uint8", "254", "fe");
-    check_round_trip(abi, "uint8", "255", "ff");
+    check_cross_conversion(abi,    0i8, "int8",    "0", "00");
+    check_cross_conversion(abi,  127i8, "int8",  "127", "7f");
+    check_cross_conversion(abi, -128i8, "int8", "-128", "80");
+    check_cross_conversion(abi,    0u8, "uint8",   "0", "00");
+    check_cross_conversion(abi,    1u8, "uint8",   "1", "01");
+    check_cross_conversion(abi,  254u8, "uint8", "254", "fe");
+    check_cross_conversion(abi,  255u8, "uint8", "255", "ff");
 
-    check_error(|| try_encode(abi, "int8", "128"), "integer out of range");
+    check_error(|| try_encode(abi, "int8",  "128"), "integer out of range");
     check_error(|| try_encode(abi, "int8", "-129"), "integer out of range");
-    check_error(|| try_encode(abi, "uint8", "-1"), "cannot convert given variant");
+    check_error(|| try_encode(abi, "uint8",  "-1"), "cannot convert given variant");
     check_error(|| try_encode(abi, "uint8", "256"), "integer out of range");
 
-    check_round_trip(abi, "uint8[]", "[]", "00");
-    check_round_trip(abi, "uint8[]", "[10]", "010a");
-    check_round_trip(abi, "uint8[]", "[10,9]", "020a09");
-    check_round_trip(abi, "uint8[]", "[10,9,8]", "030a0908");
+    // NOTE: we need to use either a `Vec` or an array slice, but if we use an fixed-size
+    //       array then the size is known at compile-time and is not encoded in the
+    //       binary stream (arrays get encoded as tuples, not sequences)
+    let array: Vec<u8> = vec![10u8, 9, 8];
+    check_cross_conversion(abi, &array[..0], "uint8[]", "[]",       "00");
+    check_cross_conversion(abi, &array[..1], "uint8[]", "[10]",     "010a");
+    check_cross_conversion(abi, &array[..2], "uint8[]", "[10,9]",   "020a09");
+    check_cross_conversion(abi,  array,      "uint8[]", "[10,9,8]", "030a0908");
 
     Ok(())
 }
@@ -241,16 +260,16 @@ fn roundtrip_i16() -> Result<()> {
 
     let abi = transaction_abi();
 
-    check_round_trip(abi, "int16", "0", "0000");
-    check_round_trip(abi, "int16", "32767", "ff7f");
-    check_round_trip(abi, "int16", "-32768", "0080");
-    check_round_trip(abi, "uint16", "0", "0000");
-    check_round_trip(abi, "uint16", "65535", "ffff");
+    check_cross_conversion(abi,      0i16, "int16",      "0", "0000");
+    check_cross_conversion(abi,  32767i16, "int16",  "32767", "ff7f");
+    check_cross_conversion(abi, -32768i16, "int16", "-32768", "0080");
+    check_cross_conversion(abi,      0u16, "uint16",     "0", "0000");
+    check_cross_conversion(abi,  65535u16, "uint16", "65535", "ffff");
 
-    check_error(|| try_decode(abi, "int16", "01"), "stream ended");
-    check_error(|| try_encode(abi, "int16", "32768"), "integer out of range");
+    check_error(|| try_decode(abi, "int16",     "01"), "stream ended");
+    check_error(|| try_encode(abi, "int16",  "32768"), "integer out of range");
     check_error(|| try_encode(abi, "int16", "-32769"), "integer out of range");
-    check_error(|| try_encode(abi, "uint16", "-1"), "cannot convert given variant");
+    check_error(|| try_encode(abi, "uint16",    "-1"), "cannot convert given variant");
     check_error(|| try_encode(abi, "uint16", "65536"), "integer out of range");
 
     Ok(())
@@ -262,15 +281,15 @@ fn roundtrip_i32() -> Result<()> {
 
     let abi = transaction_abi();
 
-    check_round_trip(abi, "int32", "0", "00000000");
-    check_round_trip(abi, "int32", "2147483647", "ffffff7f");
-    check_round_trip(abi, "int32", "-2147483648", "00000080");
-    check_round_trip(abi, "uint32", "0", "00000000");
-    check_round_trip(abi, "uint32", "4294967295", "ffffffff");
+    check_cross_conversion(abi,           0i32, "int32",           "0", "00000000");
+    check_cross_conversion(abi,  2147483647i32, "int32",  "2147483647", "ffffff7f");
+    check_cross_conversion(abi, -2147483648i32, "int32", "-2147483648", "00000080");
+    check_cross_conversion(abi,           0u32, "uint32"         , "0", "00000000");
+    check_cross_conversion(abi,  4294967295u32, "uint32", "4294967295", "ffffffff");
 
-    check_error(|| try_encode(abi, "int32", "2147483648"), "integer out of range");
+    check_error(|| try_encode(abi, "int32",  "2147483648"), "integer out of range");
     check_error(|| try_encode(abi, "int32", "-2147483649"), "integer out of range");
-    check_error(|| try_encode(abi, "uint32", "-1"), "cannot convert given variant");
+    check_error(|| try_encode(abi, "uint32",         "-1"), "cannot convert given variant");
     check_error(|| try_encode(abi, "uint32", "4294967296"), "integer out of range");
 
     Ok(())
@@ -282,17 +301,17 @@ fn roundtrip_i64() -> Result<()> {
 
     let abi = transaction_abi();
 
-    check_round_trip(abi, "int64", r#""0""#, "0000000000000000");
-    check_round_trip(abi, "int64", r#""1""#, "0100000000000000");
-    check_round_trip(abi, "int64", r#""-1""#, "ffffffffffffffff");
-    check_round_trip(abi, "int64", r#""9223372036854775807""#, "ffffffffffffff7f");
-    check_round_trip(abi, "int64", r#""-9223372036854775808""#, "0000000000000080");
-    check_round_trip(abi, "uint64", r#""0""#, "0000000000000000");
-    check_round_trip(abi, "uint64", r#""18446744073709551615""#, "ffffffffffffffff");
+    check_cross_conversion(abi,                    0i64, "int64",  r#""0""#,                    "0000000000000000");
+    check_cross_conversion(abi,                    1i64, "int64",  r#""1""#,                    "0100000000000000");
+    check_cross_conversion(abi,                   -1i64, "int64",  r#""-1""#,                   "ffffffffffffffff");
+    check_cross_conversion(abi,  9223372036854775807i64, "int64",  r#""9223372036854775807""#,  "ffffffffffffff7f");
+    check_cross_conversion(abi, -9223372036854775808i64, "int64",  r#""-9223372036854775808""#, "0000000000000080");
+    check_cross_conversion(abi,                    0u64, "uint64", r#""0""#,                    "0000000000000000");
+    check_cross_conversion(abi, 18446744073709551615u64, "uint64", r#""18446744073709551615""#, "ffffffffffffffff");
 
-    check_error(|| try_encode(abi, "int64", r#""9223372036854775808""#), "number too large to fit in target type");
-    check_error(|| try_encode(abi, "int64", r#""-9223372036854775809""#), "number too small to fit in target type");
-    check_error(|| try_encode(abi, "uint64", r#""-1""#), "invalid digit");
+    check_error(|| try_encode(abi, "int64",  r#""9223372036854775808""#),  "number too large to fit in target type");
+    check_error(|| try_encode(abi, "int64",  r#""-9223372036854775809""#), "number too small to fit in target type");
+    check_error(|| try_encode(abi, "uint64", r#""-1""#),                   "invalid digit");
     check_error(|| try_encode(abi, "uint64", r#""18446744073709551616""#), "number too large to fit in target type");
 
     Ok(())
@@ -304,24 +323,36 @@ fn roundtrip_i128() -> Result<()> {
 
     let abi = transaction_abi();
 
-    check_round_trip(abi, "int128", r#""0""#, "00000000000000000000000000000000");
-    check_round_trip(abi, "int128", r#""1""#, "01000000000000000000000000000000");
-    check_round_trip(abi, "int128", r#""-1""#, "ffffffffffffffffffffffffffffffff");
-    check_round_trip(abi, "int128", r#""18446744073709551615""#, "ffffffffffffffff0000000000000000");
-    check_round_trip(abi, "int128", r#""-18446744073709551615""#, "0100000000000000ffffffffffffffff");
-    check_round_trip(abi, "int128", r#""170141183460469231731687303715884105727""#, "ffffffffffffffffffffffffffffff7f");
-    check_round_trip(abi, "int128", r#""-170141183460469231731687303715884105727""#, "01000000000000000000000000000080");
-    check_round_trip(abi, "int128", r#""-170141183460469231731687303715884105728""#, "00000000000000000000000000000080");
-    check_round_trip(abi, "uint128", r#""0""#, "00000000000000000000000000000000");
-    check_round_trip(abi, "uint128", r#""18446744073709551615""#, "ffffffffffffffff0000000000000000");
-    check_round_trip(abi, "uint128", r#""340282366920938463463374607431768211454""#, "feffffffffffffffffffffffffffffff");
-    check_round_trip(abi, "uint128", r#""340282366920938463463374607431768211455""#, "ffffffffffffffffffffffffffffffff");
+    check_cross_conversion(abi, 0i128, "int128",
+                            r#""0""#, "00000000000000000000000000000000");
+    check_cross_conversion(abi, 1i128, "int128",
+                            r#""1""#, "01000000000000000000000000000000");
+    check_cross_conversion(abi, -1i128, "int128",
+                            r#""-1""#, "ffffffffffffffffffffffffffffffff");
+    check_cross_conversion(abi, 18446744073709551615i128, "int128",
+                            r#""18446744073709551615""#, "ffffffffffffffff0000000000000000");
+    check_cross_conversion(abi, -18446744073709551615i128, "int128",
+                            r#""-18446744073709551615""#, "0100000000000000ffffffffffffffff");
+    check_cross_conversion(abi, 170141183460469231731687303715884105727i128, "int128",
+                            r#""170141183460469231731687303715884105727""#, "ffffffffffffffffffffffffffffff7f");
+    check_cross_conversion(abi, -170141183460469231731687303715884105727i128, "int128",
+                            r#""-170141183460469231731687303715884105727""#, "01000000000000000000000000000080");
+    check_cross_conversion(abi, -170141183460469231731687303715884105728i128, "int128",
+                            r#""-170141183460469231731687303715884105728""#, "00000000000000000000000000000080");
+    check_cross_conversion(abi, 0u128, "uint128",
+                            r#""0""#, "00000000000000000000000000000000");
+    check_cross_conversion(abi, 18446744073709551615u128, "uint128",
+                            r#""18446744073709551615""#, "ffffffffffffffff0000000000000000");
+    check_cross_conversion(abi, 340282366920938463463374607431768211454u128, "uint128",
+                            r#""340282366920938463463374607431768211454""#, "feffffffffffffffffffffffffffffff");
+    check_cross_conversion(abi, 340282366920938463463374607431768211455u128, "uint128",
+                            r#""340282366920938463463374607431768211455""#, "ffffffffffffffffffffffffffffffff");
 
-    check_error(|| try_encode(abi, "int128", r#""170141183460469231731687303715884105728""#), "number too large");
-    check_error(|| try_encode(abi, "int128", r#""-170141183460469231731687303715884105729""#), "number too small");
-    check_error(|| try_encode(abi, "uint128", r#""-1""#), "invalid integer");
-    check_error(|| try_encode(abi, "uint128", r#""340282366920938463463374607431768211456""#), "number too large");
-    check_error(|| try_encode(abi, "uint128", r#""true""#), "invalid integer");
+    check_error(|| try_encode(abi, "int128",  r#""170141183460469231731687303715884105728""#),  "number too large");
+    check_error(|| try_encode(abi, "int128",  r#""-170141183460469231731687303715884105729""#), "number too small");
+    check_error(|| try_encode(abi, "uint128", r#""-1""#),                                       "invalid integer");
+    check_error(|| try_encode(abi, "uint128", r#""340282366920938463463374607431768211456""#),  "number too large");
+    check_error(|| try_encode(abi, "uint128", r#""true""#),                                     "invalid integer");
 
     Ok(())
 }

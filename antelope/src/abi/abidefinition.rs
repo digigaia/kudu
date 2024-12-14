@@ -9,9 +9,8 @@ use crate::binaryserializable::{BinarySerializable, ABISnafu};
 use crate::{
     ByteStream, SerializeError, JsonValue, ActionName, TableName,
     abi::abi::{ABI, ABIError, JsonSnafu, DeserializeSnafu, VersionSnafu, IncompatibleVersionSnafu},
-    data::{ABI_SCHEMA, CONTRACT_ABI}};
-
-pub use crate::typenameref::TypeNameRef;
+    data::{ABI_SCHEMA, CONTRACT_ABI}
+};
 
 // see doc at: https://docs.eosnetwork.com/manuals/cdt/latest/best-practices/abi/understanding-abi-files/
 //             https://docs.eosnetwork.com/docs/latest/advanced-topics/understanding-ABI-files/

@@ -60,6 +60,12 @@ command = ["cargo", "nextest", "run", "--color", "always", "--no-fail-fast", "--
 need_stdout = true
 analyzer = "nextest"
 
+[jobs.nextest_trace]
+command = ["cargo", "nextest", "run", "--color", "always", "--hide-progress-bar", "--failure-output", "final"]
+need_stdout = true
+env.RUST_LOG = "trace"
+analyzer = "nextest"
+
 [jobs.doc]
 command = [
     "cargo", "doc", "--color", "always", "--no-deps",
@@ -120,3 +126,4 @@ allow_warnings = true
 # alt-m = "job:my-job"
 c = "job:clippy-all" # comment this to have 'c' run clippy on only the default target
 s = "job:scratchpad"
+t = "job:nextest_trace"

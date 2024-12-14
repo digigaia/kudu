@@ -9,6 +9,10 @@
 
 //! ----
 
+#![doc = include_str!("../TODO.md")]
+
+//! ----
+
 //! # Antelope data model
 //!
 //! ![Antelope data model][datamodel]

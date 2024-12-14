@@ -14,10 +14,10 @@ use tracing::{debug, warn, instrument};
 use antelope_macros::with_location;
 
 use crate::{
-    AntelopeType, AntelopeValue, Name, VarUint32, InvalidValue, impl_auto_error_conversion,
+    AntelopeType, AntelopeValue, Name, VarUint32, InvalidValue, TypeNameRef, impl_auto_error_conversion,
     ABIDefinition, ABISerializable, ByteStream, BinarySerializable, SerializeError,
     abidefinition::{
-        TypeName, TypeNameRef, Struct, Variant
+        TypeName, Struct, Variant
     },
 };
 
@@ -634,7 +634,7 @@ pub enum ABIError {
 
 impl_auto_error_conversion!(FromHexError, ABIError, HexABISnafu);
 
-
+// TODO: rename this ScopeGuard?
 struct ScopeExit<T>
 where
     T: FnMut()

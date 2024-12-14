@@ -143,12 +143,16 @@ impl<'a> ser::Serializer for &'a mut ABISerializer {
     }
 
     fn serialize_i128(self, v: i128) -> Result<()> {
+        self.output.write_byte(b'"');
         v.encode(&mut self.output);
+        self.output.write_byte(b'"');
         Ok(())
     }
 
     fn serialize_u8(self, v: u8) -> Result<()> {
+        self.output.write_byte(b'"');
         v.encode(&mut self.output);
+        self.output.write_byte(b'"');
         Ok(())
     }
 
@@ -198,6 +202,7 @@ impl<'a> ser::Serializer for &'a mut ABISerializer {
     ///       (serialize_seq is called instead)
     /// Checksum should use this, Bytes should use serialize_seq
     fn serialize_bytes(self, v: &[u8]) -> Result<()> {
+        warn!("serialize_bytes");
         self.output.write_bytes(v);
         Ok(())
     }
@@ -341,6 +346,7 @@ impl ser::SerializeSeq for &'_ mut ABISerializer {
     where
         T: ?Sized + Serialize,
     {
+        warn!("serializing element from seq");
         value.serialize(&mut **self)
     }
 
