@@ -143,16 +143,18 @@ impl<'a> ser::Serializer for &'a mut ABISerializer {
     }
 
     fn serialize_i128(self, v: i128) -> Result<()> {
-        self.output.write_byte(b'"');
+        if self.is_human_readable() {
+            self.output.write_byte(b'"');
+        }
         v.encode(&mut self.output);
-        self.output.write_byte(b'"');
+        if self.is_human_readable() {
+            self.output.write_byte(b'"');
+        }
         Ok(())
     }
 
     fn serialize_u8(self, v: u8) -> Result<()> {
-        self.output.write_byte(b'"');
         v.encode(&mut self.output);
-        self.output.write_byte(b'"');
         Ok(())
     }
 
@@ -172,7 +174,13 @@ impl<'a> ser::Serializer for &'a mut ABISerializer {
     }
 
     fn serialize_u128(self, v: u128) -> Result<()> {
+        if self.is_human_readable() {
+            self.output.write_byte(b'"');
+        }
         v.encode(&mut self.output);
+        if self.is_human_readable() {
+            self.output.write_byte(b'"');
+        }
         Ok(())
     }
 

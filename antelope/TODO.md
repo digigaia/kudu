@@ -38,7 +38,10 @@
   are we sure about this?
   Also: make sure we have a trait for this and implement it on all types? for now Name implements decode/encode as normal methods, not as trait methods
 
-
+- write a JSON [Formatter](https://docs.rs/serde_json/1.0.68/serde_json/ser/trait.Formatter.html) to properly
+  output values in the format expected by Antelope:
+  - int64, int128 -> quote them as string
+  - float32, float64 -> do not use scientific notation
 
 ## CORRECTNESS / TESTING
 

@@ -48,5 +48,13 @@ fn main() -> Result<()> {
     let i = i16::from_str_radix("7FFF", 16);
     println!("{i:?}");
 
+    let n = 1i128;
+    println!("{}", serde_json::to_string(&n)?);
+
+    // let n: i64 = serde_json::from_str("170141183460469231731687303715884105727")?;
+
+    let n: i128 = serde_json::from_str("170141183460469231731687303715884105727")?;
+    println!("{}", n);
+
     Ok(())
 }

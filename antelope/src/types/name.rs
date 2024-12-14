@@ -55,12 +55,14 @@ impl Name {
     }
 
     /// Build a `Name` from its `u64` representation.
+    #[inline]
     pub const fn from_u64(n: u64) -> Self {
         // NOTE: no validation here, all u64 are valid names
         Self { value: n }
     }
 
     /// Return the name `u64` representation.
+    #[inline]
     pub fn as_u64(&self) -> u64 { self.value }
 
     /// Return the prefix.
@@ -178,7 +180,12 @@ impl Serialize for Name {
     where
         S: Serializer,
     {
-        self.to_string().serialize(serializer)
+        if serializer.is_human_readable() {
+            self.to_string().serialize(serializer)
+        }
+        else {
+            self.as_u64().serialize(serializer)
+        }
     }
 }
 
