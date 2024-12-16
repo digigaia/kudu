@@ -69,8 +69,8 @@ analyzer = "nextest"
 [jobs.doc]
 command = [
     "cargo", "doc", "--color", "always", "--no-deps",
-    "-p", "antelope*", "-p", "dune", "-p", "syn@2", "-p", "reqwest", "-p", "serde_json", "-p", "snafu",
-    "-p", "strum", "-p", "tracing", "-p", "chrono"
+    "-p", "antelope*", "-p", "dune", "-p", "syn@2", "-p", "reqwest", "-p", "serde", "-p", "serde_json",
+    "-p", "snafu", "-p", "strum", "-p", "tracing", "-p", "chrono"
 ]
 need_stdout = false
 
@@ -79,8 +79,8 @@ need_stdout = false
 [jobs.doc-open]
 command = [
     "cargo", "doc", "--color", "always", "--no-deps", "--open",
-    "-p", "antelope*", "-p", "dune", "-p", "syn@2", "-p", "reqwest", "-p", "serde_json", "-p", "snafu",
-    "-p", "strum", "-p", "tracing", "-p", "chrono"
+    "-p", "antelope*", "-p", "dune", "-p", "syn@2", "-p", "reqwest", "-p", "serde", "-p", "serde_json",
+    "-p", "snafu", "-p", "strum", "-p", "tracing", "-p", "chrono"
 ]
 need_stdout = false
 on_success = "back" # so that we don't open the browser at each change
@@ -117,6 +117,7 @@ allow_warnings = true
 command = ["cargo", "run", "--color", "always", "--example", "scratchpad"]
 need_stdout = true
 allow_warnings = true
+env.RUST_LOG = "debug"
 
 # You may define here keybindings that would be specific to
 # a project, for example a shortcut to launch a specific job.

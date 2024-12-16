@@ -38,8 +38,9 @@ pub mod abi;
 pub mod api;
 pub mod chain;
 pub mod config;
-pub mod error;
 pub mod convert;
+pub mod error;
+pub mod json;
 pub mod types;
 
 // FIXME: check whether we want those typedefs? Does it make it easier or

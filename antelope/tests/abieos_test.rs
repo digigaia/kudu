@@ -94,17 +94,8 @@ fn round_trip(abi: &ABI, typename: &str, data: &str, hex: &str, expected: &str) 
     assert_eq!(ds.hex_data(), hex);
 
     let decoded = try_decode_stream(&mut ds, abi, typename.into())?;
-    let repr = decoded.to_string();
+    let repr = antelope::json::to_string(&decoded)?;
 
-    // if we have a number which representation would use scientific notation,
-    // first convert it to an `f64` and then call `to_string()` in order to get
-    // the representation with only digits
-    if let Some(x) = decoded.as_f64() {
-        if repr.contains('e') {
-            assert_eq!(x.to_string(), expected);
-            return Ok(());
-        }
-    }
     assert_eq!(repr, expected);
 
     Ok(())
@@ -152,15 +143,7 @@ fn check_cross_conversion2(abi: &ABI, value: impl Serialize, typename: &str, dat
 
     // FIXME: other direction too, please!
     // 3- Rust -> JSON -> Rust
-    let repr = serde_json::to_string(&value).unwrap();
-    // Antelope write integers of size >= 64 as string because JSON only guarantees
-    // numbers of size < 54 to be representable as numbers
-    let repr = if ["int64", "uint64", "int128", "uint128"].contains(&typename) {
-        format!(r#""{}""#, repr)
-    }
-    else {
-        repr
-    };
+    let repr = antelope::json::to_string(&value).unwrap();
     assert_eq!(repr, expected);
 }
 
@@ -316,13 +299,13 @@ fn roundtrip_i64() -> Result<()> {
 
     let abi = transaction_abi();
 
-    check_cross_conversion(abi,                    0i64, "int64",  r#""0""#,                    "0000000000000000");
-    check_cross_conversion(abi,                    1i64, "int64",  r#""1""#,                    "0100000000000000");
-    check_cross_conversion(abi,                   -1i64, "int64",  r#""-1""#,                   "ffffffffffffffff");
-    check_cross_conversion(abi,  9223372036854775807i64, "int64",  r#""9223372036854775807""#,  "ffffffffffffff7f");
-    check_cross_conversion(abi, -9223372036854775808i64, "int64",  r#""-9223372036854775808""#, "0000000000000080");
-    check_cross_conversion(abi,                    0u64, "uint64", r#""0""#,                    "0000000000000000");
-    check_cross_conversion(abi, 18446744073709551615u64, "uint64", r#""18446744073709551615""#, "ffffffffffffffff");
+    check_cross_conversion(abi,                    0i64, "int64",  "0",                    "0000000000000000");
+    check_cross_conversion(abi,                    1i64, "int64",  "1",                    "0100000000000000");
+    check_cross_conversion(abi,                   -1i64, "int64",  "-1",                   "ffffffffffffffff");
+    check_cross_conversion(abi,  9223372036854775807i64, "int64",  "9223372036854775807",  "ffffffffffffff7f");
+    check_cross_conversion(abi, -9223372036854775808i64, "int64",  "-9223372036854775808", "0000000000000080");
+    check_cross_conversion(abi,                    0u64, "uint64", "0",                    "0000000000000000");
+    check_cross_conversion(abi, 18446744073709551615u64, "uint64", "18446744073709551615", "ffffffffffffffff");
 
     check_error(|| try_encode(abi, "int64",  r#""9223372036854775808""#),  "number too large to fit in target type");
     check_error(|| try_encode(abi, "int64",  r#""-9223372036854775809""#), "number too small to fit in target type");
@@ -419,17 +402,16 @@ fn roundtrip_floats() -> Result<()> {
 
     let abi = transaction_abi();
 
-    check_cross_conversion(abi, 0.0f32, "float32", "0.0", "00000000");
+    check_cross_conversion(abi, 0.0f32, "float32", "0", "00000000");
     check_cross_conversion(abi, 0.125f32, "float32", "0.125", "0000003e");
     check_cross_conversion(abi, -0.125f32, "float32", "-0.125", "000000be");
-    check_cross_conversion(abi, 0.0, "float64", "0.0", "0000000000000000");
+    check_cross_conversion(abi, 0.0, "float64", "0", "0000000000000000");
     check_cross_conversion(abi, 0.125, "float64", "0.125", "000000000000c03f");
     check_cross_conversion(abi, -0.125, "float64", "-0.125", "000000000000c0bf");
-    // FIXME FIXME!!
-    // check_cross_conversion2(abi, 151115727451828646838272.0, "float64",
-    //                             "151115727451828646838272.0", "000000000000c044", "151115727451828650000000");
-    // check_cross_conversion2(abi, -151115727451828646838272.0, "float64",
-    //                              "-151115727451828646838272.0", "000000000000c0c4", "-151115727451828650000000");
+    check_cross_conversion2(abi, 151115727451828646838272.0, "float64",
+                                "151115727451828646838272.0", "000000000000c044", "151115727451828650000000");
+    check_cross_conversion2(abi, -151115727451828646838272.0, "float64",
+                                 "-151115727451828646838272.0", "000000000000c0c4", "-151115727451828650000000");
 
     Ok(())
 }

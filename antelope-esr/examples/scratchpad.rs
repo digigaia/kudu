@@ -36,25 +36,34 @@ fn main() -> Result<()> {
     assert!(*schema == schema2);
 
     let n = u128::from_str_radix("FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF", 16);
-    println!("{:?}", n.unwrap() as i128);
+    info!("{:?}", n.unwrap() as i128);
 
     let n = variant_to_uint::<u128>(&json!("0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF"));
-    println!("{n:?}");
+    info!("{n:?}");
 
     let n = variant_to_int::<i128>(&json!("0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF"));
-    println!("{n:?}");
+    info!("{n:?}");
 
 
     let i = i16::from_str_radix("7FFF", 16);
-    println!("{i:?}");
+    info!("{i:?}");
+
+    let n = 1i32;
+    info!("{}", serde_json::to_string(&n)?);
+    info!("{}", antelope::json::to_string(&n)?);
+
+    let n = json!(1);
+    info!("{}", serde_json::to_string(&n)?);
+    info!("{}", antelope::json::to_string(&n)?);
 
     let n = 1i128;
-    println!("{}", serde_json::to_string(&n)?);
+    info!("{}", serde_json::to_string(&n)?);
+    info!("{}", antelope::json::to_string(&n)?);
 
     // let n: i64 = serde_json::from_str("170141183460469231731687303715884105727")?;
 
-    let n: i128 = serde_json::from_str("170141183460469231731687303715884105727")?;
-    println!("{}", n);
+    // let n: i128 = serde_json::from_str("170141183460469231731687303715884105727")?;
+    // println!("{}", n);
 
     Ok(())
 }
