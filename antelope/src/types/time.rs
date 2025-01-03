@@ -1,6 +1,6 @@
 use std::fmt;
 
-use chrono::{DateTime, NaiveDateTime, ParseError as ChronoParseError, TimeZone, Utc};
+use chrono::{DateTime, NaiveDate, NaiveDateTime, ParseError as ChronoParseError, TimeZone, Utc};
 use serde::{Serialize, Serializer};
 use serde_json::{json, Value as JsonValue};
 
@@ -56,12 +56,28 @@ macro_rules! impl_serialize {
 //     TimePoint
 // -----------------------------------------------------------------------------
 
+/// TimePoint with micro second precision
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Default)]
 pub struct TimePoint(i64);
 
 impl TimePoint {
+    pub fn new(year: i32, month: u32, day: u32, hour: u32, min: u32, sec: u32, milli: u32) -> Option<Self> {
+        Some(TimePoint::from_datetime(
+            NaiveDate::from_ymd_opt(year, month, day)?
+                .and_hms_milli_opt(hour, min, sec, milli)?
+                .and_utc()))
+    }
+    pub fn from_ymd_hms_micro(year: i32, month: u32, day: u32, hour: u32, min: u32, sec: u32, micro: u32) -> Option<Self> {
+        Some(TimePoint::from_datetime(
+            NaiveDate::from_ymd_opt(year, month, day)?
+                .and_hms_micro_opt(hour, min, sec, micro)?
+                .and_utc()))
+    }
     pub fn from_str(s: &str) -> Result<TimePoint, ChronoParseError> {
-        Ok(TimePoint(parse_date(s)?.timestamp_micros()))
+        Ok(TimePoint::from_datetime(parse_date(s)?))
+    }
+    pub fn from_datetime(dt: DateTime<Utc>) -> Self {
+        TimePoint(dt.timestamp_micros())
     }
     pub fn to_datetime(&self) -> DateTime<Utc> {
         Utc.timestamp_micros(self.0).unwrap()  // safe unwrap
@@ -91,16 +107,26 @@ impl_serialize!(TimePoint);
 //     TimePointSec
 // -----------------------------------------------------------------------------
 
+/// TimePoint with second precision
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Default)]
 pub struct TimePointSec(u32);
 
 impl TimePointSec {
+    pub fn new(year: i32, month: u32, day: u32, hour: u32, min: u32, sec: u32) -> Option<Self> {
+        Some(TimePointSec::from_datetime(
+            NaiveDate::from_ymd_opt(year, month, day)?
+                .and_hms_opt(hour, min, sec)?
+                .and_utc()))
+    }
     pub fn from_str(s: &str) -> Result<TimePointSec, ChronoParseError> {
         Ok(TimePointSec(parse_date(s)?.timestamp()
                         .try_into().expect("Date not representable as a `u32`")))
     }
+    pub fn from_datetime(dt: DateTime<Utc>) -> Self {
+        TimePointSec((dt.timestamp_millis() / 1000) as u32)
+    }
     pub fn to_datetime(&self) -> DateTime<Utc> {
-        Utc.timestamp_micros(self.0 as i64 * 1_000_000).unwrap()  // safe unwrap
+        Utc.timestamp_millis_opt(self.0 as i64 * 1000).unwrap()  // safe unwrap
     }
     pub fn to_json(&self) -> JsonValue {
         json!(format!("{}", self.to_datetime().format(DATE_FORMAT)))
@@ -131,12 +157,21 @@ impl_serialize!(TimePointSec);
 pub struct BlockTimestampType(u32);
 
 impl BlockTimestampType {
+    pub fn new(year: i32, month: u32, day: u32, hour: u32, min: u32, sec: u32, milli: u32) -> Option<Self> {
+        Some(BlockTimestampType::from_datetime(
+            NaiveDate::from_ymd_opt(year, month, day)?
+                .and_hms_milli_opt(hour, min, sec, milli)?
+                .and_utc()))
+    }
     pub fn from_str(s: &str) -> Result<BlockTimestampType, ChronoParseError> {
         Ok(BlockTimestampType(timestamp_to_block_slot(&parse_date(s)?)))
     }
+    pub fn from_datetime(dt: DateTime<Utc>) -> Self {
+        BlockTimestampType(timestamp_to_block_slot(&dt))
+    }
     pub fn to_datetime(&self) -> DateTime<Utc> {
-        Utc.timestamp_micros(
-            ((self.0 as i64 * config::BLOCK_INTERVAL_MS as i64) + config::BLOCK_TIMESTAMP_EPOCH as i64) * 1000
+        Utc.timestamp_millis_opt(
+            (self.0 as i64 * config::BLOCK_INTERVAL_MS as i64) + config::BLOCK_TIMESTAMP_EPOCH as i64
         ).unwrap()  // safe unwrap
     }
     pub fn to_json(&self) -> JsonValue {

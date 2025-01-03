@@ -51,6 +51,15 @@
   - invalid values
   - (de)serialization to JSON
 
+- review TimePoint types:
+  - is the inner type the number of microseconds or milliseconds?
+  - should we return a `Result` instead of an `Option` on constructors? This would be more consistent with other types
+    if so, check in the tests and replace the `unwrap` with `?`
+  - do we really need the from/into from u32/u64? It would be better to have a named constructor,
+    ie: TimePoint::from_millis
+    also: these conversions need to be fallible, ie: TimePoint(u32::MAX) does not really make sense
+  - check that downcasting u64 to u32 is ok everywhere
+
 - have some tests for `APIClient`, think how to do this smartly to not pound the API server
 
 - check abieos/test.cpp to ensure we cover also all the error cases with proper error messages
@@ -68,7 +77,7 @@
 - try using smallvec/tinyvec for the same reasons as small string, esp. on vectors that are
   empty most of the time, eg: extensions, etc.
 
-- try using a `BTreeMap` or some other map that has better cache locality
+- try using a `BTreeMap` or some other map that has better cache locality, or a faster hash, like: <https://github.com/rust-lang/rustc-hash>
 
 - check if anything from this [reddit thread about `serde_json`](https://www.reddit.com/r/rust/comments/w3q1oq/things_i_wish_i_had_known_about_serde_json/) applies
 

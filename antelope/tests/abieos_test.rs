@@ -1,8 +1,10 @@
+use std::any::type_name_of_val;
 use std::sync::{Once, OnceLock};
 
+use antelope::BlockTimestampType;
 use color_eyre::eyre::Result;
 use serde::Serialize;
-use tracing::{debug, info, instrument};
+use tracing::{trace, debug, info, instrument};
 use tracing_subscriber::{
     EnvFilter,
     // fmt::format::FmtSpan,
@@ -10,13 +12,9 @@ use tracing_subscriber::{
 
 // use antelope_abi::abidefinition::{ABIDefinition, TypeNameRef};
 use antelope::{
-    ABI, ByteStream, ABIDefinition, TypeNameRef,
-    JsonValue, InvalidValue, abiserializer::to_hex,
-    Name, VarInt32, VarUint32,
-    data::{
-        TEST_ABI, TOKEN_HEX_ABI,
-        TRANSACTION_ABI, PACKED_TRANSACTION_ABI,
-    }
+    abiserializer::to_hex, data::{
+        PACKED_TRANSACTION_ABI, TEST_ABI, TOKEN_HEX_ABI, TRANSACTION_ABI
+    }, ABIDefinition, ByteStream, InvalidValue, JsonValue, Name, TimePoint, TimePointSec, TypeNameRef, VarInt32, VarUint32, ABI
 };
 
 
@@ -76,7 +74,7 @@ fn try_encode(abi: &ABI, typename: &str, data: &str) -> Result<()> {
 
 fn try_decode_stream(ds: &mut ByteStream, abi: &ABI, typename: TypeNameRef) -> Result<JsonValue> {
     let decoded = abi.decode_variant(ds, typename)?;
-    assert!(ds.leftover().is_empty());
+    assert!(ds.leftover().is_empty(), "leftover data in stream after decoding");
     Ok(decoded)
 }
 
@@ -91,12 +89,12 @@ fn round_trip(abi: &ABI, typename: &str, data: &str, hex: &str, expected: &str) 
     let mut ds = ByteStream::new();
 
     try_encode_stream(&mut ds, abi, typename.into(), data)?;
-    assert_eq!(ds.hex_data(), hex);
+    assert_eq!(ds.hex_data(), hex, "variant to binary");
 
     let decoded = try_decode_stream(&mut ds, abi, typename.into())?;
     let repr = antelope::json::to_string(&decoded)?;
 
-    assert_eq!(repr, expected);
+    assert_eq!(repr, expected, "variant to JSON");
 
     Ok(())
 }
@@ -135,16 +133,19 @@ fn check_round_trip2(abi: &ABI, typename: &str, data: &str, hex: &str, expected:
 #[track_caller]
 fn check_cross_conversion2(abi: &ABI, value: impl Serialize, typename: &str, data: &str, hex: &str, expected: &str) {
     // 1- JSON -> variant -> bin -> variant -> JSON
+    trace!("checking JSON {} -> variant -> bin {} -> variant -> JSON", data, hex);
     check_round_trip2(abi, typename, data, hex, expected);
 
     // FIXME: other direction too, please!
     // 2- Rust -> bin -> Rust
-    assert_eq!(to_hex(&value).unwrap(), hex);
+    trace!("checking Rust native ({}) -> bin", type_name_of_val(&value));
+    assert_eq!(to_hex(&value).unwrap(), hex, "rust native to binary");
 
     // FIXME: other direction too, please!
     // 3- Rust -> JSON -> Rust
+    trace!("checking Rust native -> JSON");
     let repr = antelope::json::to_string(&value).unwrap();
-    assert_eq!(repr, expected);
+    assert_eq!(repr, expected, "rust native to JSON");
 }
 
 #[track_caller]
@@ -436,25 +437,35 @@ fn roundtrip_datetimes() -> Result<()> {
 
     let abi = transaction_abi();
 
-    check_round_trip(abi, "time_point_sec", r#""1970-01-01T00:00:00.000""#, "00000000");
-    check_round_trip(abi, "time_point_sec", r#""2018-06-15T19:17:47.000""#, "db10245b");
-    check_round_trip(abi, "time_point_sec", r#""2030-06-15T19:17:47.000""#, "5b6fb671");
+    let tps = |y, m, d, h, mm, s| { TimePointSec::new(y, m, d, h, mm, s).unwrap() };
+    let check_tps = |value: TimePointSec, repr, hex| { check_cross_conversion(abi, value, "time_point_sec", repr, hex) };
+    check_tps(tps(1970, 1,  1,  0,  0,  0), r#""1970-01-01T00:00:00.000""#, "00000000");
+    check_tps(tps(2018, 6, 15, 19, 17, 47), r#""2018-06-15T19:17:47.000""#, "db10245b");
+    check_tps(tps(2030, 6, 15, 19, 17, 47), r#""2030-06-15T19:17:47.000""#, "5b6fb671");
 
-    check_round_trip(abi, "time_point", r#""1970-01-01T00:00:00.000""#, "0000000000000000");
-    check_round_trip(abi, "time_point", r#""1970-01-01T00:00:00.001""#, "e803000000000000");
-    check_round_trip(abi, "time_point", r#""1970-01-01T00:00:00.002""#, "d007000000000000");
-    check_round_trip(abi, "time_point", r#""1970-01-01T00:00:00.010""#, "1027000000000000");
-    check_round_trip(abi, "time_point", r#""1970-01-01T00:00:00.100""#, "a086010000000000");
-    check_round_trip(abi, "time_point", r#""2018-06-15T19:17:47.000""#, "c0ac3112b36e0500");
-    check_round_trip(abi, "time_point", r#""2018-06-15T19:17:47.999""#, "18eb4012b36e0500");
-    check_round_trip(abi, "time_point", r#""2030-06-15T19:17:47.999""#, "188bb5fc1dc70600");
-    check_round_trip2(abi, "time_point", r#""2000-12-31T23:59:59.999999""#, "ff1f23e5c3790300", r#""2000-12-31T23:59:59.999""#);
+    let tp = |y, m, d, h, mm, s, milli| { TimePoint::new(y, m, d, h, mm, s, milli).unwrap() };
+    let check_tp = |value: TimePoint, repr, hex| { check_cross_conversion(abi, value, "time_point", repr, hex) };
+    check_tp(tp(1970, 1,  1,  0,  0,  0,   0), r#""1970-01-01T00:00:00.000""#, "0000000000000000");
+    check_tp(tp(1970, 1,  1,  0,  0,  0,   1), r#""1970-01-01T00:00:00.001""#, "e803000000000000");
+    check_tp(tp(1970, 1,  1,  0,  0,  0,   2), r#""1970-01-01T00:00:00.002""#, "d007000000000000");
+    check_tp(tp(1970, 1,  1,  0,  0,  0,  10), r#""1970-01-01T00:00:00.010""#, "1027000000000000");
+    check_tp(tp(1970, 1,  1,  0,  0,  0, 100), r#""1970-01-01T00:00:00.100""#, "a086010000000000");
+    check_tp(tp(2018, 6, 15, 19, 17, 47,   0), r#""2018-06-15T19:17:47.000""#, "c0ac3112b36e0500");
+    check_tp(tp(2018, 6, 15, 19, 17, 47, 999), r#""2018-06-15T19:17:47.999""#, "18eb4012b36e0500");
+    check_tp(tp(2030, 6, 15, 19, 17, 47, 999), r#""2030-06-15T19:17:47.999""#, "188bb5fc1dc70600");
+    check_cross_conversion2(abi, TimePoint::from_ymd_hms_micro(2000, 12, 31, 23, 59, 59, 999999).unwrap(),
+                            "time_point", r#""2000-12-31T23:59:59.999999""#,
+                            "ff1f23e5c3790300", r#""2000-12-31T23:59:59.999""#);
 
-    check_round_trip(abi, "block_timestamp_type", r#""2000-01-01T00:00:00.000""#, "00000000");
-    check_round_trip(abi, "block_timestamp_type", r#""2000-01-01T00:00:00.500""#, "01000000");
-    check_round_trip(abi, "block_timestamp_type", r#""2000-01-01T00:00:01.000""#, "02000000");
-    check_round_trip(abi, "block_timestamp_type", r#""2018-06-15T19:17:47.500""#, "b79a6d45");
-    check_round_trip(abi, "block_timestamp_type", r#""2018-06-15T19:17:48.000""#, "b89a6d45");
+    let bt = |y, m, d, h, mm, s, milli| { BlockTimestampType::new(y, m, d, h, mm, s, milli).unwrap() };
+    let check_bt = |value: BlockTimestampType, repr, hex| {
+        check_cross_conversion(abi, value, "block_timestamp_type", repr, hex)
+    };
+    check_bt(bt(2000, 1,  1,  0,  0,  0,   0), r#""2000-01-01T00:00:00.000""#, "00000000");
+    check_bt(bt(2000, 1,  1,  0,  0,  0, 500), r#""2000-01-01T00:00:00.500""#, "01000000");
+    check_bt(bt(2000, 1,  1,  0,  0,  1,   0), r#""2000-01-01T00:00:01.000""#, "02000000");
+    check_bt(bt(2018, 6, 15, 19, 17, 47, 500), r#""2018-06-15T19:17:47.500""#, "b79a6d45");
+    check_bt(bt(2018, 6, 15, 19, 17, 48,   0), r#""2018-06-15T19:17:48.000""#, "b89a6d45");
 
     check_error(|| try_encode(abi, "time_point_sec", "true"), "cannot convert given variant");
     check_error(|| try_encode(abi, "time_point", "true"), "cannot convert given variant");

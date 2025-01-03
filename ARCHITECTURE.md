@@ -89,6 +89,7 @@ we switched to `snafu` for the following reasons:
   - <https://www.reddit.com/r/rust/comments/dfs1zk/2019_q4_error_patterns_snafu_vs_errderive_anyhow/>
   - <https://dev.to/e_net4/migrating-from-quick-error-to-snafu-a-story-on-revamped-error-handling-in-rust-58h9>
   - <https://gist.github.com/quad/a8a7cc87d1401004c6a8973947f20365>
+  - <https://greptime.com/blogs/2024-05-07-error-rust> / <https://news.ycombinator.com/item?id=42457515>
 
 ### Displaying errors: `color_eyre`
 

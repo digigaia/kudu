@@ -8,7 +8,7 @@ use tracing_subscriber::{
     // fmt::format::FmtSpan,
 };
 
-use antelope::{abidefinition::abi_schema, ABIDefinition};
+use antelope::{abidefinition::abi_schema, ABIDefinition, TimePoint, TimePointSec};
 use antelope::convert::{variant_to_int, variant_to_uint};
 
 static TRACING_INIT: Once = Once::new();
@@ -64,6 +64,13 @@ fn main() -> Result<()> {
 
     // let n: i128 = serde_json::from_str("170141183460469231731687303715884105727")?;
     // println!("{}", n);
+
+    let t1 = TimePointSec::new(2018, 6, 15, 19, 17, 47).unwrap();
+    info!("t = {}", t1);
+
+    let tp = |y, m, d, h, mm, s, milli| { TimePoint::new(y, m, d, h, mm, s, milli).unwrap() };
+    let t2 = tp(2000, 12, 31, 23, 59, 59, 999);
+    info!("t2 = {}", t2);
 
     Ok(())
 }
