@@ -22,6 +22,7 @@ mod name;
 mod symbol;
 mod time;
 
+use hex::FromHexError;
 use serde::{Serialize, Serializer};
 
 // -----------------------------------------------------------------------------
@@ -144,7 +145,50 @@ pub type Float64 = f64;
 //     Bytes and String types
 // -----------------------------------------------------------------------------
 
-pub type Bytes = std::vec::Vec<u8>;
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Default)]
+pub struct Bytes(pub Vec<u8>);
+
+impl Bytes {
+    pub fn from_hex<T: AsRef<[u8]>>(data: T) -> Result<Bytes, FromHexError> {
+        Ok(Bytes(hex::decode(data)?))
+    }
+    pub fn to_hex(&self) -> String {
+        hex::encode(&self.0)
+    }
+}
+
+impl From<Vec<u8>> for Bytes {
+    fn from(v: Vec<u8>) -> Bytes {
+        Bytes(v)
+    }
+}
+
+impl From<&[u8]> for Bytes {
+    fn from(s: &[u8]) -> Bytes {
+        Bytes(s.to_vec())
+    }
+}
+
+impl From<Bytes> for Vec<u8> {
+    fn from(b: Bytes) -> Vec<u8> {
+        b.0
+    }
+}
+
+impl Serialize for Bytes {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer
+    {
+        if serializer.is_human_readable() {
+            self.to_hex().serialize(serializer)
+        }
+        else {
+            self.0.serialize(serializer)
+        }
+    }
+}
+
 pub type String = std::string::String;
 
 
@@ -168,15 +212,14 @@ pub use crate::types::crypto::{
     KeyType, PrivateKey, PublicKey, Signature,
 };
 
+
 // -----------------------------------------------------------------------------
 //     Other builtin Antelope types
 // -----------------------------------------------------------------------------
 
 pub use name::{Name, InvalidName};
 pub use symbol::{Symbol, InvalidSymbol, SymbolCode};
-pub use asset::{Asset, InvalidAsset};
-
-pub type ExtendedAsset = (Asset, Name);
+pub use asset::{Asset, InvalidAsset, ExtendedAsset};
 
 
 // -----------------------------------------------------------------------------

@@ -14,7 +14,9 @@ use tracing_subscriber::{
 use antelope::{
     abiserializer::to_hex, data::{
         PACKED_TRANSACTION_ABI, TEST_ABI, TOKEN_HEX_ABI, TRANSACTION_ABI
-    }, ABIDefinition, ByteStream, InvalidValue, JsonValue, Name, TimePoint, TimePointSec, TypeNameRef, VarInt32, VarUint32, ABI
+    },
+    ABIDefinition, Asset, Bytes, ByteStream, ExtendedAsset, InvalidValue, JsonValue, Name,
+    Symbol, SymbolCode, TimePoint, TimePointSec, TypeNameRef, VarInt32, VarUint32, ABI
 };
 
 
@@ -133,12 +135,12 @@ fn check_round_trip2(abi: &ABI, typename: &str, data: &str, hex: &str, expected:
 #[track_caller]
 fn check_cross_conversion2(abi: &ABI, value: impl Serialize, typename: &str, data: &str, hex: &str, expected: &str) {
     // 1- JSON -> variant -> bin -> variant -> JSON
-    trace!("checking JSON {} -> variant -> bin {} -> variant -> JSON", data, hex);
+    trace!(r#"checking JSON: {} -> variant -> bin: "{}" -> variant -> JSON"#, data, hex);
     check_round_trip2(abi, typename, data, hex, expected);
 
     // FIXME: other direction too, please!
     // 2- Rust -> bin -> Rust
-    trace!("checking Rust native ({}) -> bin", type_name_of_val(&value));
+    trace!("checking Rust native ({}) -> bin: {}", type_name_of_val(&value), hex);
     assert_eq!(to_hex(&value).unwrap(), hex, "rust native to binary");
 
     // FIXME: other direction too, please!
@@ -500,9 +502,10 @@ fn roundtrip_bytes() -> Result<()> {
 
     let abi = transaction_abi();
 
-    check_round_trip(abi, "bytes", r#""""#, "00");
-    check_round_trip(abi, "bytes", r#""00""#, "0100");
-    check_round_trip(abi, "bytes", r#""aabbccddeeff00010203040506070809""#, "10aabbccddeeff00010203040506070809");
+    check_cross_conversion(abi, Bytes::from_hex("")?, "bytes", r#""""#, "00");
+    check_cross_conversion(abi, Bytes::from_hex("00")?, "bytes", r#""00""#, "0100");
+    check_cross_conversion(abi, Bytes::from_hex("aabbccddeeff00010203040506070809")?, "bytes",
+                           r#""aabbccddeeff00010203040506070809""#, "10aabbccddeeff00010203040506070809");
 
     check_error(|| try_decode(abi, "bytes", "01"), "stream ended");
     check_error(|| try_encode(abi, "bytes", r#""0""#), "Odd number of digits");
@@ -517,12 +520,17 @@ fn roundtrip_strings() -> Result<()> {
     init();
 
     let abi = transaction_abi();
+    let check_string = |repr: &str, hex| {
+        check_cross_conversion(abi, repr[1..repr.len()-1].to_owned(), "string", repr, hex)
+    };
 
-    check_round_trip(abi, "string", r#""""#, "00");
-    check_round_trip(abi, "string", r#""z""#, "017a");
-    check_round_trip(abi, "string", r#""This is a string.""#, "1154686973206973206120737472696e672e");
-    check_round_trip(abi, "string", r#""' + '*'.repeat(128) + '""#, "1727202b20272a272e7265706561742831323829202b2027");
-    check_round_trip(abi, "string", r#""\u0000  这是一个测试  Это тест  هذا اختبار 👍""#, "40002020e8bf99e698afe4b880e4b8aae6b58be8af952020d0add182d0be20d182d0b5d181d1822020d987d8b0d8a720d8a7d8aed8aad8a8d8a7d8b120f09f918d");
+    check_string(r#""""#, "00");
+    check_string(r#""z""#, "017a");
+    check_string(r#""This is a string.""#, "1154686973206973206120737472696e672e");
+    check_string(r#""' + '*'.repeat(128) + '""#, "1727202b20272a272e7265706561742831323829202b2027");
+    check_cross_conversion(abi, "\u{0000}  这是一个测试  Это тест  هذا اختبار 👍", "string",
+                           r#""\u0000  这是一个测试  Это тест  هذا اختبار 👍""#,
+	                   "40002020e8bf99e698afe4b880e4b8aae6b58be8af952020d0add182d0be20d182d0b5d181d1822020d987d8b0d8a720d8a7d8aed8aad8a8d8a7d8b120f09f918d");
 
     check_error(|| try_decode(abi, "string", "01"), "stream ended");
     check_error(|| try_decode(abi, "string", hex::encode(b"\x11invalid utf8: \xff\xfe\xfd")), "invalid utf-8 sequence");
@@ -609,12 +617,12 @@ fn roundtrip_symbol() -> Result<()> {
 
     let abi = transaction_abi();
 
-    check_round_trip(abi, "symbol_code", r#""A""#, "4100000000000000");
-    check_round_trip(abi, "symbol_code", r#""B""#, "4200000000000000");
-    check_round_trip(abi, "symbol_code", r#""SYS""#, "5359530000000000");
-    check_round_trip(abi, "symbol", r#""0,A""#, "0041000000000000");
-    check_round_trip(abi, "symbol", r#""1,Z""#, "015a000000000000");
-    check_round_trip(abi, "symbol", r#""4,SYS""#, "0453595300000000");
+    check_cross_conversion(abi, SymbolCode::from_str("A")?,   "symbol_code", r#""A""#, "4100000000000000");
+    check_cross_conversion(abi, SymbolCode::from_str("B")?,   "symbol_code", r#""B""#, "4200000000000000");
+    check_cross_conversion(abi, SymbolCode::from_str("SYS")?, "symbol_code", r#""SYS""#, "5359530000000000");
+    check_cross_conversion(abi, Symbol::from_str("0,A")?,   "symbol", r#""0,A""#, "0041000000000000");
+    check_cross_conversion(abi, Symbol::from_str("1,Z")?,   "symbol", r#""1,Z""#, "015a000000000000");
+    check_cross_conversion(abi, Symbol::from_str("4,SYS")?, "symbol", r#""4,SYS""#, "0453595300000000");
 
     check_error(|| try_encode(abi, "symbol_code", r#""foo""#), "invalid symbol");
     check_error(|| try_encode(abi, "symbol_code", "true"), "cannot convert given variant");
@@ -629,22 +637,32 @@ fn roundtrip_asset() -> Result<()> {
     init();
 
     let abi = transaction_abi();
+    let asset = |s| { Asset::from_str(s).unwrap() };
+    let check_asset = |repr: &str, hex| {
+        check_cross_conversion(abi, Asset::from_str(&repr[1..repr.len()-1]).unwrap(), "asset", repr, hex)
+    };
 
-    check_round_trip(abi, "asset", r#""0 FOO""#, "000000000000000000464f4f00000000");
-    check_round_trip(abi, "asset", r#""0.0 FOO""#, "000000000000000001464f4f00000000");
-    check_round_trip(abi, "asset", r#""0.00 FOO""#, "000000000000000002464f4f00000000");
-    check_round_trip(abi, "asset", r#""0.000 FOO""#, "000000000000000003464f4f00000000");
-    check_round_trip(abi, "asset", r#""1.2345 SYS""#, "39300000000000000453595300000000");
-    check_round_trip(abi, "asset", r#""-1.2345 SYS""#, "c7cfffffffffffff0453595300000000");
+    check_asset(      r#""0 FOO""#, "000000000000000000464f4f00000000");
+    check_asset(    r#""0.0 FOO""#, "000000000000000001464f4f00000000");
+    check_asset(   r#""0.00 FOO""#, "000000000000000002464f4f00000000");
+    check_asset(  r#""0.000 FOO""#, "000000000000000003464f4f00000000");
+    check_asset( r#""1.2345 SYS""#, "39300000000000000453595300000000");
+    check_asset(r#""-1.2345 SYS""#, "c7cfffffffffffff0453595300000000");
 
-    check_round_trip(abi, "asset[]", r#"[]"#, "00");
-    check_round_trip(abi, "asset[]", r#"["0 FOO"]"#, "01000000000000000000464f4f00000000");
-    check_round_trip(abi, "asset[]", r#"["0 FOO","0.000 FOO"]"#, "02000000000000000000464f4f00000000000000000000000003464f4f00000000");
-    check_round_trip(abi, "asset?", "null", "00");
-    check_round_trip(abi, "asset?", r#""0.123456 SIX""#, "0140e20100000000000653495800000000");
+    check_cross_conversion(abi, Vec::<Asset>::new(), "asset[]", r#"[]"#, "00");
+    check_cross_conversion(abi, vec![asset("0 FOO")], "asset[]", r#"["0 FOO"]"#,
+                           "01000000000000000000464f4f00000000");
+    check_cross_conversion(abi, vec![asset("0 FOO"), asset("0.000 FOO")], "asset[]", r#"["0 FOO","0.000 FOO"]"#,
+                           "02000000000000000000464f4f00000000000000000000000003464f4f00000000");
+    check_cross_conversion(abi, None::<Asset>, "asset?", "null", "00");
+    check_cross_conversion(abi, Some(asset("0.123456 SIX")), "asset?", r#""0.123456 SIX""#, "0140e20100000000000653495800000000");
 
-    check_round_trip(abi, "extended_asset", r#"{"quantity":"0 FOO","contract":"bar"}"#, "000000000000000000464f4f00000000000000000000ae39");
-    check_round_trip(abi, "extended_asset", r#"{"quantity":"0.123456 SIX","contract":"seven"}"#, "40e201000000000006534958000000000000000080a9b6c2");
+    check_cross_conversion(abi, ExtendedAsset { quantity: Asset::from_str("0 FOO")?, contract: Name::from_str("bar")? },
+                           "extended_asset", r#"{"quantity":"0 FOO","contract":"bar"}"#,
+                           "000000000000000000464f4f00000000000000000000ae39");
+    check_cross_conversion(abi, ExtendedAsset { quantity: Asset::from_str("0.123456 SIX")?, contract: Name::from_str("seven")? },
+                           "extended_asset", r#"{"quantity":"0.123456 SIX","contract":"seven"}"#,
+                           "40e201000000000006534958000000000000000080a9b6c2");
 
     check_error(|| try_encode(abi, "symbol", "null"), "cannot convert given variant");
 

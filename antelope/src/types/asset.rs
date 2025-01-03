@@ -1,12 +1,15 @@
 use std::fmt;
 use std::num::ParseIntError;
 
-use serde::de::{self, Visitor};
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use serde::{
+    Serialize,
+    de::{self, Deserialize, Deserializer, Visitor},
+    ser::{Serializer, SerializeTupleStruct}
+};
 use snafu::{ensure, Snafu, OptionExt, ResultExt};
 
 use antelope_macros::with_location;
-use crate::{InvalidSymbol, Symbol};
+use crate::{Name, InvalidSymbol, Symbol};
 
 
 #[with_location]
@@ -32,7 +35,7 @@ pub enum InvalidAsset {
 }
 
 
-#[derive(PartialEq, Debug, Copy, Clone)]
+#[derive(PartialEq, Eq, Debug, Copy, Clone)]
 pub struct Asset {
     amount: i64,
     symbol: Symbol,
@@ -113,6 +116,12 @@ impl Asset {
     }
 }
 
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+pub struct ExtendedAsset {
+    pub quantity: Asset,
+    pub contract: Name,
+}
+
 
 impl fmt::Display for Asset {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -129,15 +138,36 @@ impl fmt::Display for Asset {
     }
 }
 
+// -----------------------------------------------------------------------------
+//     `Serde` traits implementation
+// -----------------------------------------------------------------------------
 
 impl Serialize for Asset {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
-        self.to_string().serialize(serializer)
+        if serializer.is_human_readable() {
+            self.to_string().serialize(serializer)
+        }
+        else {
+            let mut ts = serializer.serialize_tuple_struct("Asset", 2)?;
+            ts.serialize_field(&self.amount)?;
+            ts.serialize_field(&self.symbol)?;
+            ts.end()
+        }
     }
 }
+
+// impl Serialize for ExtendedAsset {
+//     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+//     where
+//         S: Serializer
+//     {
+//         let mut ea = serializer.serialize_struct("ExtendedAsset", 2)?;
+//         ea.serialize_field("quantity",
+//     }
+// }
 
 struct AssetVisitor;
 

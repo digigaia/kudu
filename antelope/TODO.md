@@ -29,6 +29,8 @@
 
 - rename `TypeNameRef` to `TypeName` (?)
 
+- have constructors for base types be named `new` instead of `from_str`?
+
 
 ### Investigate Serde
 
@@ -38,10 +40,15 @@
   are we sure about this?
   Also: make sure we have a trait for this and implement it on all types? for now Name implements decode/encode as normal methods, not as trait methods
 
+- is ABISerializable still needed once we have serde compatibility? Could we even remove BinarySerializable??
+
 - write a JSON [Formatter](https://docs.rs/serde_json/1.0.68/serde_json/ser/trait.Formatter.html) to properly
   output values in the format expected by Antelope:
   - int64, int128 -> quote them as string
   - float32, float64 -> do not use scientific notation
+
+- document that base types implement `Serialize` with `is_human_readable` to distinguish between
+  binary encoding (Antelope packing) and JSON output
 
 ## CORRECTNESS / TESTING
 

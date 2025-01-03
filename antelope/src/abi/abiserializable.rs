@@ -1,5 +1,6 @@
-use tracing::instrument;
+use std::ops::Deref;
 
+use tracing::instrument;
 
 use crate::{
     ByteStream, BinarySerializable, SerializeError,
@@ -78,7 +79,7 @@ impl ABISerializable for AntelopeValue {
             Self::Symbol(sym) => sym.encode(stream),
             Self::SymbolCode(sym) => sym.encode(stream),
             Self::Asset(asset) => asset.encode(stream),
-            Self::ExtendedAsset(ea) => ea.encode(stream),
+            Self::ExtendedAsset(ea) => ea.deref().encode(stream),
         }
     }
 
@@ -118,7 +119,10 @@ impl ABISerializable for AntelopeValue {
             AntelopeType::SymbolCode => Self::SymbolCode(SymbolCode::decode(stream)?),
             AntelopeType::Asset => Self::Asset(Asset::decode(stream)?),
             AntelopeType::ExtendedAsset => {
-                Self::ExtendedAsset(Box::new((Asset::decode(stream)?, Name::decode(stream)?)))
+                Self::ExtendedAsset(Box::new(ExtendedAsset {
+                    quantity: Asset::decode(stream)?,
+                    contract: Name::decode(stream)?
+                }))
             },
         })
     }

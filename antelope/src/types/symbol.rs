@@ -31,7 +31,22 @@ pub enum InvalidSymbol {
 }
 
 
-#[derive(PartialEq, Debug, Copy, Clone)]
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub struct SymbolCode(u64);
+
+impl SymbolCode {
+    pub fn from_u64(n: u64) -> SymbolCode {
+        SymbolCode(n)
+    }
+
+    pub fn as_u64(&self) -> u64 { self.0 }
+
+    pub fn from_str(s: &str) -> Result<SymbolCode, InvalidSymbol> {
+        string_to_symbol_code(s).map(SymbolCode)
+    }
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct Symbol {
     value: u64,
 }
@@ -96,20 +111,6 @@ impl Symbol {
 
 // see ref implementation in AntelopeIO/spring/libraries/chain/symbol.{hpp,cpp}
 
-#[derive(Copy, Clone, Debug, PartialEq)]
-pub struct SymbolCode(u64);
-
-impl SymbolCode {
-    pub fn from_u64(n: u64) -> SymbolCode {
-        SymbolCode(n)
-    }
-
-    pub fn as_u64(&self) -> u64 { self.0 }
-
-    pub fn from_str(s: &str) -> Result<SymbolCode, InvalidSymbol> {
-        string_to_symbol_code(s).map(SymbolCode)
-    }
-}
 
 // FIXME: inline these into `SymbolCode` methods
 fn string_to_symbol_code(s: &str) -> Result<u64, InvalidSymbol> {
@@ -169,12 +170,31 @@ impl fmt::Display for Symbol {
 //     `Serde` traits implementation
 // -----------------------------------------------------------------------------
 
+impl Serialize for SymbolCode {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer
+    {
+        if serializer.is_human_readable() {
+            self.to_string().serialize(serializer)
+        }
+        else {
+            self.as_u64().serialize(serializer)
+        }
+    }
+}
+
 impl Serialize for Symbol {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
-        self.to_string().serialize(serializer)
+        if serializer.is_human_readable() {
+            self.to_string().serialize(serializer)
+        }
+        else {
+            self.as_u64().serialize(serializer)
+        }
     }
 }
 

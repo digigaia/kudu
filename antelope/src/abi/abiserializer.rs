@@ -109,6 +109,7 @@ impl<'a> ser::Serializer for &'a mut ABISerializer {
     type SerializeStruct = Self;
     type SerializeStructVariant = Self;
 
+    #[inline]
     fn is_human_readable(&self) -> bool {
         false
     }
@@ -210,7 +211,7 @@ impl<'a> ser::Serializer for &'a mut ABISerializer {
     ///       (serialize_seq is called instead)
     /// Checksum should use this, Bytes should use serialize_seq
     fn serialize_bytes(self, v: &[u8]) -> Result<()> {
-        warn!("serialize_bytes");
+        warn!("serialize_bytes, len = {}", v.len());
         self.output.write_bytes(v);
         Ok(())
     }
@@ -296,7 +297,7 @@ impl<'a> ser::Serializer for &'a mut ABISerializer {
         _name: &'static str,
         _len: usize,
     ) -> Result<Self::SerializeTupleStruct, Self::Error> {
-        unimplemented!();
+        Ok(self)
     }
 
     fn serialize_tuple_variant(
@@ -321,7 +322,7 @@ impl<'a> ser::Serializer for &'a mut ABISerializer {
         _name: &'static str,
         _len: usize,
     ) -> Result<Self::SerializeStruct, Self::Error> {
-        unimplemented!();
+        Ok(self)
     }
 
     fn serialize_struct_variant(
@@ -374,15 +375,10 @@ impl ser::SerializeTuple for &'_ mut ABISerializer {
     where
         T: ?Sized + Serialize,
     {
-        // unimplemented!();
-        // if !self.output.ends_with('[') {
-        //     self.output += ",";
-        // }
         value.serialize(&mut **self)
     }
 
     fn end(self) -> Result<()> {
-        // self.output += "]";
         Ok(())
     }
 }
@@ -392,12 +388,11 @@ impl ser::SerializeTupleStruct for &'_ mut ABISerializer {
     type Ok = ();
     type Error = Error;
 
-    fn serialize_field<T>(&mut self, _value: &T) -> Result<()>
+    fn serialize_field<T>(&mut self, value: &T) -> Result<()>
     where
         T: ?Sized + Serialize,
     {
-        unimplemented!();
-        // value.serialize(&mut **self)
+        value.serialize(&mut **self)
     }
 
     fn end(self) -> Result<()> {
@@ -485,14 +480,11 @@ impl ser::SerializeStruct for &'_ mut ABISerializer {
     type Ok = ();
     type Error = Error;
 
-    fn serialize_field<T>(&mut self, _key: &'static str, _value: &T) -> Result<()>
+    fn serialize_field<T>(&mut self, _key: &'static str, value: &T) -> Result<()>
     where
         T: ?Sized + Serialize,
     {
-        unimplemented!();
-        // key.serialize(&mut **self)?;
-        // self.output += ":";
-        // value.serialize(&mut **self)
+        value.serialize(&mut **self)
     }
 
     fn end(self) -> Result<()> {

@@ -1,7 +1,7 @@
 use std::array::TryFromSliceError;
 use std::convert::From;
 use std::num::TryFromIntError;
-
+use std::ops::Deref;
 use std::str::{ParseBoolError, Utf8Error};
 
 use chrono::ParseError as ChronoParseError;
@@ -20,7 +20,7 @@ use crate::{
 use crate::types::{self,
     VarInt32, VarUint32, Bytes,
     TimePoint, TimePointSec, BlockTimestampType,
-    Asset, InvalidAsset,
+    Asset, ExtendedAsset, InvalidAsset,
     Name, InvalidName,
     Symbol, SymbolCode, InvalidSymbol,
     Checksum160, Checksum256, Checksum512,
@@ -87,7 +87,7 @@ pub enum AntelopeValue {
     SymbolCode(SymbolCode),
     Symbol(Symbol),
     Asset(Asset),
-    ExtendedAsset(Box<(Asset, Name)>),
+    ExtendedAsset(Box<ExtendedAsset>),
 }
 
 
@@ -118,7 +118,7 @@ impl AntelopeValue {
             AntelopeType::Float64 => Self::Float64(str_to_float(repr)?),
             #[cfg(feature = "float128")]
             AntelopeType::Float128 => Self::Float128(str_to_f128(repr)?),
-            AntelopeType::Bytes => Self::Bytes(hex::decode(repr).context(FromHexSnafu)?),
+            AntelopeType::Bytes => Self::Bytes(Bytes::from_hex(repr).context(FromHexSnafu)?),
             AntelopeType::String => Self::String(repr.to_owned()),
             AntelopeType::TimePoint => Self::TimePoint(TimePoint::from_str(repr)?),
             AntelopeType::TimePointSec => Self::TimePointSec(TimePointSec::from_str(repr)?),
@@ -157,7 +157,7 @@ impl AntelopeValue {
             Self::Float64(x) => json!(x),
             #[cfg(feature = "float128")]
             Self::Float128(x) => json!(hex::encode(x.to_ne_bytes())),
-            Self::Bytes(b) => json!(hex::encode(b)),
+            Self::Bytes(b) => json!(b.to_hex()),
             Self::String(s) => json!(s),
             Self::TimePoint(t) => t.to_json(),
             Self::TimePointSec(t) => t.to_json(),
@@ -173,10 +173,10 @@ impl AntelopeValue {
             Self::Symbol(sym) => json!(sym.to_string()),
             Self::Asset(asset) => json!(asset.to_string()),
             Self::ExtendedAsset(ea) => {
-                let (ref quantity, ref contract) = **ea;
+                let ea = ea.deref();
                 json!({
-                    "quantity": quantity,
-                    "contract": contract,
+                    "quantity": ea.quantity,
+                    "contract": ea.contract,
                 })
             },
         }
@@ -206,7 +206,7 @@ impl AntelopeValue {
             AntelopeType::Float64 => Self::Float64(variant_to_float(v)?),
             #[cfg(feature = "float128")]
             AntelopeType::Float128 => Self::Float128(variant_to_f128(v)?),
-            AntelopeType::Bytes => Self::Bytes(hex::decode(
+            AntelopeType::Bytes => Self::Bytes(Bytes::from_hex(
                 v.as_str().with_context(incompatible_types)?
             ).context(FromHexSnafu)?),
             AntelopeType::String => Self::String(v.as_str().with_context(incompatible_types)?.to_owned()),
@@ -244,10 +244,10 @@ impl AntelopeValue {
             AntelopeType::ExtendedAsset => {
                 let ea = v.as_object().with_context(incompatible_types)?;
                 let qty = variant_to_str(&ea["quantity"])?;
-                Self::ExtendedAsset(Box::new((
-                    Asset::from_str(qty).context(AssetSnafu { repr: qty })?,
-                    Name::from_str(ea["contract"].as_str().with_context(incompatible_types)?).context(NameSnafu)?,
-                )))
+                Self::ExtendedAsset(Box::new(ExtendedAsset {
+                    quantity: Asset::from_str(qty).context(AssetSnafu { repr: qty })?,
+                    contract: Name::from_str(ea["contract"].as_str().with_context(incompatible_types)?).context(NameSnafu)?,
+                }))
             },
         })
     }

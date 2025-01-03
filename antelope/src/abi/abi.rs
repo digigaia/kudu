@@ -475,7 +475,7 @@ impl ABI {
             // from the stream
             if rtype.is_array() {
                 let item_count = decode_usize(ds, "item_count (as varuint32)")?;
-                debug!(r#"reading array of {item_count} elements11 of type "{ftype}""#);
+                debug!(r#"reading array of {item_count} elements of type "{ftype}""#);
                 // limit the maximum size that can be reserved before data is read
                 let initial_capacity = item_count.min(1024);
                 let mut a = Vec::with_capacity(initial_capacity);

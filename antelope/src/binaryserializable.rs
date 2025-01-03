@@ -191,12 +191,12 @@ impl BinarySerializable for VarUint32 {
 
 impl BinarySerializable for Bytes {
     fn encode(&self, stream: &mut ByteStream) {
-        write_var_u32(stream, self.len() as u32);
-        stream.write_bytes(&self[..]);
+        write_var_u32(stream, self.0.len() as u32);
+        stream.write_bytes(&self.0[..]);
     }
     fn decode(stream: &mut ByteStream) -> Result<Self, SerializeError> {
         let len = read_var_u32(stream)? as usize;
-        Ok(Vec::from(stream.read_bytes(len)?))
+        Ok(Bytes::from(stream.read_bytes(len)?))
     }
 }
 
@@ -310,14 +310,14 @@ impl BinarySerializable for Asset {
 
 impl BinarySerializable for ExtendedAsset {
     fn encode(&self, stream: &mut ByteStream) {
-        self.0.encode(stream);
-        self.1.encode(stream);
+        self.quantity.encode(stream);
+        self.contract.encode(stream);
     }
 
     fn decode(stream: &mut ByteStream) -> Result<Self, SerializeError> {
-        let asset = Asset::decode(stream)?;
-        let name = Name::decode(stream)?;
-        Ok((asset, name))
+        let quantity = Asset::decode(stream)?;
+        let contract = Name::decode(stream)?;
+        Ok(ExtendedAsset { quantity, contract })
     }
 }
 

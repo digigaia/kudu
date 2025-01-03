@@ -7,7 +7,8 @@ use chrono::{NaiveDate, TimeZone, Utc};
 use antelope::{
     ByteStream, BinarySerializable,
     abiserializable::ABISerializable,
-    convert::hex_to_boxed_array, AntelopeType, AntelopeValue, Asset, BlockTimestampType, Name, Symbol, SymbolCode, TimePoint, TimePointSec, VarInt32, VarUint32, PublicKey, PrivateKey, Signature,
+    convert::hex_to_boxed_array, AntelopeType, AntelopeValue, Asset, Bytes, BlockTimestampType, ExtendedAsset,
+    Name, Symbol, SymbolCode, TimePoint, TimePointSec, VarInt32, VarUint32, PublicKey, PrivateKey, Signature,
 };
 
 // =============================================================================
@@ -405,7 +406,7 @@ fn test_bytes() {
         ("00", "0100"),
         ("aabbccddeeff00010203040506070809", "10aabbccddeeff00010203040506070809"),
     ];
-    check_round_trip_map_type(vals, |s| hex::decode(s).unwrap(), AntelopeValue::Bytes);
+    check_round_trip_map_type(vals, |s| Bytes::from_hex(s).unwrap(), AntelopeValue::Bytes);
 
     test_encode(&b"foo"[..], "03666f6f");  // can't decode to &str due to lifetime issues
 }
@@ -664,6 +665,8 @@ fn test_extended_asset() -> Result<()> {
          "40e201000000000006534958000000000000000080a9b6c2"),
     ];
 
-    check_round_trip(vals, |s| AntelopeValue::ExtendedAsset(Box::new(s)));
+    check_round_trip_map_type(vals,
+                              |s| ExtendedAsset { quantity: s.0, contract: s.1 },
+                              |ea| AntelopeValue::ExtendedAsset(Box::new(ea)));
     Ok(())
 }
