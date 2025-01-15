@@ -2,8 +2,8 @@ use std::fmt;
 use std::num::ParseIntError;
 
 use serde::{
-    Serialize,
-    de::{self, Deserialize, Deserializer, Visitor},
+    Serialize, Deserialize,
+    de::{self, Deserializer},
     ser::{Serializer, SerializeTupleStruct}
 };
 use snafu::{ensure, Snafu, OptionExt, ResultExt};
@@ -116,7 +116,7 @@ impl Asset {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ExtendedAsset {
     pub quantity: Asset,
     pub contract: Name,
@@ -159,38 +159,14 @@ impl Serialize for Asset {
     }
 }
 
-// impl Serialize for ExtendedAsset {
-//     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-//     where
-//         S: Serializer
-//     {
-//         let mut ea = serializer.serialize_struct("ExtendedAsset", 2)?;
-//         ea.serialize_field("quantity",
-//     }
-// }
 
-struct AssetVisitor;
-
-impl<'de> Visitor<'de> for AssetVisitor {
-    type Value = Asset;
-
-    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-        write!(formatter, "a string that is a valid EOS symbol")
-    }
-
-    fn visit_str<E>(self, s: &str) -> Result<Asset, E>
-    where
-        E: de::Error,
-    {
-        Asset::from_str(s).map_err(|e| de::Error::custom(e.to_string()))
-    }
-}
 impl<'de> Deserialize<'de> for Asset {
     fn deserialize<D>(deserializer: D) -> Result<Asset, D::Error>
     where
         D: Deserializer<'de>,
     {
-        deserializer.deserialize_str(AssetVisitor)
+        let asset: &str = <&str>::deserialize(deserializer)?;
+        Asset::from_str(asset).map_err(|e| de::Error::custom(e.to_string()))
     }
 }
 

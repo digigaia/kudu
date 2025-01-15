@@ -52,6 +52,28 @@ pub trait BinarySerializable {
 
 // FIXME! Derive `BinarySerializable` for all builtin types
 
+pub fn to_bin<T: BinarySerializable>(value: &T) -> Vec<u8> {
+    let mut s = ByteStream::new();
+    value.encode(&mut s);
+    s.into_bytes()
+}
+
+pub fn to_hex<T: BinarySerializable>(value: &T) -> String {
+    let mut s = ByteStream::new();
+    value.encode(&mut s);
+    s.hex_data()
+}
+
+// pub fn from_bin<T: BinarySerializable>(mut s: ByteStream) -> Result<T, SerializeError> {
+//     T::decode(&mut s)
+// }
+
+// FIXME: this makes an unnecessary copy
+pub fn from_bin<T: BinarySerializable>(bin: &[u8]) -> Result<T, SerializeError> {
+    let mut s = ByteStream::from(bin.to_vec());
+    T::decode(&mut s)
+}
+
 // -----------------------------------------------------------------------------
 //     Boilerplate macros
 // -----------------------------------------------------------------------------
@@ -207,7 +229,7 @@ impl BinarySerializable for &[u8] {
         stream.write_bytes(self);
     }
     fn decode(_stream: &mut ByteStream) -> Result<Self, SerializeError> {
-        unimplemented!()
+        unimplemented!();
     }
 }
 
@@ -378,4 +400,52 @@ fn read_var_i32(stream: &mut ByteStream) -> Result<i32, SerializeError> {
         0 => n >> 1,
         _ => ((!n) >> 1) | 0x8000_0000,
     } as i32)
+}
+
+
+// -----------------------------------------------------------------------------
+//     other useful blanket implementations for containers
+// -----------------------------------------------------------------------------
+
+// NOTE: we have 2 choices here:
+//  - blanket impl, at the cost of a non-optimized impl for Vec<u8>
+//  - optimized impl for Vec<u8>, but we have to manually implement
+//    (possibly with the help of a macro) all the other needed types
+impl<T: BinarySerializable> BinarySerializable for Vec<T> {
+    fn encode(&self, stream: &mut ByteStream) {
+        write_var_u32(stream, self.len() as u32);
+        for elem in self {
+            elem.encode(stream);
+        }
+    }
+
+    fn decode(stream: &mut ByteStream) -> Result<Self, SerializeError> {
+        let len: u32 = VarUint32::decode(stream)?.into();
+        let mut result = Vec::with_capacity(len as usize);
+        for _ in 0..len {
+            result.push(T::decode(stream)?);
+        }
+        Ok(result)
+    }
+}
+
+impl<T: BinarySerializable> BinarySerializable for Option<T> {
+    fn encode(&self, stream: &mut ByteStream) {
+        match self {
+            Some(v) => {
+                true.encode(stream);
+                v.encode(stream);
+            },
+            None => {
+                false.encode(stream);
+            }
+        }
+    }
+
+    fn decode(stream: &mut ByteStream) -> Result<Self, SerializeError> {
+        Ok(match bool::decode(stream)? {
+            true => Some(T::decode(stream)?),
+            false => None,
+        })
+    }
 }

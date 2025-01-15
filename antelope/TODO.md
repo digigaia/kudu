@@ -31,6 +31,8 @@
 
 - have constructors for base types be named `new` instead of `from_str`?
 
+- to_hex -> hex representation of binary data, to_bin -> binary data itself (ie: vec<u8>)
+
 
 ### Investigate Serde
 
@@ -49,6 +51,16 @@
 
 - document that base types implement `Serialize` with `is_human_readable` to distinguish between
   binary encoding (Antelope packing) and JSON output
+
+- Limitation of serde / blockers
+  serialization of bytes goes trought serialization of sequence of bytes (or tuple) -> inefficient
+      -> we repurposed the `serialize_bytes` call to write directly a byte slice **without** its length
+  that is problematic though when deserializing, we don't know how many bytes we should be reading
+  see:
+  - <https://github.com/serde-rs/serde/issues/2120>
+  - <https://github.com/uuid-rs/uuid/issues/557>
+
+  TODO: deprecated/remove non human-readable impls for Serialize/Deserialize types
 
 ## CORRECTNESS / TESTING
 

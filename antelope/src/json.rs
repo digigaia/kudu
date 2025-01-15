@@ -100,3 +100,5 @@ where
     };
     Ok(string)
 }
+
+pub use serde_json::from_str;

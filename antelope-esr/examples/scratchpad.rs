@@ -1,6 +1,8 @@
+use std::fmt::Debug;
 use std::sync::Once;
 
 use color_eyre::eyre::Result;
+use serde::{de::DeserializeOwned, Serialize};
 use serde_json::json;
 use tracing::info;
 use tracing_subscriber::{
@@ -8,8 +10,12 @@ use tracing_subscriber::{
     // fmt::format::FmtSpan,
 };
 
-use antelope::{abidefinition::abi_schema, ABIDefinition, TimePoint, TimePointSec};
-use antelope::convert::{variant_to_int, variant_to_uint};
+use antelope::{
+    ABIDefinition, TimePoint, TimePointSec,
+    abidefinition::abi_schema,
+    abiserializer::{to_bin, from_bin},
+    convert::{variant_to_int, variant_to_uint}
+};
 
 static TRACING_INIT: Once = Once::new();
 
@@ -20,6 +26,48 @@ fn init() {
             // .with_span_events(FmtSpan::ACTIVE)
             .init();
     });
+}
+
+fn check_conversion<'a, T>(value: T, hex: &str)
+where
+    T: Serialize + DeserializeOwned + PartialEq + Debug
+{
+    let bin = to_bin(&value).unwrap();
+    let hex_data = hex::encode(&bin);
+    assert_eq!(hex_data, hex, "rust native to binary");
+
+    let value2: T = from_bin(&bin).unwrap();
+    assert_eq!(value, value2, "rust binary to native");
+
+}
+
+// fn check_conversion_borrowed<BT, T>(value: T, hex: &str)
+// where
+//     T: Serialize + PartialEq + Debug,
+//     BT: PartialEq + Debug + DeserializeOwned,
+// {
+//     let bin = to_bin(&value).unwrap();
+//     let hex_data = hex::encode(&bin);
+//     assert_eq!(hex_data, hex, "rust native to binary");
+
+//     let value2: BT = from_bin(&bin).unwrap();
+//     assert_eq!(value, value2, "rust binary to native");
+
+// }
+
+macro_rules! check_conv {
+    ($value:literal, $typ:ty, $hex:literal) => {
+        let bin = to_bin(&$value).unwrap();
+        let hex_data = hex::encode(&bin);
+        assert_eq!(hex_data, $hex, "rust native to binary");
+
+        let value2: $typ = from_bin(&bin).unwrap();
+        assert_eq!($value, value2, "rust binary to native");
+    };
+    ($value:literal, $typ:ty, $hex:literal, $hex2:literal) => {
+        check_conv!($value, $typ, $hex);
+        assert_eq!($hex, $hex2);
+    };
 }
 
 
@@ -71,6 +119,9 @@ fn main() -> Result<()> {
     let tp = |y, m, d, h, mm, s, milli| { TimePoint::new(y, m, d, h, mm, s, milli).unwrap() };
     let t2 = tp(2000, 12, 31, 23, 59, 59, 999);
     info!("t2 = {}", t2);
+
+    check_conversion(23u8, "17");
+    check_conv!(" ", &str, "0120");
 
     Ok(())
 }

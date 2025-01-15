@@ -1,8 +1,7 @@
 use std::fmt;
 use std::num::ParseIntError;
 
-use serde::de::{self, Visitor};
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 use snafu::{ensure, Snafu, ResultExt, OptionExt};
 
 
@@ -184,6 +183,16 @@ impl Serialize for SymbolCode {
     }
 }
 
+impl<'de> Deserialize<'de> for SymbolCode {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let code: &str = <&str>::deserialize(deserializer)?;
+        SymbolCode::from_str(code).map_err(|e| de::Error::custom(e.to_string()))
+    }
+}
+
 impl Serialize for Symbol {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -198,28 +207,13 @@ impl Serialize for Symbol {
     }
 }
 
-struct SymbolVisitor;
-
-impl<'de> Visitor<'de> for SymbolVisitor {
-    type Value = Symbol;
-
-    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-        write!(formatter, "a string that is a valid EOS symbol")
-    }
-
-    fn visit_str<E>(self, s: &str) -> Result<Symbol, E>
-    where
-        E: de::Error,
-    {
-        Symbol::from_str(s).map_err(|e| de::Error::custom(e.to_string()))
-    }
-}
 impl<'de> Deserialize<'de> for Symbol {
     fn deserialize<D>(deserializer: D) -> Result<Symbol, D::Error>
     where
         D: Deserializer<'de>,
     {
-        deserializer.deserialize_str(SymbolVisitor)
+        let symbol: &str = <&str>::deserialize(deserializer)?;
+        Symbol::from_str(symbol).map_err(|e| de::Error::custom(e.to_string()))
     }
 }
 

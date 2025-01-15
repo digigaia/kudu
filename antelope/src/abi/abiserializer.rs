@@ -1,8 +1,13 @@
 use std;
 use std::fmt::{self, Display};
 
-use serde::{ser, de, Serialize};
-use tracing::{info, warn};
+use bytemuck::pod_read_unaligned;
+use serde::{
+    ser, de, Serialize, Deserialize,
+    de::{
+        DeserializeSeed, SeqAccess, Visitor,
+    }};
+use tracing::{debug, info, warn};
 
 use crate::{BinarySerializable, ByteStream, VarUint32};
 
@@ -20,7 +25,15 @@ use crate::{BinarySerializable, ByteStream, VarUint32};
 // -----------------------------------------------------------------------------
 
 #[derive(Debug)]
-pub enum Error {
+pub enum Error
+{
+    // serialization specific
+    // deserialization specific
+    Eof,
+    LeftoverData,
+    VarUint32TooBig,
+    InvalidUtf8,
+    // generic
     Message(String),
     Other,
 }
@@ -39,10 +52,14 @@ impl de::Error for Error {
 
 impl Display for Error {
     fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            Error::Message(msg) => formatter.write_str(msg),
-            Error::Other => formatter.write_str("unexpected error"),
-        }
+        formatter.write_str(match self {
+            Error::Eof => "end of stream",
+            Error::LeftoverData => "leftover data",
+            Error::VarUint32TooBig => "var uint too long to fit into a `u32`",
+            Error::InvalidUtf8 => "invalid utf8 representation",
+            Error::Message(msg) => msg.as_str(),
+            Error::Other => "unexpected error",
+        })
     }
 }
 
@@ -599,4 +616,388 @@ mod tests {
         Ok(())
     }
 
+}
+
+
+// =============================================================================
+//
+//     ABIDeserializer
+//
+// =============================================================================
+
+pub struct ABIDeserializer<'de> {
+    input: &'de [u8],
+}
+
+#[inline]
+const unsafe fn as_array<T, const N: usize>(slice: &[T]) -> &[T; N] {
+    &*(slice.as_ptr() as *const [_; N])
+}
+
+
+impl<'de> ABIDeserializer<'de> {
+    pub fn from_bin(input: &'de [u8]) -> Self {
+        ABIDeserializer { input }
+    }
+
+    pub fn get_bytes<const N: usize>(&mut self) -> Result<&'de [u8; N]> {
+        // FIXME: use `first_chunk`
+        if self.input.len() >= N {
+            unsafe {
+                let result = as_array::<u8, N>(self.input);
+                self.input = &self.input[N..];
+                Ok(result)
+            }
+        }
+        else {
+            Err(Error::Eof)
+        }
+    }
+
+    pub fn get_byte(&mut self) -> Result<u8> {
+        if !self.input.is_empty() {
+            let result = self.input[0];
+            self.input = &self.input[1..];
+            Ok(result)
+        }
+        else {
+            Err(Error::Eof)
+        }
+    }
+
+    pub fn get_var_bytes(&mut self, n: usize) -> Result<&'de [u8]> {
+        if self.input.len() >= n {
+            let result = &self.input[..n];
+            self.input = &self.input[n..];
+            Ok(result)
+        }
+        else {
+            Err(Error::Eof)
+        }
+    }
+
+    pub fn parse_bool(&mut self) -> Result<bool> {
+        match self.get_byte()? {
+            0 => Ok(false),
+            1 => Ok(true),
+            _ => Err(Error::Eof),
+        }
+    }
+
+    pub fn parse_varuint32(&mut self) -> Result<u32> {
+        let mut offset = 0;
+        let mut result = 0;
+        loop {
+            let byte = self.get_byte()?;
+            result |= (byte as u32 & 0x7F) << offset;
+            offset += 7;
+            if (byte & 0x80) == 0 { break; }
+
+            if offset >= 32 { return Err(Error::VarUint32TooBig); }
+        }
+        Ok(result)
+    }
+
+    pub fn parse_string(&mut self) -> Result<&'de str> {
+        let len = self.parse_varuint32()?;
+        std::str::from_utf8(self.get_var_bytes(len as usize)?)
+            .map_err(move |_| Error::InvalidUtf8)
+    }
+}
+
+
+pub fn from_bin<'a, T>(bin: &'a [u8]) -> Result<T>
+where
+    T: Deserialize<'a>,
+{
+    let mut deserializer = ABIDeserializer::from_bin(bin);
+    let t = T::deserialize(&mut deserializer)?;
+    if deserializer.input.is_empty() {
+        Ok(t)
+    } else {
+        Err(Error::LeftoverData)
+    }
+}
+
+
+impl<'de, 'a> de::Deserializer<'de> for &'a mut ABIDeserializer<'de> {
+    type Error = Error;
+
+    #[inline]
+    fn is_human_readable(&self) -> bool {
+        false
+    }
+
+    // Look at the input data to decide what Serde data model type to
+    // deserialize as. Not all data formats are able to support this operation.
+    // Formats that support `deserialize_any` are known as self-describing.
+    fn deserialize_any<V>(self, _visitor: V) -> Result<V::Value>
+    where
+        V: Visitor<'de>,
+    {
+        unimplemented!()
+    }
+
+    fn deserialize_bool<V>(self, visitor: V) -> Result<V::Value>
+    where
+        V: Visitor<'de>,
+    {
+        visitor.visit_bool(self.parse_bool()?)
+    }
+
+    fn deserialize_i8<V>(self, visitor: V) -> Result<V::Value>
+    where
+        V: Visitor<'de>,
+    {
+        visitor.visit_i8(pod_read_unaligned(self.get_bytes::<1>()?))
+    }
+
+    fn deserialize_i16<V>(self, visitor: V) -> Result<V::Value>
+    where
+        V: Visitor<'de>,
+    {
+        visitor.visit_i16(pod_read_unaligned(self.get_bytes::<2>()?))
+    }
+
+    fn deserialize_i32<V>(self, visitor: V) -> Result<V::Value>
+    where
+        V: Visitor<'de>,
+    {
+        visitor.visit_i32(pod_read_unaligned(self.get_bytes::<4>()?))
+    }
+
+    fn deserialize_i64<V>(self, visitor: V) -> Result<V::Value>
+    where
+        V: Visitor<'de>,
+    {
+        visitor.visit_i64(pod_read_unaligned(self.get_bytes::<8>()?))
+    }
+
+    fn deserialize_i128<V>(self, visitor: V) -> Result<V::Value>
+    where
+        V: Visitor<'de>,
+    {
+        visitor.visit_i128(pod_read_unaligned(self.get_bytes::<16>()?))
+    }
+
+    fn deserialize_u8<V>(self, visitor: V) -> Result<V::Value>
+    where
+        V: Visitor<'de>,
+    {
+        visitor.visit_u8(pod_read_unaligned(self.get_bytes::<1>()?))
+    }
+
+    fn deserialize_u16<V>(self, visitor: V) -> Result<V::Value>
+    where
+        V: Visitor<'de>,
+    {
+        visitor.visit_u16(pod_read_unaligned(self.get_bytes::<2>()?))
+    }
+
+    fn deserialize_u32<V>(self, visitor: V) -> Result<V::Value>
+    where
+        V: Visitor<'de>,
+    {
+        visitor.visit_u32(pod_read_unaligned(self.get_bytes::<4>()?))
+    }
+
+    fn deserialize_u64<V>(self, visitor: V) -> Result<V::Value>
+    where
+        V: Visitor<'de>,
+    {
+        visitor.visit_u64(pod_read_unaligned(self.get_bytes::<8>()?))
+    }
+
+    fn deserialize_u128<V>(self, visitor: V) -> Result<V::Value>
+    where
+        V: Visitor<'de>,
+    {
+        visitor.visit_u128(pod_read_unaligned(self.get_bytes::<16>()?))
+    }
+
+    fn deserialize_f32<V>(self, visitor: V) -> Result<V::Value>
+    where
+        V: Visitor<'de>,
+    {
+        visitor.visit_f32(pod_read_unaligned(self.get_bytes::<4>()?))
+    }
+
+    fn deserialize_f64<V>(self, visitor: V) -> Result<V::Value>
+    where
+        V: Visitor<'de>,
+    {
+        visitor.visit_f64(pod_read_unaligned(self.get_bytes::<8>()?))
+    }
+
+    fn deserialize_char<V>(self, _visitor: V) -> Result<V::Value>
+    where
+        V: Visitor<'de>,
+    {
+        unimplemented!()
+    }
+
+    fn deserialize_str<V>(self, visitor: V) -> Result<V::Value>
+    where
+        V: Visitor<'de>,
+    {
+        visitor.visit_borrowed_str(self.parse_string()?)
+    }
+
+    fn deserialize_string<V>(self, visitor: V) -> Result<V::Value>
+    where
+        V: Visitor<'de>,
+    {
+        self.deserialize_str(visitor)
+    }
+
+    fn deserialize_bytes<V>(self, visitor: V) -> Result<V::Value>
+    where
+        V: Visitor<'de>,
+    {
+        debug!("deserialize bytes...");
+        visitor.visit_bytes(b"")
+    }
+
+    fn deserialize_byte_buf<V>(self, _visitor: V) -> Result<V::Value>
+    where
+        V: Visitor<'de>,
+    {
+        todo!()
+    }
+
+    fn deserialize_option<V>(self, visitor: V) -> Result<V::Value>
+    where
+        V: Visitor<'de>,
+    {
+        match self.parse_bool()? {
+            true => visitor.visit_some(self),
+            false => visitor.visit_none(),
+        }
+    }
+
+    fn deserialize_unit<V>(self, _visitor: V) -> Result<V::Value>
+    where
+        V: Visitor<'de>,
+    {
+        unimplemented!()
+    }
+
+    fn deserialize_unit_struct<V>(self, _name: &'static str, _visitor: V) -> Result<V::Value>
+    where
+        V: Visitor<'de>,
+    {
+        unimplemented!()
+    }
+
+    fn deserialize_newtype_struct<V>(self, _name: &'static str, _visitor: V) -> Result<V::Value>
+    where
+        V: Visitor<'de>,
+    {
+        todo!()
+    }
+
+    fn deserialize_seq<V>(self, visitor: V) -> Result<V::Value>
+    where
+        V: Visitor<'de>,
+    {
+        let len = self.parse_varuint32()?;
+        visitor.visit_seq(BinSequence::new(self, len as usize))
+    }
+
+    fn deserialize_tuple<V>(self, _len: usize, _visitor: V) -> Result<V::Value>
+    where
+        V: Visitor<'de>,
+    {
+        todo!()
+    }
+
+    fn deserialize_tuple_struct<V>(self, _name: &'static str, _len: usize, _visitor: V) -> Result<V::Value>
+    where
+        V: Visitor<'de>,
+    {
+        todo!()
+    }
+
+    fn deserialize_map<V>(self, _visitor: V) -> Result<V::Value>
+    where
+        V: Visitor<'de>,
+    {
+        todo!()
+    }
+
+    fn deserialize_struct<V>(
+        self,
+        _name: &'static str,
+        _fields: &'static [&'static str],
+        _visitor: V
+    ) -> Result<V::Value>
+    where
+        V: Visitor<'de>,
+    {
+        todo!()
+    }
+
+    fn deserialize_enum<V>(
+        self,
+        _name: &'static str,
+        _variants: &'static [&'static str],
+        _visitor: V
+    ) -> Result<V::Value>
+    where
+        V: Visitor<'de>,
+    {
+        todo!()
+    }
+
+    fn deserialize_identifier<V>(self, _visitor: V) -> Result<V::Value>
+    where
+        V: Visitor<'de>,
+    {
+        todo!()
+    }
+
+    fn deserialize_ignored_any<V>(self, _visitor: V) -> Result<V::Value>
+    where
+        V: Visitor<'de>,
+    {
+        todo!()
+    }
+
+}
+
+
+// In order to handle commas correctly when deserializing a JSON array or map,
+// we need to track whether we are on the first element or past the first
+// element.
+struct BinSequence<'a, 'de: 'a> {
+    de: &'a mut ABIDeserializer<'de>,
+    idx: usize,
+    len: usize,
+}
+
+impl<'a, 'de> BinSequence<'a, 'de> {
+    fn new(de: &'a mut ABIDeserializer<'de>, len: usize) -> Self {
+        BinSequence {
+            de, idx: 0, len,
+        }
+    }
+}
+
+// `SeqAccess` is provided to the `Visitor` to give it the ability to iterate
+// through elements of the sequence.
+impl<'de, 'a> SeqAccess<'de> for BinSequence<'a, 'de> {
+    type Error = Error;
+
+    fn next_element_seed<T>(&mut self, seed: T) -> Result<Option<T::Value>>
+    where
+        T: DeserializeSeed<'de>,
+    {
+        // Check if there are no more elements.
+        if self.idx >= self.len {
+            return Ok(None);
+        }
+        self.idx += 1;
+        // Deserialize an array element.
+        seed.deserialize(&mut *self.de).map(Some)
+    }
 }

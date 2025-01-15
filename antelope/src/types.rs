@@ -23,7 +23,7 @@ mod symbol;
 mod time;
 
 use hex::FromHexError;
-use serde::{Serialize, Serializer};
+use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
 // -----------------------------------------------------------------------------
 //     Native POD and varint types
@@ -83,6 +83,17 @@ impl Serialize for VarInt32 {
     }
 }
 
+impl<'de> Deserialize<'de> for VarInt32 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let n = i32::deserialize(deserializer)?;
+        Ok(n.into())
+    }
+
+}
+
 /// Newtype wrapper around a `u32` that has a different serialization implementation
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Default)]
 pub struct VarUint32(pub u32);
@@ -116,6 +127,7 @@ impl Serialize for VarUint32 {
             self.0.serialize(serializer)
         }
         else {
+            // FIXME: deprecated?
             let mut n = self.0;
             let mut buf = [0u8; 5];
             let mut size = 0;
@@ -136,6 +148,15 @@ impl Serialize for VarUint32 {
     }
 }
 
+impl<'de> Deserialize<'de> for VarUint32 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let n = u32::deserialize(deserializer)?;
+        Ok(n.into())
+    }
+}
 
 pub type Float32 = f32;
 pub type Float64 = f64;
@@ -184,8 +205,20 @@ impl Serialize for Bytes {
             self.to_hex().serialize(serializer)
         }
         else {
-            self.0.serialize(serializer)
+            // FIXME: deprecated?
+            unimplemented!();
+            // self.0.serialize(serializer)
         }
+    }
+}
+
+impl<'de> Deserialize<'de> for Bytes {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let hex_repr: &str = <&str>::deserialize(deserializer)?;
+        Bytes::from_hex(hex_repr).map_err(|e| de::Error::custom(e.to_string()))
     }
 }
 

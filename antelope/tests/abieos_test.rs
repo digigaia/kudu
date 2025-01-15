@@ -1,9 +1,10 @@
 use std::any::type_name_of_val;
+use std::fmt::Debug;
 use std::sync::{Once, OnceLock};
 
 use antelope::BlockTimestampType;
 use color_eyre::eyre::Result;
-use serde::Serialize;
+use serde::{de::DeserializeOwned, Serialize};
 use tracing::{trace, debug, info, instrument};
 use tracing_subscriber::{
     EnvFilter,
@@ -12,7 +13,8 @@ use tracing_subscriber::{
 
 // use antelope_abi::abidefinition::{ABIDefinition, TypeNameRef};
 use antelope::{
-    abiserializer::to_hex, data::{
+    binaryserializable::{to_bin, from_bin, BinarySerializable},
+    data::{
         PACKED_TRANSACTION_ABI, TEST_ABI, TOKEN_HEX_ABI, TRANSACTION_ABI
     },
     ABIDefinition, Asset, Bytes, ByteStream, ExtendedAsset, InvalidValue, JsonValue, Name,
@@ -21,7 +23,7 @@ use antelope::{
 
 
 #[cfg(feature = "float128")]
-use antelope_abi::data::STATE_HISTORY_PLUGIN_ABI;
+use antelope::data::STATE_HISTORY_PLUGIN_ABI;
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -60,6 +62,13 @@ fn transaction_abi() -> &'static ABI {
         ABI::from_definition(&transaction_abi_def).unwrap()
     })
 }
+
+
+// =============================================================================
+//
+//     Helper functions
+//
+// =============================================================================
 
 #[instrument(skip(ds, abi))]
 fn try_encode_stream(ds: &mut ByteStream, abi: &ABI, typename: TypeNameRef, data: &str) -> Result<()> {
@@ -131,39 +140,85 @@ fn check_round_trip2(abi: &ABI, typename: &str, data: &str, hex: &str, expected:
     round_trip(abi, typename, data, hex, expected).unwrap()
 }
 
+const DEFAULT: u32 = 0;            // bit mask for flags to following function
+const NO_JSON_TO_NATIVE: u32 = 1;  // bit mask for flags to following function
+
+macro_rules! check_cross_conversion {
+    ($abi:ident, $value:expr, $typ:ty, $typename:expr, $data:expr, $hex:expr, $expected:expr) => {
+        check_cross_conversion!($abi, $value, $typ, $typename, $data, $hex, $expected, DEFAULT);
+    };
+    ($abi:ident, $value:expr, $typ:ty, $typename:expr, $data:expr, $hex:expr, $expected:expr, $flags:expr) => {
+        // 1- JSON -> variant -> bin -> variant -> JSON
+        trace!(r#"checking JSON: {} -> variant -> bin: "{}" -> variant -> JSON"#, $data, $hex);
+        check_round_trip2($abi, $typename, $data, $hex, $expected);
+
+        // 2- Rust -> bin -> Rust
+        trace!("checking Rust native ({:?}: {}) -> bin: {}", &$value, type_name_of_val(&$value), $hex);
+        let bin = to_bin(&$value);
+        let hex_data = hex::encode(&bin);
+        assert_eq!(hex_data, $hex, "rust native to binary");
+        let value2: $typ = from_bin(&bin).unwrap();
+        assert_eq!(value2, $value, "rust binary to native");
+
+        // 3- Rust -> JSON -> Rust
+        trace!("checking Rust native -> JSON");
+        let repr = antelope::json::to_string(&$value).unwrap();
+        assert_eq!(repr, $expected, "rust native to JSON");
+        if ($flags & NO_JSON_TO_NATIVE) == 0 {
+            let value3: $typ = antelope::json::from_str(&repr).unwrap();
+            assert_eq!(value3, $value, "JSON to rust native");
+        }
+    };
+}
+
+
 /// check lots of conversions! FIXME: describe them
 #[track_caller]
-fn check_cross_conversion2(abi: &ABI, value: impl Serialize, typename: &str, data: &str, hex: &str, expected: &str) {
-    // 1- JSON -> variant -> bin -> variant -> JSON
-    trace!(r#"checking JSON: {} -> variant -> bin: "{}" -> variant -> JSON"#, data, hex);
-    check_round_trip2(abi, typename, data, hex, expected);
-
-    // FIXME: other direction too, please!
-    // 2- Rust -> bin -> Rust
-    trace!("checking Rust native ({}) -> bin: {}", type_name_of_val(&value), hex);
-    assert_eq!(to_hex(&value).unwrap(), hex, "rust native to binary");
-
-    // FIXME: other direction too, please!
-    // 3- Rust -> JSON -> Rust
-    trace!("checking Rust native -> JSON");
-    let repr = antelope::json::to_string(&value).unwrap();
-    assert_eq!(repr, expected, "rust native to JSON");
+fn check_cross_conversion2<T>(abi: &ABI, value: T, typename: &str, data: &str, hex: &str, expected: &str)
+where
+    T: Serialize + DeserializeOwned + BinarySerializable + PartialEq + Debug
+{
+    check_cross_conversion!(abi, value, T, typename, data, hex, expected);
 }
 
 #[track_caller]
-fn check_cross_conversion(abi: &ABI, value: impl Serialize, typename: &str, data: &str, hex: &str) {
+fn check_cross_conversion<T>(abi: &ABI, value: T, typename: &str, data: &str, hex: &str)
+where
+    T: Serialize + DeserializeOwned + BinarySerializable + PartialEq + Debug
+{
     check_cross_conversion2(abi, value, typename, data, hex, data)
 }
 
-///// FIXME FIXME: what about the expected hex?
-fn _check_error_trip(abi: &ABI, typename: &str, data: &str, error_msg: &str) {
-    check_error(|| round_trip(abi, typename, data, "", data), error_msg);
+
+// This is weird, we can't seem to get the owned type via <T as ToOwned>,
+// so we're making a new trait just for these tests with the proper associated type
+trait HasOwned {
+    type Owned;
 }
 
-fn str_to_hex(s: &str) -> String {
-    format!("{:02x}{}", s.len(), hex::encode(s.as_bytes()))
+impl HasOwned for &str {
+    type Owned = String;
 }
 
+impl<T: BinarySerializable> HasOwned for &[T] {
+    type Owned = Vec<T>;
+}
+
+#[track_caller]
+fn check_cross_conversion_borrowed<T>(abi: &ABI, value: T, typename: &str, data: &str, hex: &str)
+where
+    T: Serialize + BinarySerializable + PartialEq + Debug + HasOwned + ToOwned,
+    <T as HasOwned>::Owned: BinarySerializable + Debug + DeserializeOwned + PartialEq<T>,
+{
+    check_cross_conversion!(abi, value, <T as HasOwned>::Owned, typename, data, hex, data);
+}
+
+
+// =============================================================================
+//
+//     Tests
+//
+// =============================================================================
 
 #[test]
 fn integration_test() -> Result<()> {
@@ -178,6 +233,10 @@ fn integration_test() -> Result<()> {
     let _token_abi = ABI::from_hex_abi(TOKEN_HEX_ABI)?;
 
     let _abi = &_transaction_abi;
+
+    fn str_to_hex(s: &str) -> String {
+        format!("{:02x}{}", s.len(), hex::encode(s.as_bytes()))
+    }
 
     check_error(|| Ok(ABIDefinition::from_str("")?), "cannot deserialize ABIDefinition");
     check_error(|| Ok(ABI::from_hex_abi("")?), "stream ended");
@@ -247,10 +306,10 @@ fn roundtrip_i8() -> Result<()> {
     //       array then the size is known at compile-time and is not encoded in the
     //       binary stream (arrays get encoded as tuples, not sequences)
     let array: Vec<u8> = vec![10u8, 9, 8];
-    check_cross_conversion(abi, &array[..0], "uint8[]", "[]",       "00");
-    check_cross_conversion(abi, &array[..1], "uint8[]", "[10]",     "010a");
-    check_cross_conversion(abi, &array[..2], "uint8[]", "[10,9]",   "020a09");
-    check_cross_conversion(abi,  array,      "uint8[]", "[10,9,8]", "030a0908");
+    check_cross_conversion_borrowed(abi, &array[..0], "uint8[]", "[]",       "00");
+    check_cross_conversion_borrowed(abi, &array[..1], "uint8[]", "[10]",     "010a");
+    check_cross_conversion_borrowed(abi, &array[..2], "uint8[]", "[10,9]",   "020a09");
+    check_cross_conversion         (abi,  array,      "uint8[]", "[10,9,8]", "030a0908");
 
     Ok(())
 }
@@ -324,30 +383,33 @@ fn roundtrip_i128() -> Result<()> {
 
     let abi = transaction_abi();
 
-    check_cross_conversion(abi, 0i128, "int128",
-                            r#""0""#, "00000000000000000000000000000000");
-    check_cross_conversion(abi, 1i128, "int128",
-                            r#""1""#, "01000000000000000000000000000000");
-    check_cross_conversion(abi, -1i128, "int128",
-                            r#""-1""#, "ffffffffffffffffffffffffffffffff");
-    check_cross_conversion(abi, 18446744073709551615i128, "int128",
-                            r#""18446744073709551615""#, "ffffffffffffffff0000000000000000");
-    check_cross_conversion(abi, -18446744073709551615i128, "int128",
-                            r#""-18446744073709551615""#, "0100000000000000ffffffffffffffff");
-    check_cross_conversion(abi, 170141183460469231731687303715884105727i128, "int128",
-                            r#""170141183460469231731687303715884105727""#, "ffffffffffffffffffffffffffffff7f");
-    check_cross_conversion(abi, -170141183460469231731687303715884105727i128, "int128",
-                            r#""-170141183460469231731687303715884105727""#, "01000000000000000000000000000080");
-    check_cross_conversion(abi, -170141183460469231731687303715884105728i128, "int128",
-                            r#""-170141183460469231731687303715884105728""#, "00000000000000000000000000000080");
-    check_cross_conversion(abi, 0u128, "uint128",
-                            r#""0""#, "00000000000000000000000000000000");
-    check_cross_conversion(abi, 18446744073709551615u128, "uint128",
-                            r#""18446744073709551615""#, "ffffffffffffffff0000000000000000");
-    check_cross_conversion(abi, 340282366920938463463374607431768211454u128, "uint128",
-                            r#""340282366920938463463374607431768211454""#, "feffffffffffffffffffffffffffffff");
-    check_cross_conversion(abi, 340282366920938463463374607431768211455u128, "uint128",
-                            r#""340282366920938463463374607431768211455""#, "ffffffffffffffffffffffffffffffff");
+    let check_i128 = |value, repr, hex| {
+        check_cross_conversion!(abi, value, i128, "int128", repr, hex, repr, NO_JSON_TO_NATIVE);
+    };
+
+    let check_u128 = |value, repr, hex| {
+        check_cross_conversion!(abi, value, u128, "uint128", repr, hex, repr, NO_JSON_TO_NATIVE);
+    };
+
+    check_i128(0i128, r#""0""#, "00000000000000000000000000000000");
+    check_i128(1i128, r#""1""#, "01000000000000000000000000000000");
+    check_i128(-1i128, r#""-1""#, "ffffffffffffffffffffffffffffffff");
+    check_i128( 18446744073709551615i128,  r#""18446744073709551615""#, "ffffffffffffffff0000000000000000");
+    check_i128(-18446744073709551615i128, r#""-18446744073709551615""#, "0100000000000000ffffffffffffffff");
+    check_i128(170141183460469231731687303715884105727i128,
+               r#""170141183460469231731687303715884105727""#, "ffffffffffffffffffffffffffffff7f");
+    check_i128(-170141183460469231731687303715884105727i128,
+               r#""-170141183460469231731687303715884105727""#, "01000000000000000000000000000080");
+    check_i128(-170141183460469231731687303715884105728i128,
+               r#""-170141183460469231731687303715884105728""#, "00000000000000000000000000000080");
+
+    check_u128(0u128, r#""0""#, "00000000000000000000000000000000");
+    check_u128(18446744073709551615u128,
+               r#""18446744073709551615""#, "ffffffffffffffff0000000000000000");
+    check_u128(340282366920938463463374607431768211454u128,
+               r#""340282366920938463463374607431768211454""#, "feffffffffffffffffffffffffffffff");
+    check_u128(340282366920938463463374607431768211455u128,
+               r#""340282366920938463463374607431768211455""#, "ffffffffffffffffffffffffffffffff");
 
     check_error(|| try_encode(abi, "int128",  r#""170141183460469231731687303715884105728""#),  "number too large");
     check_error(|| try_encode(abi, "int128",  r#""-170141183460469231731687303715884105729""#), "number too small");
@@ -455,9 +517,10 @@ fn roundtrip_datetimes() -> Result<()> {
     check_tp(tp(2018, 6, 15, 19, 17, 47,   0), r#""2018-06-15T19:17:47.000""#, "c0ac3112b36e0500");
     check_tp(tp(2018, 6, 15, 19, 17, 47, 999), r#""2018-06-15T19:17:47.999""#, "18eb4012b36e0500");
     check_tp(tp(2030, 6, 15, 19, 17, 47, 999), r#""2030-06-15T19:17:47.999""#, "188bb5fc1dc70600");
-    check_cross_conversion2(abi, TimePoint::from_ymd_hms_micro(2000, 12, 31, 23, 59, 59, 999999).unwrap(),
-                            "time_point", r#""2000-12-31T23:59:59.999999""#,
-                            "ff1f23e5c3790300", r#""2000-12-31T23:59:59.999""#);
+    check_cross_conversion!(abi, TimePoint::from_ymd_hms_micro(2000, 12, 31, 23, 59, 59, 999999).unwrap(),
+                            TimePoint, "time_point", r#""2000-12-31T23:59:59.999999""#,
+                            "ff1f23e5c3790300", r#""2000-12-31T23:59:59.999""#,
+                            NO_JSON_TO_NATIVE);
 
     let bt = |y, m, d, h, mm, s, milli| { BlockTimestampType::new(y, m, d, h, mm, s, milli).unwrap() };
     let check_bt = |value: BlockTimestampType, repr, hex| {
@@ -528,9 +591,10 @@ fn roundtrip_strings() -> Result<()> {
     check_string(r#""z""#, "017a");
     check_string(r#""This is a string.""#, "1154686973206973206120737472696e672e");
     check_string(r#""' + '*'.repeat(128) + '""#, "1727202b20272a272e7265706561742831323829202b2027");
-    check_cross_conversion(abi, "\u{0000}  这是一个测试  Это тест  هذا اختبار 👍", "string",
-                           r#""\u0000  这是一个测试  Это тест  هذا اختبار 👍""#,
-	                   "40002020e8bf99e698afe4b880e4b8aae6b58be8af952020d0add182d0be20d182d0b5d181d1822020d987d8b0d8a720d8a7d8aed8aad8a8d8a7d8b120f09f918d");
+    check_cross_conversion_borrowed(
+        abi, "\u{0000}  这是一个测试  Это тест  هذا اختبار 👍", "string",
+        r#""\u0000  这是一个测试  Это тест  هذا اختبار 👍""#,
+	"40002020e8bf99e698afe4b880e4b8aae6b58be8af952020d0add182d0be20d182d0b5d181d1822020d987d8b0d8a720d8a7d8aed8aad8a8d8a7d8b120f09f918d");
 
     check_error(|| try_decode(abi, "string", "01"), "stream ended");
     check_error(|| try_decode(abi, "string", hex::encode(b"\x11invalid utf8: \xff\xfe\xfd")), "invalid utf-8 sequence");
@@ -719,15 +783,15 @@ fn roundtrip_transaction_traces() -> Result<()> {
 
     check_round_trip(ship_abi, "transaction_trace",
                      r#"["transaction_trace_v0",{"id":"3098EA9476266BFA957C13FA73C26806D78753099CE8DEF2A650971F07595A69","status":0,"cpu_usage_us":2000,"net_usage_words":25,"elapsed":"194","net_usage":"200","scheduled":false,"action_traces":[["action_trace_v1",{"action_ordinal":1,"creator_action_ordinal":0,"receipt":["action_receipt_v0",{"receiver":"eosio","act_digest":"F2FDEEFF77EFC899EED23EE05F9469357A096DC3083D493571CF68A422C69EFE","global_sequence":"11","recv_sequence":"11","auth_sequence":[{"account":"eosio","sequence":"11"}],"code_sequence":2,"abi_sequence":0}],"receiver":"eosio","act":{"account":"eosio","name":"newaccount","authorization":[{"actor":"eosio","permission":"active"}],"data":"0000000000EA305500409406A888CCA501000000010002C0DED2BC1F1305FB0FAAC5E6C03EE3A1924234985427B6167CA569D13DF435CF0100000001000000010002C0DED2BC1F1305FB0FAAC5E6C03EE3A1924234985427B6167CA569D13DF435CF01000000"},"context_free":false,"elapsed":"83","console":"","account_ram_deltas":[{"account":"oracle.aml","delta":"2724"}],"account_disk_deltas":[],"except":null,"error_code":null,"return_value":""}]],"account_ram_delta":null,"except":null,"error_code":null,"failed_dtrx_trace":null,"partial":null}]"#,
-                     "003098EA9476266BFA957C13FA73C26806D78753099CE8DEF2A650971F07595A6900D007000019C200000000000000C800000000000000000101010001000000000000EA3055F2FDEEFF77EFC899EED23EE05F9469357A096DC3083D493571CF68A422C69EFE0B000000000000000B00000000000000010000000000EA30550B0000000000000002000000000000EA30550000000000EA305500409E9A2264B89A010000000000EA305500000000A8ED3232660000000000EA305500409406A888CCA501000000010002C0DED2BC1F1305FB0FAAC5E6C03EE3A1924234985427B6167CA569D13DF435CF0100000001000000010002C0DED2BC1F1305FB0FAAC5E6C03EE3A1924234985427B6167CA569D13DF435CF01000000005300000000000000000100409406A888CCA5A40A000000000000000000000000000000");
+                     "003098ea9476266bfa957c13fa73c26806d78753099ce8def2a650971f07595a6900d007000019c200000000000000c800000000000000000101010001000000000000ea3055f2fdeeff77efc899eed23ee05f9469357a096dc3083d493571cf68a422c69efe0b000000000000000b00000000000000010000000000ea30550b0000000000000002000000000000ea30550000000000ea305500409e9a2264b89a010000000000ea305500000000a8ed3232660000000000ea305500409406a888cca501000000010002c0ded2bc1f1305fb0faac5e6c03ee3a1924234985427b6167ca569d13df435cf0100000001000000010002c0ded2bc1f1305fb0faac5e6c03ee3a1924234985427b6167ca569d13df435cf01000000005300000000000000000100409406a888cca5a40a000000000000000000000000000000");
 
     check_round_trip(ship_abi, "transaction_trace_msg",
                      r#"["transaction_trace_exception",{"error_code":"3","error_message":"error happens"}]"#,
-                     "0003000000000000000D6572726F722068617070656E73");
+                     "0003000000000000000d6572726f722068617070656e73");
 
     check_round_trip(ship_abi, "transaction_trace_msg",
                      r#"["transaction_trace",["transaction_trace_v0",{"id":"B2C8D46F161E06740CFADABFC9D11F013A1C90E25337FF3E22840B195E1ADC4B","status":0,"cpu_usage_us":2000,"net_usage_words":12,"elapsed":"7670","net_usage":"96","scheduled":false,"action_traces":[["action_trace_v1",{"action_ordinal":1,"creator_action_ordinal":0,"receipt":["action_receipt_v0",{"receiver":"eosio","act_digest":"7670940C29EC0A4C573EF052C5A29236393F587F208222B3C1B6A9C8FEA2C66A","global_sequence":"27","recv_sequence":"1","auth_sequence":[{"account":"eosio","sequence":"2"}],"code_sequence":1,"abi_sequence":0}],"receiver":"eosio","act":{"account":"eosio","name":"doit","authorization":[{"actor":"eosio","permission":"active"}],"data":"00"},"context_free":false,"elapsed":"7589","console":"","account_ram_deltas":[],"account_disk_deltas":[],"except":null,"error_code":null,"return_value":"01FFFFFFFFFFFFFFFF00"}]],"account_ram_delta":null,"except":null,"error_code":null,"failed_dtrx_trace":null,"partial":null}]]"#,
-                     "0100B2C8D46F161E06740CFADABFC9D11F013A1C90E25337FF3E22840B195E1ADC4B00D00700000CF61D0000000000006000000000000000000101010001000000000000EA30557670940C29EC0A4C573EF052C5A29236393F587F208222B3C1B6A9C8FEA2C66A1B000000000000000100000000000000010000000000EA3055020000000000000001000000000000EA30550000000000EA30550000000000901D4D010000000000EA305500000000A8ED3232010000A51D00000000000000000000000A01FFFFFFFFFFFFFFFF000000000000");
+                     "0100b2c8d46f161e06740cfadabfc9d11f013a1c90e25337ff3e22840b195e1adc4b00d00700000cf61d0000000000006000000000000000000101010001000000000000ea30557670940c29ec0a4c573ef052c5a29236393f587f208222b3c1b6a9c8fea2c66a1b000000000000000100000000000000010000000000ea3055020000000000000001000000000000ea30550000000000ea30550000000000901d4d010000000000ea305500000000a8ed3232010000a51d00000000000000000000000a01ffffffffffffffff000000000000");
 
 
     Ok(())

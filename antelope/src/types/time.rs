@@ -1,7 +1,7 @@
 use std::fmt;
 
 use chrono::{DateTime, NaiveDate, NaiveDateTime, ParseError as ChronoParseError, TimeZone, Utc};
-use serde::{Serialize, Serializer};
+use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::{json, Value as JsonValue};
 
 use crate::config;
@@ -46,6 +46,16 @@ macro_rules! impl_serialize {
                 else {
                     self.0.serialize(serializer)
                 }
+            }
+        }
+
+        impl<'de> Deserialize<'de> for $typ {
+            fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+            where
+                D: Deserializer<'de>,
+            {
+                let s: &str = <&str>::deserialize(deserializer)?;
+                Self::from_str(s).map_err(|e| de::Error::custom(e.to_string()))
             }
         }
     }
