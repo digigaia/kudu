@@ -59,6 +59,7 @@ So for now, `ByteStream` stays as a normal struct.
   - <https://graphallthethings.com/posts/better-buf-read>
   - `std::io::Cursor`
   - something based on the `bytes` crate?
+  - <https://docs.rs/binary-stream/>
 
 
 ## Error handling

@@ -8,9 +8,9 @@ use hex;
 use snafu::prelude::*;
 
 use flate2::read::DeflateDecoder;
-use serde::{Serialize, Serializer, ser::SerializeTuple, ser::SerializeStruct};
+use serde::{Serialize, Serializer, ser::SerializeStruct};
 
-use antelope_macros::with_location;
+use antelope_macros::{with_location, SerializeEnum};
 use antelope::{convert::hex_to_boxed_array, JsonValue, Name, json};
 use antelope::{
     ByteStream, SerializeError, ABIError,
@@ -30,66 +30,69 @@ type Checksum256 = Box<[u8; 32]>;
 //     ChainId enum - can be an alias or the full chain ID
 // -----------------------------------------------------------------------------
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, SerializeEnum)]
 pub enum ChainId {
+    #[serde(rename="chain_alias")]
     Alias(u8),
+    #[serde(rename="chain_id")]
     Id(Checksum256), // AntelopeValue::Checksum256 variant assumed
 }
 
-impl Serialize for ChainId {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where S: Serializer
-    {
-        let mut tup = serializer.serialize_tuple(2)?;
-        match self {
-            ChainId::Alias(alias) => {
-                tup.serialize_element("chain_alias")?;
-                tup.serialize_element(&alias)?;
-            },
-            ChainId::Id(id) => {
-                tup.serialize_element("chain_id")?;
-                tup.serialize_element(&hex::encode(**id))?;
-            },
-        }
-        tup.end()
-    }
-}
+// impl Serialize for ChainId {
+//     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+//     where S: Serializer
+//     {
+//         let mut tup = serializer.serialize_tuple(2)?;
+//         match self {
+//             ChainId::Alias(alias) => {
+//                 tup.serialize_element("chain_alias")?;
+//                 tup.serialize_element(&alias)?;
+//             },
+//             ChainId::Id(id) => {
+//                 tup.serialize_element("chain_id")?;
+//                 tup.serialize_element(&hex::encode(**id))?;
+//             },
+//         }
+//         tup.end()
+//     }
+// }
 
 // -----------------------------------------------------------------------------
 //     Request data enum - contains the data in the request
 // -----------------------------------------------------------------------------
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, SerializeEnum)]
 pub enum Request {
     Action(JsonValue),
+    #[serde(rename="action[]")]
     Actions(Vec<JsonValue>),
     Transaction(JsonValue),
     Identity,
 }
 
-impl Serialize for Request {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where S: Serializer
-    {
-        let mut tup = serializer.serialize_tuple(2)?;
-        match self {
-            Request::Action(action) => {
-                tup.serialize_element("action")?;
-                tup.serialize_element(&action)?;
-            },
-            Request::Actions(actions) => {
-                tup.serialize_element("action[]")?;
-                tup.serialize_element(&actions)?;
-            },
-            Request::Transaction(tx) => {
-                tup.serialize_element("transaction")?;
-                tup.serialize_element(tx)?;
-            },
-            Request::Identity => todo!(),
-        }
-        tup.end()
-    }
-}
+// impl Serialize for Request {
+//     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+//     where S: Serializer
+//     {
+//         let mut tup = serializer.serialize_tuple(2)?;
+//         match self {
+//             Request::Action(action) => {
+//                 tup.serialize_element("action")?;
+//                 tup.serialize_element(&action)?;
+//             },
+//             Request::Actions(actions) => {
+//                 tup.serialize_element("action[]")?;
+//                 tup.serialize_element(&actions)?;
+//             },
+//             Request::Transaction(tx) => {
+//                 tup.serialize_element("transaction")?;
+//                 tup.serialize_element(tx)?;
+//             },
+//             Request::Identity => todo!(),
+//         }
+//         tup.end()
+//     }
+// }
 
 // -----------------------------------------------------------------------------
 //     Request flags definition
@@ -435,7 +438,8 @@ impl TryFrom<JsonValue> for SigningRequest {
             "" => None,
             callback => Some(callback.to_owned()),
         };
-        result.info = payload["info"].as_array().unwrap().to_owned();
+        // result.info = payload["info"].as_array().unwrap().to_owned();
+        payload["info"].as_array().unwrap().clone_into(&mut result.info);
 
         Ok(result)
     }

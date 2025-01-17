@@ -11,11 +11,13 @@ use tracing_subscriber::{
 };
 
 use antelope::{
-    ABIDefinition, TimePoint, TimePointSec,
+    ABIDefinition, TimePoint, TimePointSec, JsonValue,
     abidefinition::abi_schema,
     abiserializer::{to_bin, from_bin},
     convert::{variant_to_int, variant_to_uint}
 };
+
+use antelope_macros::{BinarySerializable, SerializeEnum};
 
 static TRACING_INIT: Once = Once::new();
 
@@ -28,7 +30,7 @@ fn init() {
     });
 }
 
-fn check_conversion<'a, T>(value: T, hex: &str)
+fn check_conversion<T>(value: T, hex: &str)
 where
     T: Serialize + DeserializeOwned + PartialEq + Debug
 {
@@ -70,6 +72,40 @@ macro_rules! check_conv {
     };
 }
 
+#[derive(BinarySerializable)]
+struct MyStruct {
+    a: i32,
+    b: u32,
+}
+
+
+#[derive(SerializeEnum)]
+pub enum ChainId {
+    ChainAlias(u8),
+    #[serde(rename="chainid")]
+    ChainId(String), // AntelopeValue::Checksum256 variant assumed
+}
+
+#[derive(SerializeEnum)]
+pub enum Request {
+    Action(JsonValue),
+    // #[serde(rename="action[]")]
+    Actions(Vec<JsonValue>),
+    Transaction(JsonValue),
+    Identity,
+}
+
+// #[allow(deprecated, non_upper_case_globals)]
+// const _: () = {
+//     impl serde::Serialize for Request {
+//         fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+//         where
+//             S: serde::Serializer,
+//         {
+//             todo!()
+//         }
+//     }
+// };
 
 fn main() -> Result<()> {
     init();
@@ -122,6 +158,12 @@ fn main() -> Result<()> {
 
     check_conversion(23u8, "17");
     check_conv!(" ", &str, "0120");
+
+    let cid = ChainId::ChainAlias(23);
+    info!("{}", &serde_json::to_string(&cid)?);
+
+    let cid = ChainId::ChainId("hello".to_string());
+    info!("{}", &serde_json::to_string(&cid)?);
 
     Ok(())
 }

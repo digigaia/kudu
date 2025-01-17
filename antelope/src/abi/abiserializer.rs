@@ -533,94 +533,6 @@ impl ser::SerializeStructVariant for &'_ mut ABISerializer {
 
 // =============================================================================
 //
-//     Unittests
-//
-// =============================================================================
-
-#[cfg(test)]
-mod tests {
-    use std::sync::Once;
-    use color_eyre::eyre::Result;
-    use serde_json;
-    use tracing_subscriber::{
-        EnvFilter,
-        // fmt::format::FmtSpan,
-    };
-
-    use crate::VarUint32;
-    use super::*;
-
-    static TRACING_INIT: Once = Once::new();
-
-    fn init() {
-        TRACING_INIT.call_once(|| {
-            tracing_subscriber::fmt()
-                .with_env_filter(EnvFilter::from_default_env())
-            // .with_span_events(FmtSpan::ACTIVE)
-                .init();
-        });
-    }
-
-    #[track_caller]
-    fn bin<T: Serialize>(value: T) -> String {
-        to_hex(&value).unwrap()
-    }
-
-    #[test]
-    fn primitive_types() -> Result<()> {
-        init();
-
-        assert_eq!(bin(false), "00");
-        assert_eq!(bin(true), "01");
-
-        assert_eq!(bin(1u8), "01");
-        assert_eq!(bin(2u16), "0200");
-        assert_eq!(bin(3u32), "03000000");
-        assert_eq!(bin(4u64), "0400000000000000");
-
-        assert_eq!(bin(170141183460469231731687303715884105727_i128), "ffffffffffffffffffffffffffffff7f");
-        assert_eq!(bin(-170141183460469231731687303715884105728_i128), "00000000000000000000000000000080");
-        assert_eq!(bin(0_u128), "00000000000000000000000000000000");
-        assert_eq!(bin(18446744073709551615_u128), "ffffffffffffffff0000000000000000");
-        assert_eq!(bin(340282366920938463463374607431768211454_u128), "feffffffffffffffffffffffffffffff");
-        assert_eq!(bin(340282366920938463463374607431768211455_u128), "ffffffffffffffffffffffffffffffff");
-
-        let s = String::from("This is a string.");
-        assert_eq!(serde_json::to_string(&s)?, r#""This is a string.""#);
-        assert_eq!(bin(s), "1154686973206973206120737472696e672e");
-
-        Ok(())
-    }
-
-    #[test]
-    fn test_array() -> Result<()> {
-        init();
-
-        let n = VarUint32(2300);
-        assert_eq!(bin(n), "fc11");
-        assert_eq!(serde_json::to_string(&n)?, "2300");
-
-        let v = vec![1_u8, 2, 3];
-        assert_eq!(bin(v.clone()), "03010203");
-
-        let v2 = &v[..];
-        assert_eq!(bin(v2), "03010203");
-
-        #[derive(Serialize)]
-        struct Bytes(Vec<u8>);
-
-        let b = Bytes(vec![1_u8, 2, 3, 4]);
-        assert_eq!(serde_json::to_string(&b)?, "[1,2,3,4]");
-        assert_eq!(bin(b), "0401020304");
-
-        Ok(())
-    }
-
-}
-
-
-// =============================================================================
-//
 //     ABIDeserializer
 //
 // =============================================================================
@@ -1000,4 +912,92 @@ impl<'de, 'a> SeqAccess<'de> for BinSequence<'a, 'de> {
         // Deserialize an array element.
         seed.deserialize(&mut *self.de).map(Some)
     }
+}
+
+
+// =============================================================================
+//
+//     Unittests
+//
+// =============================================================================
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Once;
+    use color_eyre::eyre::Result;
+    use serde_json;
+    use tracing_subscriber::{
+        EnvFilter,
+        // fmt::format::FmtSpan,
+    };
+
+    use crate::VarUint32;
+    use super::*;
+
+    static TRACING_INIT: Once = Once::new();
+
+    fn init() {
+        TRACING_INIT.call_once(|| {
+            tracing_subscriber::fmt()
+                .with_env_filter(EnvFilter::from_default_env())
+            // .with_span_events(FmtSpan::ACTIVE)
+                .init();
+        });
+    }
+
+    #[track_caller]
+    fn bin<T: Serialize>(value: T) -> String {
+        to_hex(&value).unwrap()
+    }
+
+    #[test]
+    fn primitive_types() -> Result<()> {
+        init();
+
+        assert_eq!(bin(false), "00");
+        assert_eq!(bin(true), "01");
+
+        assert_eq!(bin(1u8), "01");
+        assert_eq!(bin(2u16), "0200");
+        assert_eq!(bin(3u32), "03000000");
+        assert_eq!(bin(4u64), "0400000000000000");
+
+        assert_eq!(bin(170141183460469231731687303715884105727_i128), "ffffffffffffffffffffffffffffff7f");
+        assert_eq!(bin(-170141183460469231731687303715884105728_i128), "00000000000000000000000000000080");
+        assert_eq!(bin(0_u128), "00000000000000000000000000000000");
+        assert_eq!(bin(18446744073709551615_u128), "ffffffffffffffff0000000000000000");
+        assert_eq!(bin(340282366920938463463374607431768211454_u128), "feffffffffffffffffffffffffffffff");
+        assert_eq!(bin(340282366920938463463374607431768211455_u128), "ffffffffffffffffffffffffffffffff");
+
+        let s = String::from("This is a string.");
+        assert_eq!(serde_json::to_string(&s)?, r#""This is a string.""#);
+        assert_eq!(bin(s), "1154686973206973206120737472696e672e");
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_array() -> Result<()> {
+        init();
+
+        let n = VarUint32(2300);
+        assert_eq!(bin(n), "fc11");
+        assert_eq!(serde_json::to_string(&n)?, "2300");
+
+        let v = vec![1_u8, 2, 3];
+        assert_eq!(bin(v.clone()), "03010203");
+
+        let v2 = &v[..];
+        assert_eq!(bin(v2), "03010203");
+
+        #[derive(Serialize)]
+        struct Bytes(Vec<u8>);
+
+        let b = Bytes(vec![1_u8, 2, 3, 4]);
+        assert_eq!(serde_json::to_string(&b)?, "[1,2,3,4]");
+        assert_eq!(bin(b), "0401020304");
+
+        Ok(())
+    }
+
 }

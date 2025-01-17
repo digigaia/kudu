@@ -59,6 +59,8 @@
   see:
   - <https://github.com/serde-rs/serde/issues/2120>
   - <https://github.com/uuid-rs/uuid/issues/557>
+  - <https://github.com/serde-rs/bytes>
+  - serde-related crates: `serde_arrays`, `serde_with`
 
   TODO: deprecated/remove non human-readable impls for Serialize/Deserialize types
 
