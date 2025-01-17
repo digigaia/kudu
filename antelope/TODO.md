@@ -31,7 +31,7 @@
 
 - have constructors for base types be named `new` instead of `from_str`?
 
-- to_hex -> hex representation of binary data, to_bin -> binary data itself (ie: vec<u8>)
+- to_hex -> hex representation of binary data, to_bin -> binary data itself (ie: `vec<u8>`)
 
 
 ### Investigate Serde

@@ -1,7 +1,7 @@
 use std::str::{from_utf8, Utf8Error};
 
 use bytemuck::{cast_ref, pod_read_unaligned};
-use snafu::{ensure, Snafu, IntoError, ResultExt};
+use snafu::{ensure, Snafu, ResultExt};
 
 use antelope_macros::with_location;
 

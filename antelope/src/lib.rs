@@ -70,3 +70,5 @@ pub mod typenameref;
 pub use bytestream::{ByteStream, StreamError};
 pub use binaryserializable::{BinarySerializable, SerializeError};
 pub use typenameref::TypeNameRef;
+
+pub use antelope_macros::{with_location, BinarySerializable, SerializeEnum};

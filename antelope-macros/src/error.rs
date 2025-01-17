@@ -111,7 +111,6 @@ fn visit_snafu_attr(node: &mut Attribute) {
 
     let old_tokens = &snafu_attrs.tokens;
     debug!("OLD: {}", quote! { #old_tokens }.to_string());
-    // debug!("OLD: {:#?}", old_tokens);
 
     // we want to iterate over all the original tokens,
     // find the one that is about `display`, and change the display
@@ -152,7 +151,6 @@ fn visit_snafu_attr(node: &mut Attribute) {
 
     let new_tokens = TokenStream::from_iter(out.into_iter());
     debug!("NEW: {}", quote! { #new_tokens }.to_string());
-    // debug!("NEW: {:#?}", &new_tokens);
     snafu_attrs.tokens = new_tokens;
 }
 
@@ -164,8 +162,6 @@ fn visit_snafu_attr(node: &mut Attribute) {
 // =============================================================================
 
 pub fn add_location_to_error_enum(mut error_enum: ItemEnum) -> TokenStream {
-    // let mut error_enum = parse_macro_input!(annotated_item as ItemEnum);
-
     AddLocationField.visit_item_enum_mut(&mut error_enum);
     AddLocationToDisplay.visit_item_enum_mut(&mut error_enum);
 

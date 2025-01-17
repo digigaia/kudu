@@ -6,7 +6,7 @@ use std::str::{ParseBoolError, Utf8Error};
 
 use chrono::ParseError as ChronoParseError;
 use hex::FromHexError;
-use snafu::{Snafu, IntoError, ResultExt, OptionExt};
+use snafu::{Snafu, ResultExt, OptionExt};
 use strum::{Display, AsRefStr, EnumDiscriminants, EnumString, VariantNames};
 use tracing::instrument;
 

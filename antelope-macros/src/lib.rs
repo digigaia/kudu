@@ -2,7 +2,7 @@
 //!
 //! ## Feature flags
 //!
-//! - `detailed-error`:d activate this to enable the [`macro@with_location`] macro. If
+//! - `detailed-error`: activate this to enable the [`macro@with_location`] macro. If
 //!   not enabled, the [`macro@with_location`] macro will be a no-op.
 
 mod attr;
@@ -53,12 +53,25 @@ fn with_location_impl(_attr: TokenStream, annotated_item: TokenStream) -> TokenS
 }
 
 
+/// Implement the `antelope::BinarySerializable` trait
+///
+/// This simply calls `BinarySerializable::encode()` and `BinarySerializable::decode()`
+/// on all members sequentially.
 #[proc_macro_derive(BinarySerializable)]
 pub fn derive_binaryserializable(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     serde::derive(&input).into()
 }
 
+/// Implement the `serde::Serialize` and `serde::Deserialize` trait
+///
+/// Antelope blockchains expect enums (variant types) to be encoded as a
+/// tuple of `(discriminant, value)` which is not natively supported by `serde`,
+/// so this macro fills in the gap and should be used instead of
+/// `#[derive(Serialize, Deserialize)]` for enum types. By default the discriminant
+/// is serialized as a `snake_case` string.
+///
+/// It only exposes one attribute argument for fields which is `serde(rename)`.
 #[proc_macro_derive(SerializeEnum, attributes(serde))]
 pub fn derive_serialize_enum(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);

@@ -1,5 +1,5 @@
 //!
-//! This crate provides tools to encode/decode `Antelope` types into/from an ABI.
+//! This module provides tools to encode/decode `Antelope` types into/from an ABI.
 //!
 //! ## Feature flags
 //!

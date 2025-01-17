@@ -7,7 +7,7 @@ use serde_json::{
     Map as JsonMap,
     Value as JsonValue,
 };
-use snafu::{ensure, Snafu, IntoError, ResultExt};
+use snafu::{ensure, Snafu, ResultExt};
 use strum::VariantNames;
 use tracing::{debug, warn, instrument};
 
