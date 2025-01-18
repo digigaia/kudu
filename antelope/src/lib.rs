@@ -22,6 +22,25 @@
     doc = ::embed_doc_image::embed_image!("datamodel", "doc/antelope_data_model.drawio.svg")
 )]
 //!
+//! Data used in the Antelope blockchains can be found in a variety of formats.
+//! Including this library, we can find:
+//!  - Rust native data types
+//!  - JSON Value (`serde_json::Value`) (also called variant in Antelope terminology)
+//!  - JSON string representation
+//!  - binary data
+//!
+//! The above diagram shows those types and the different ways to convert between them.
+//!  - most of the conversions are handled via the serde `Serialize` and `Deserialize` trait,
+//!    however care should be taken when deriving that trait on a Rust native enum, as
+//!    the discriminant needs to be encoded in a specific way which cannot be achieved
+//!    by the `serde::Serialize` trait so you need to use the `antelope::SerializeEnum`
+//!    trait instead.
+//!  - to convert between a JSON value and a binary stream you need to use an instance
+//!    of the `antelope::ABI` class which has been initialized with a data schema
+//!    (`ABIDefinition`).
+//!  - to convert between a Rust native value and a binary stream you need to use the
+//!    [`BinarySerializable`] trait, which you can automatically derive using the
+//!    `BinarySerializable` derive macro.
 //! ----
 
 #![doc = include_str!("../../NOTES.md")]

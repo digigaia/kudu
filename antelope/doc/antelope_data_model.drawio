@@ -1,42 +1,42 @@
-<mxfile host="app.diagrams.net" agent="Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0" version="25.0.1">
+<mxfile host="app.diagrams.net" agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:134.0) Gecko/20100101 Firefox/134.0" version="26.0.6">
   <diagram name="Page-1" id="UXYhOaJXUT2tCapZaOIA">
-    <mxGraphModel dx="1177" dy="789" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
+    <mxGraphModel dx="1236" dy="842" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
-        <mxCell id="lSlXTyUihgR4Sofdv2rn-1" value="&lt;font color=&quot;#808080&quot;&gt;serde_json crate&lt;/font&gt;" style="verticalLabelPosition=middle;verticalAlign=top;html=1;shape=mxgraph.basic.patternFillRect;fillStyle=diag;step=5;fillStrokeWidth=0.2;fillStrokeColor=#dddddd;labelPosition=center;align=center;strokeColor=#CCCCCC;" vertex="1" parent="1">
+        <mxCell id="lSlXTyUihgR4Sofdv2rn-1" value="&lt;font color=&quot;#808080&quot;&gt;serde_json crate&lt;/font&gt;" style="verticalLabelPosition=middle;verticalAlign=top;html=1;shape=mxgraph.basic.patternFillRect;fillStyle=diag;step=5;fillStrokeWidth=0.2;fillStrokeColor=#dddddd;labelPosition=center;align=center;strokeColor=#CCCCCC;" parent="1" vertex="1">
           <mxGeometry x="100" y="100" width="680" height="120" as="geometry" />
         </mxCell>
-        <mxCell id="lSlXTyUihgR4Sofdv2rn-2" value="&lt;font color=&quot;#808080&quot;&gt;antelope crate&lt;/font&gt;" style="verticalLabelPosition=middle;verticalAlign=bottom;html=1;shape=mxgraph.basic.patternFillRect;fillStyle=diag;step=5;fillStrokeWidth=0.2;fillStrokeColor=#dddddd;labelPosition=center;align=center;strokeColor=#CCCCCC;" vertex="1" parent="1">
+        <mxCell id="lSlXTyUihgR4Sofdv2rn-2" value="&lt;font color=&quot;#808080&quot;&gt;antelope crate&lt;/font&gt;" style="verticalLabelPosition=middle;verticalAlign=bottom;html=1;shape=mxgraph.basic.patternFillRect;fillStyle=diag;step=5;fillStrokeWidth=0.2;fillStrokeColor=#dddddd;labelPosition=center;align=center;strokeColor=#CCCCCC;" parent="1" vertex="1">
           <mxGeometry x="100" y="340" width="680" height="120" as="geometry" />
         </mxCell>
-        <mxCell id="lSlXTyUihgR4Sofdv2rn-5" value="JSON Value" style="verticalLabelPosition=middle;verticalAlign=middle;html=1;shape=mxgraph.basic.rect;fillColor2=none;strokeWidth=1;size=20;indent=5;labelPosition=center;align=center;" vertex="1" parent="1">
+        <mxCell id="lSlXTyUihgR4Sofdv2rn-5" value="JSON Value" style="verticalLabelPosition=middle;verticalAlign=middle;html=1;shape=mxgraph.basic.rect;fillColor2=none;strokeWidth=1;size=20;indent=5;labelPosition=center;align=center;" parent="1" vertex="1">
           <mxGeometry x="120" y="120" width="160" height="80" as="geometry" />
         </mxCell>
-        <mxCell id="lSlXTyUihgR4Sofdv2rn-6" value="JSON String" style="verticalLabelPosition=middle;verticalAlign=middle;html=1;shape=mxgraph.basic.rect;fillColor2=none;strokeWidth=1;size=20;indent=5;labelPosition=center;align=center;" vertex="1" parent="1">
+        <mxCell id="lSlXTyUihgR4Sofdv2rn-6" value="JSON String" style="verticalLabelPosition=middle;verticalAlign=middle;html=1;shape=mxgraph.basic.rect;fillColor2=none;strokeWidth=1;size=20;indent=5;labelPosition=center;align=center;" parent="1" vertex="1">
           <mxGeometry x="600" y="120" width="160" height="80" as="geometry" />
         </mxCell>
-        <mxCell id="lSlXTyUihgR4Sofdv2rn-7" value="ABI binary stream" style="verticalLabelPosition=middle;verticalAlign=middle;html=1;shape=mxgraph.basic.rect;fillColor2=none;strokeWidth=1;size=20;indent=5;labelPosition=center;align=center;" vertex="1" parent="1">
+        <mxCell id="lSlXTyUihgR4Sofdv2rn-7" value="ABI binary stream" style="verticalLabelPosition=middle;verticalAlign=middle;html=1;shape=mxgraph.basic.rect;fillColor2=none;strokeWidth=1;size=20;indent=5;labelPosition=center;align=center;" parent="1" vertex="1">
           <mxGeometry x="600" y="360" width="160" height="80" as="geometry" />
         </mxCell>
-        <mxCell id="lSlXTyUihgR4Sofdv2rn-8" value="Antelope value" style="verticalLabelPosition=middle;verticalAlign=middle;html=1;shape=mxgraph.basic.rect;fillColor2=none;strokeWidth=1;size=20;indent=0;labelPosition=center;align=center;" vertex="1" parent="1">
+        <mxCell id="lSlXTyUihgR4Sofdv2rn-8" value="Rust native value" style="verticalLabelPosition=middle;verticalAlign=middle;html=1;shape=mxgraph.basic.rect;fillColor2=none;strokeWidth=1;size=20;indent=0;labelPosition=center;align=center;" parent="1" vertex="1">
           <mxGeometry x="120" y="360" width="160" height="80" as="geometry" />
         </mxCell>
-        <mxCell id="lSlXTyUihgR4Sofdv2rn-17" value="Serde data model" style="verticalLabelPosition=middle;verticalAlign=middle;html=1;shape=mxgraph.basic.rect;fillColor2=none;strokeWidth=1;size=20;indent=5;labelPosition=center;align=center;" vertex="1" parent="1">
+        <mxCell id="lSlXTyUihgR4Sofdv2rn-17" value="Serde data model" style="verticalLabelPosition=middle;verticalAlign=middle;html=1;shape=mxgraph.basic.rect;fillColor2=none;strokeWidth=1;size=20;indent=5;labelPosition=center;align=center;" parent="1" vertex="1">
           <mxGeometry x="360" y="240" width="160" height="80" as="geometry" />
         </mxCell>
-        <mxCell id="lSlXTyUihgR4Sofdv2rn-18" value="" style="endArrow=classic;html=1;rounded=0;exitX=0.75;exitY=0;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0;entryY=0.75;entryDx=0;entryDy=0;entryPerimeter=0;edgeStyle=orthogonalEdgeStyle;elbow=vertical;curved=1;" edge="1" parent="1" source="lSlXTyUihgR4Sofdv2rn-8" target="lSlXTyUihgR4Sofdv2rn-17">
+        <mxCell id="lSlXTyUihgR4Sofdv2rn-18" value="" style="endArrow=classic;html=1;rounded=0;exitX=0.75;exitY=0;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0;entryY=0.75;entryDx=0;entryDy=0;entryPerimeter=0;edgeStyle=orthogonalEdgeStyle;elbow=vertical;curved=1;" parent="1" source="lSlXTyUihgR4Sofdv2rn-8" target="lSlXTyUihgR4Sofdv2rn-17" edge="1">
           <mxGeometry width="50" height="50" relative="1" as="geometry">
             <mxPoint x="200" y="340" as="sourcePoint" />
             <mxPoint x="350" y="280" as="targetPoint" />
           </mxGeometry>
         </mxCell>
-        <mxCell id="lSlXTyUihgR4Sofdv2rn-20" value="Serialize trait" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="lSlXTyUihgR4Sofdv2rn-18">
+        <mxCell id="lSlXTyUihgR4Sofdv2rn-20" value="Serialize trait" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" parent="lSlXTyUihgR4Sofdv2rn-18" vertex="1" connectable="0">
           <mxGeometry x="0.2223" y="2" relative="1" as="geometry">
             <mxPoint as="offset" />
           </mxGeometry>
         </mxCell>
-        <mxCell id="lSlXTyUihgR4Sofdv2rn-26" value="" style="endArrow=classic;html=1;rounded=0;exitX=0.25;exitY=1.05;exitDx=0;exitDy=0;exitPerimeter=0;entryX=1;entryY=0.25;entryDx=0;entryDy=0;entryPerimeter=0;edgeStyle=orthogonalEdgeStyle;curved=1;" edge="1" parent="1" source="lSlXTyUihgR4Sofdv2rn-17" target="lSlXTyUihgR4Sofdv2rn-8">
+        <mxCell id="lSlXTyUihgR4Sofdv2rn-26" value="" style="endArrow=classic;html=1;rounded=0;exitX=0.25;exitY=1.05;exitDx=0;exitDy=0;exitPerimeter=0;entryX=1;entryY=0.25;entryDx=0;entryDy=0;entryPerimeter=0;edgeStyle=orthogonalEdgeStyle;curved=1;" parent="1" source="lSlXTyUihgR4Sofdv2rn-17" target="lSlXTyUihgR4Sofdv2rn-8" edge="1">
           <mxGeometry relative="1" as="geometry">
             <mxPoint x="370" y="390" as="sourcePoint" />
             <mxPoint x="470" y="390" as="targetPoint" />
@@ -45,10 +45,10 @@
             </Array>
           </mxGeometry>
         </mxCell>
-        <mxCell id="lSlXTyUihgR4Sofdv2rn-27" value="Deserialize trait" style="edgeLabel;resizable=0;html=1;;align=center;verticalAlign=middle;" connectable="0" vertex="1" parent="lSlXTyUihgR4Sofdv2rn-26">
+        <mxCell id="lSlXTyUihgR4Sofdv2rn-27" value="Deserialize trait" style="edgeLabel;resizable=0;html=1;;align=center;verticalAlign=middle;" parent="lSlXTyUihgR4Sofdv2rn-26" connectable="0" vertex="1">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="lSlXTyUihgR4Sofdv2rn-28" value="" style="endArrow=classic;html=1;rounded=0;exitX=0.25;exitY=1;exitDx=0;exitDy=0;exitPerimeter=0;entryX=1.006;entryY=0.325;entryDx=0;entryDy=0;entryPerimeter=0;edgeStyle=orthogonalEdgeStyle;curved=1;" edge="1" parent="1" source="lSlXTyUihgR4Sofdv2rn-6" target="lSlXTyUihgR4Sofdv2rn-17">
+        <mxCell id="lSlXTyUihgR4Sofdv2rn-28" value="" style="endArrow=classic;html=1;rounded=0;exitX=0.25;exitY=1;exitDx=0;exitDy=0;exitPerimeter=0;entryX=1.006;entryY=0.325;entryDx=0;entryDy=0;entryPerimeter=0;edgeStyle=orthogonalEdgeStyle;curved=1;" parent="1" source="lSlXTyUihgR4Sofdv2rn-6" target="lSlXTyUihgR4Sofdv2rn-17" edge="1">
           <mxGeometry relative="1" as="geometry">
             <mxPoint x="600" y="200" as="sourcePoint" />
             <mxPoint x="520" y="256" as="targetPoint" />
@@ -57,44 +57,44 @@
             </Array>
           </mxGeometry>
         </mxCell>
-        <mxCell id="lSlXTyUihgR4Sofdv2rn-29" value="serde_json::Deserializer" style="edgeLabel;resizable=0;html=1;;align=center;verticalAlign=middle;" connectable="0" vertex="1" parent="lSlXTyUihgR4Sofdv2rn-28">
+        <mxCell id="lSlXTyUihgR4Sofdv2rn-29" value="serde_json::Deserializer" style="edgeLabel;resizable=0;html=1;;align=center;verticalAlign=middle;" parent="lSlXTyUihgR4Sofdv2rn-28" connectable="0" vertex="1">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="lSlXTyUihgR4Sofdv2rn-30" value="" style="endArrow=classic;html=1;rounded=0;exitX=0.75;exitY=0;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0;entryY=0.75;entryDx=0;entryDy=0;entryPerimeter=0;edgeStyle=orthogonalEdgeStyle;elbow=vertical;curved=1;" edge="1" parent="1" source="lSlXTyUihgR4Sofdv2rn-17" target="lSlXTyUihgR4Sofdv2rn-6">
+        <mxCell id="lSlXTyUihgR4Sofdv2rn-30" value="" style="endArrow=classic;html=1;rounded=0;exitX=0.75;exitY=0;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0;entryY=0.75;entryDx=0;entryDy=0;entryPerimeter=0;edgeStyle=orthogonalEdgeStyle;elbow=vertical;curved=1;" parent="1" source="lSlXTyUihgR4Sofdv2rn-17" target="lSlXTyUihgR4Sofdv2rn-6" edge="1">
           <mxGeometry width="50" height="50" relative="1" as="geometry">
             <mxPoint x="430" y="170" as="sourcePoint" />
             <mxPoint x="510" y="110" as="targetPoint" />
           </mxGeometry>
         </mxCell>
-        <mxCell id="lSlXTyUihgR4Sofdv2rn-31" value="serde_json::Serializer" style="edgeLabel;html=1;align=center;verticalAlign=top;resizable=0;points=[];" vertex="1" connectable="0" parent="lSlXTyUihgR4Sofdv2rn-30">
+        <mxCell id="lSlXTyUihgR4Sofdv2rn-31" value="serde_json::Serializer" style="edgeLabel;html=1;align=center;verticalAlign=top;resizable=0;points=[];" parent="lSlXTyUihgR4Sofdv2rn-30" vertex="1" connectable="0">
           <mxGeometry x="0.2223" y="2" relative="1" as="geometry">
             <mxPoint as="offset" />
           </mxGeometry>
         </mxCell>
-        <mxCell id="lSlXTyUihgR4Sofdv2rn-33" value="" style="endArrow=classic;html=1;rounded=0;exitX=1;exitY=0.75;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0.25;entryY=0;entryDx=0;entryDy=0;entryPerimeter=0;edgeStyle=orthogonalEdgeStyle;elbow=vertical;curved=1;" edge="1" parent="1" source="lSlXTyUihgR4Sofdv2rn-5" target="lSlXTyUihgR4Sofdv2rn-17">
+        <mxCell id="lSlXTyUihgR4Sofdv2rn-33" value="" style="endArrow=classic;html=1;rounded=0;exitX=1;exitY=0.75;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0.25;entryY=0;entryDx=0;entryDy=0;entryPerimeter=0;edgeStyle=orthogonalEdgeStyle;elbow=vertical;curved=1;" parent="1" source="lSlXTyUihgR4Sofdv2rn-5" target="lSlXTyUihgR4Sofdv2rn-17" edge="1">
           <mxGeometry width="50" height="50" relative="1" as="geometry">
             <mxPoint x="330" y="170" as="sourcePoint" />
             <mxPoint x="410" y="110" as="targetPoint" />
           </mxGeometry>
         </mxCell>
-        <mxCell id="lSlXTyUihgR4Sofdv2rn-34" value="Serialize trait" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="lSlXTyUihgR4Sofdv2rn-33">
+        <mxCell id="lSlXTyUihgR4Sofdv2rn-34" value="Serialize trait" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" parent="lSlXTyUihgR4Sofdv2rn-33" vertex="1" connectable="0">
           <mxGeometry x="0.2223" y="2" relative="1" as="geometry">
             <mxPoint as="offset" />
           </mxGeometry>
         </mxCell>
-        <mxCell id="lSlXTyUihgR4Sofdv2rn-35" value="" style="endArrow=classic;html=1;rounded=0;exitX=0.738;exitY=1.05;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0;entryY=0.25;entryDx=0;entryDy=0;entryPerimeter=0;edgeStyle=orthogonalEdgeStyle;curved=1;" edge="1" parent="1" source="lSlXTyUihgR4Sofdv2rn-5" target="lSlXTyUihgR4Sofdv2rn-17">
+        <mxCell id="lSlXTyUihgR4Sofdv2rn-35" value="" style="endArrow=classic;html=1;rounded=0;exitX=0;exitY=0.25;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0.744;entryY=0.988;entryDx=0;entryDy=0;entryPerimeter=0;edgeStyle=orthogonalEdgeStyle;curved=1;" parent="1" source="lSlXTyUihgR4Sofdv2rn-17" target="lSlXTyUihgR4Sofdv2rn-5" edge="1">
           <mxGeometry relative="1" as="geometry">
-            <mxPoint x="260" y="210" as="sourcePoint" />
-            <mxPoint x="140" y="266" as="targetPoint" />
+            <mxPoint x="140" y="266" as="sourcePoint" />
+            <mxPoint x="260" y="210" as="targetPoint" />
             <Array as="points">
               <mxPoint x="238" y="260" />
             </Array>
           </mxGeometry>
         </mxCell>
-        <mxCell id="lSlXTyUihgR4Sofdv2rn-36" value="Deserialize trait" style="edgeLabel;resizable=0;html=1;;align=center;verticalAlign=middle;" connectable="0" vertex="1" parent="lSlXTyUihgR4Sofdv2rn-35">
+        <mxCell id="lSlXTyUihgR4Sofdv2rn-36" value="Deserialize trait" style="edgeLabel;resizable=0;html=1;;align=center;verticalAlign=middle;" parent="lSlXTyUihgR4Sofdv2rn-35" connectable="0" vertex="1">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="lSlXTyUihgR4Sofdv2rn-42" value="" style="endArrow=classic;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;curved=1;entryX=0;entryY=0.75;entryDx=0;entryDy=0;entryPerimeter=0;exitX=0.25;exitY=1;exitDx=0;exitDy=0;exitPerimeter=0;labelPosition=center;verticalLabelPosition=middle;align=center;verticalAlign=middle;" edge="1" parent="1" source="lSlXTyUihgR4Sofdv2rn-7" target="lSlXTyUihgR4Sofdv2rn-5">
+        <mxCell id="lSlXTyUihgR4Sofdv2rn-42" value="" style="endArrow=classic;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;curved=1;entryX=0;entryY=0.75;entryDx=0;entryDy=0;entryPerimeter=0;exitX=0.25;exitY=1;exitDx=0;exitDy=0;exitPerimeter=0;labelPosition=center;verticalLabelPosition=middle;align=center;verticalAlign=middle;" parent="1" source="lSlXTyUihgR4Sofdv2rn-7" target="lSlXTyUihgR4Sofdv2rn-5" edge="1">
           <mxGeometry relative="1" as="geometry">
             <mxPoint x="610" y="490" as="sourcePoint" />
             <mxPoint x="50" y="200" as="targetPoint" />
@@ -105,12 +105,12 @@
             </Array>
           </mxGeometry>
         </mxCell>
-        <mxCell id="lSlXTyUihgR4Sofdv2rn-44" value="ABI::decode_variant()" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="lSlXTyUihgR4Sofdv2rn-42">
+        <mxCell id="lSlXTyUihgR4Sofdv2rn-44" value="ABI::decode_variant()" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" parent="lSlXTyUihgR4Sofdv2rn-42" vertex="1" connectable="0">
           <mxGeometry x="-0.1364" y="-6" relative="1" as="geometry">
             <mxPoint as="offset" />
           </mxGeometry>
         </mxCell>
-        <mxCell id="lSlXTyUihgR4Sofdv2rn-45" value="" style="endArrow=classic;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;curved=1;entryX=0.431;entryY=1;entryDx=0;entryDy=0;entryPerimeter=0;exitX=0;exitY=0.5;exitDx=0;exitDy=0;exitPerimeter=0;" edge="1" parent="1" source="lSlXTyUihgR4Sofdv2rn-5" target="lSlXTyUihgR4Sofdv2rn-7">
+        <mxCell id="lSlXTyUihgR4Sofdv2rn-45" value="" style="endArrow=classic;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;curved=1;entryX=0.431;entryY=1;entryDx=0;entryDy=0;entryPerimeter=0;exitX=0;exitY=0.5;exitDx=0;exitDy=0;exitPerimeter=0;" parent="1" source="lSlXTyUihgR4Sofdv2rn-5" target="lSlXTyUihgR4Sofdv2rn-7" edge="1">
           <mxGeometry relative="1" as="geometry">
             <mxPoint x="40" y="100" as="sourcePoint" />
             <mxPoint x="670" y="460" as="targetPoint" />
@@ -121,32 +121,41 @@
             </Array>
           </mxGeometry>
         </mxCell>
-        <mxCell id="lSlXTyUihgR4Sofdv2rn-47" value="ABI::encode_variant()" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="lSlXTyUihgR4Sofdv2rn-45">
+        <mxCell id="lSlXTyUihgR4Sofdv2rn-47" value="ABI::encode_variant()" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" parent="lSlXTyUihgR4Sofdv2rn-45" vertex="1" connectable="0">
           <mxGeometry x="0.1192" y="8" relative="1" as="geometry">
             <mxPoint as="offset" />
           </mxGeometry>
         </mxCell>
-        <mxCell id="lSlXTyUihgR4Sofdv2rn-48" value="" style="endArrow=classic;html=1;rounded=0;shape=flexArrow;" edge="1" parent="1">
+        <mxCell id="lSlXTyUihgR4Sofdv2rn-48" value="" style="endArrow=classic;html=1;rounded=0;shape=flexArrow;" parent="1" edge="1">
           <mxGeometry relative="1" as="geometry">
             <mxPoint x="160" y="60" as="sourcePoint" />
             <mxPoint x="720" y="60" as="targetPoint" />
           </mxGeometry>
         </mxCell>
-        <mxCell id="lSlXTyUihgR4Sofdv2rn-49" value="Serialize" style="edgeLabel;resizable=0;html=1;;align=center;verticalAlign=bottom;spacing=2;spacingRight=0;labelBorderColor=none;textShadow=0;fontStyle=2;fontSize=14;labelPosition=center;verticalLabelPosition=top;spacingTop=0;" connectable="0" vertex="1" parent="lSlXTyUihgR4Sofdv2rn-48">
+        <mxCell id="lSlXTyUihgR4Sofdv2rn-49" value="Serialize" style="edgeLabel;resizable=0;html=1;;align=center;verticalAlign=bottom;spacing=2;spacingRight=0;labelBorderColor=none;textShadow=0;fontStyle=2;fontSize=14;labelPosition=center;verticalLabelPosition=top;spacingTop=0;" parent="lSlXTyUihgR4Sofdv2rn-48" connectable="0" vertex="1">
           <mxGeometry relative="1" as="geometry">
             <mxPoint y="-10" as="offset" />
           </mxGeometry>
         </mxCell>
-        <mxCell id="lSlXTyUihgR4Sofdv2rn-53" value="" style="endArrow=classic;html=1;rounded=0;shape=flexArrow;verticalAlign=bottom;" edge="1" parent="1">
+        <mxCell id="lSlXTyUihgR4Sofdv2rn-53" value="" style="endArrow=classic;html=1;rounded=0;shape=flexArrow;verticalAlign=bottom;" parent="1" edge="1">
           <mxGeometry relative="1" as="geometry">
             <mxPoint x="720" y="580" as="sourcePoint" />
             <mxPoint x="160" y="580" as="targetPoint" />
           </mxGeometry>
         </mxCell>
-        <mxCell id="lSlXTyUihgR4Sofdv2rn-54" value="Deserialize" style="edgeLabel;resizable=0;html=1;;align=center;verticalAlign=middle;fontStyle=2;fontSize=14;" connectable="0" vertex="1" parent="lSlXTyUihgR4Sofdv2rn-53">
+        <mxCell id="lSlXTyUihgR4Sofdv2rn-54" value="Deserialize" style="edgeLabel;resizable=0;html=1;;align=center;verticalAlign=middle;fontStyle=2;fontSize=14;" parent="lSlXTyUihgR4Sofdv2rn-53" connectable="0" vertex="1">
           <mxGeometry relative="1" as="geometry">
             <mxPoint y="20" as="offset" />
           </mxGeometry>
+        </mxCell>
+        <mxCell id="vid8edOxGKXZXPGDrz8c-2" value="" style="endArrow=classic;html=1;rounded=0;entryX=-0.006;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;exitX=1;exitY=0.5;exitDx=0;exitDy=0;exitPerimeter=0;startArrow=classic;startFill=1;" edge="1" parent="1" source="lSlXTyUihgR4Sofdv2rn-8" target="lSlXTyUihgR4Sofdv2rn-7">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="290" y="420" as="sourcePoint" />
+            <mxPoint x="470" y="430" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="vid8edOxGKXZXPGDrz8c-3" value="BinarySerializable trait" style="edgeLabel;resizable=0;html=1;;align=center;verticalAlign=middle;" connectable="0" vertex="1" parent="vid8edOxGKXZXPGDrz8c-2">
+          <mxGeometry relative="1" as="geometry" />
         </mxCell>
       </root>
     </mxGraphModel>
