@@ -7,8 +7,9 @@ use chrono::{NaiveDate, TimeZone, Utc};
 use antelope::{
     ByteStream, BinarySerializable,
     abiserializable::ABISerializable,
-    convert::hex_to_boxed_array, AntelopeType, AntelopeValue, Asset, Bytes, BlockTimestampType, ExtendedAsset,
+    AntelopeType, AntelopeValue, Asset, Bytes, BlockTimestampType, ExtendedAsset,
     Name, Symbol, SymbolCode, TimePoint, TimePointSec, VarInt32, VarUint32, PublicKey, PrivateKey, Signature,
+    Checksum160, Checksum256, Checksum512,
 };
 
 // =============================================================================
@@ -426,7 +427,7 @@ fn roundtrip_checksum() {
          "123456789abcdef01234567890abcdef70123456"),
     ];
     check_round_trip_map_type(vals,
-                              |s| *hex_to_boxed_array(s).unwrap(),
+                              |s| Checksum160::from_hex(s).unwrap(),
                               |s| AntelopeValue::Checksum160(Box::new(s)));
 
     // ==== Checksum256 ====
@@ -437,7 +438,7 @@ fn roundtrip_checksum() {
          "0987654321abcdef0987654321ffff1234567890abcdef001234567890abcdef"),
     ];
     check_round_trip_map_type(vals,
-                              |s| *hex_to_boxed_array(s).unwrap(),
+                              |s| Checksum256::from_hex(s).unwrap(),
                               |s| AntelopeValue::Checksum256(Box::new(s)));
 
     // ==== Checksum512 ====
@@ -452,7 +453,7 @@ fn roundtrip_checksum() {
                  "0987654321abcdef0987654321ffff1234567890abcdef001234567890abcdef")),
     ];
     check_round_trip_map_type(vals,
-                              |s| *hex_to_boxed_array(s).unwrap(),
+                              |s| Checksum512::from_hex(s).unwrap(),
                               |s| AntelopeValue::Checksum512(Box::new(s)));
 }
 

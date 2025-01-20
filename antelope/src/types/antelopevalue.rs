@@ -29,8 +29,7 @@ use crate::types::{self,
 
 use crate::convert::{
     variant_to_int, variant_to_uint, variant_to_float, variant_to_str,
-    str_to_int, str_to_float, hex_to_boxed_array,
-    ConversionError,
+    str_to_int, str_to_float, ConversionError,
 };
 #[cfg(feature = "float128")]
 use crate::convert::{str_to_f128, variant_to_f128};
@@ -123,9 +122,9 @@ impl AntelopeValue {
             AntelopeType::TimePoint => Self::TimePoint(TimePoint::from_str(repr)?),
             AntelopeType::TimePointSec => Self::TimePointSec(TimePointSec::from_str(repr)?),
             AntelopeType::BlockTimestampType => Self::BlockTimestampType(BlockTimestampType::from_str(repr)?),
-            AntelopeType::Checksum160 => Self::Checksum160(hex_to_boxed_array(repr).context(FromHexSnafu)?),
-            AntelopeType::Checksum256 => Self::Checksum256(hex_to_boxed_array(repr).context(FromHexSnafu)?),
-            AntelopeType::Checksum512 => Self::Checksum512(hex_to_boxed_array(repr).context(FromHexSnafu)?),
+            AntelopeType::Checksum160 => Self::Checksum160(Box::new(Checksum160::from_hex(repr).context(FromHexSnafu)?)),
+            AntelopeType::Checksum256 => Self::Checksum256(Box::new(Checksum256::from_hex(repr).context(FromHexSnafu)?)),
+            AntelopeType::Checksum512 => Self::Checksum512(Box::new(Checksum512::from_hex(repr).context(FromHexSnafu)?)),
             AntelopeType::PublicKey => Self::PublicKey(Box::new(PublicKey::from_str(repr).context(CryptoDataSnafu)?)),
             AntelopeType::PrivateKey => Self::PrivateKey(Box::new(PrivateKey::from_str(repr).context(CryptoDataSnafu)?)),
             AntelopeType::Signature => Self::Signature(Box::new(Signature::from_str(repr).context(CryptoDataSnafu)?)),
@@ -162,9 +161,9 @@ impl AntelopeValue {
             Self::TimePoint(t) => t.to_json(),
             Self::TimePointSec(t) => t.to_json(),
             Self::BlockTimestampType(t) => t.to_json(),
-            Self::Checksum160(c) => json!(hex::encode(&c[..])),
-            Self::Checksum256(c) => json!(hex::encode(&c[..])),
-            Self::Checksum512(c) => json!(hex::encode(&c[..])),
+            Self::Checksum160(c) => json!(c.to_hex()),
+            Self::Checksum256(c) => json!(c.to_hex()),
+            Self::Checksum512(c) => json!(c.to_hex()),
             Self::PublicKey(sig) => json!(sig.to_string()),
             Self::PrivateKey(sig) => json!(sig.to_string()),
             Self::Signature(sig) => json!(sig.to_string()),
@@ -223,16 +222,16 @@ impl AntelopeValue {
                 Self::BlockTimestampType(BlockTimestampType::from_str(repr)?)
             },
             AntelopeType::Checksum160 => {
-                Self::Checksum160(hex_to_boxed_array(v.as_str().with_context(incompatible_types)?)
-                                  .context(FromHexSnafu)?)
+                Self::Checksum160(Box::new(Checksum160::from_hex(v.as_str().with_context(incompatible_types)?)
+                                  .context(FromHexSnafu)?))
             },
             AntelopeType::Checksum256 => {
-                Self::Checksum256(hex_to_boxed_array(v.as_str().with_context(incompatible_types)?)
-                                  .context(FromHexSnafu)?)
+                Self::Checksum256(Box::new(Checksum256::from_hex(v.as_str().with_context(incompatible_types)?)
+                                  .context(FromHexSnafu)?))
             },
             AntelopeType::Checksum512 => {
-                Self::Checksum512(hex_to_boxed_array(v.as_str().with_context(incompatible_types)?)
-                                  .context(FromHexSnafu)?)
+                Self::Checksum512(Box::new(Checksum512::from_hex(v.as_str().with_context(incompatible_types)?)
+                                  .context(FromHexSnafu)?))
             },
             AntelopeType::PublicKey
             | AntelopeType::PrivateKey

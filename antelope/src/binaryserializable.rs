@@ -113,11 +113,12 @@ macro_rules! impl_array_serialization {
         impl BinarySerializable for $typ {
             #[inline]
             fn encode(&self, stream: &mut ByteStream) {
-                stream.write_bytes(&self[..])
+                stream.write_bytes(&self.0[..])
             }
             #[inline]
             fn decode(stream: &mut ByteStream) -> Result<Self, SerializeError> {
-                Ok(stream.read_bytes($size)?.try_into().unwrap())  // safe unwrap
+                let arr: [u8; $size] = stream.read_bytes($size)?.try_into().unwrap();  // safe unwrap
+                Ok(<$typ>::from(arr))
             }
         }
     }

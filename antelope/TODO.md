@@ -64,6 +64,8 @@
 
   TODO: deprecated/remove non human-readable impls for Serialize/Deserialize types
 
+- remove hex_to_boxed_array?
+
 ## CORRECTNESS / TESTING
 
 - IMPORTANT

@@ -3,6 +3,7 @@ use std::marker::PhantomData;
 
 use bs58;
 use ripemd::{Digest, Ripemd160};
+use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 use sha2::Sha256;
 use snafu::{ensure, ResultExt, Snafu};
 
@@ -127,12 +128,44 @@ impl<T: CryptoDataType, const DATA_SIZE: usize> CryptoData<T, DATA_SIZE> {
     }
 }
 
+// -----------------------------------------------------------------------------
+//     `Display` implementation
+// -----------------------------------------------------------------------------
 
 impl<T: CryptoDataType, const DATA_SIZE: usize> fmt::Display for CryptoData<T, DATA_SIZE> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if self.key_type == KeyType::WebAuthn { unimplemented!("unsupported key type: {:?}", self.key_type); }
         write!(f, "{}_{}", T::PREFIX, key_data_to_string(&self.data,  self.key_type.prefix()))
    }
+}
+
+
+// -----------------------------------------------------------------------------
+//     `Serde` traits implementation
+// -----------------------------------------------------------------------------
+
+impl<T: CryptoDataType, const DATA_SIZE: usize> Serialize for CryptoData<T, DATA_SIZE> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer
+    {
+        if serializer.is_human_readable() {
+            self.to_string().serialize(serializer)
+        }
+        else {
+            unimplemented!()
+        }
+    }
+}
+
+impl<'de, T: CryptoDataType, const DATA_SIZE: usize> Deserialize<'de> for CryptoData<T, DATA_SIZE> {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let repr: &str = <&str>::deserialize(deserializer)?;
+        Self::from_str(repr).map_err(|e| de::Error::custom(e.to_string()))
+    }
 }
 
 

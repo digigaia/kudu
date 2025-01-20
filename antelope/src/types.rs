@@ -236,9 +236,63 @@ pub use crate::types::time::{TimePoint, TimePointSec, BlockTimestampType};
 //     Crypto types
 // -----------------------------------------------------------------------------
 
-pub type Checksum160 = [u8; 20];
-pub type Checksum256 = [u8; 32];
-pub type Checksum512 = [u8; 64];
+macro_rules! impl_checksum {
+    ($typ:ident, $size:literal) => {
+        #[derive(Clone, Debug, PartialEq, Eq, Hash)]
+        pub struct $typ(pub [u8; $size]);
+
+        impl $typ {
+            pub fn from_hex<T: AsRef<[u8]>>(data: T) -> Result<$typ, FromHexError> {
+                Ok($typ(hex::decode(data)?.try_into()
+                        .map_err(|_| FromHexError::InvalidStringLength)?))
+            }
+            pub fn to_hex(&self) -> String {
+                hex::encode(self.0)
+            }
+        }
+
+        impl From<[u8; $size]> for $typ {
+            fn from(v: [u8; $size]) -> Self {
+                Self(v)
+            }
+        }
+
+        impl Default for $typ {
+            fn default() -> Self {
+                $typ::from([0; $size])
+            }
+        }
+
+        impl Serialize for $typ {
+            fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+            where
+                S: Serializer
+            {
+                if serializer.is_human_readable() {
+                    self.to_hex().serialize(serializer)
+                }
+                else {
+                    self.0.serialize(serializer)
+                }
+            }
+        }
+
+        impl<'de> Deserialize<'de> for $typ {
+            fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+            where
+                D: Deserializer<'de>,
+            {
+                let hex_repr: &str = <&str>::deserialize(deserializer)?;
+                Self::from_hex(hex_repr).map_err(|e| de::Error::custom(e.to_string()))
+            }
+        }
+    }
+}
+
+impl_checksum!(Checksum160, 20);
+impl_checksum!(Checksum256, 32);
+impl_checksum!(Checksum512, 64);
+
 
 pub use crate::types::crypto::{
     CryptoData, CryptoDataType, InvalidCryptoData,

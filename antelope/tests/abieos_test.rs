@@ -18,7 +18,8 @@ use antelope::{
         PACKED_TRANSACTION_ABI, TEST_ABI, TOKEN_HEX_ABI, TRANSACTION_ABI
     },
     ABIDefinition, Asset, Bytes, ByteStream, ExtendedAsset, InvalidValue, JsonValue, Name,
-    Symbol, SymbolCode, TimePoint, TimePointSec, TypeNameRef, VarInt32, VarUint32, ABI
+    Symbol, SymbolCode, TimePoint, TimePointSec, TypeNameRef, VarInt32, VarUint32, ABI,
+    Checksum160, Checksum256, Checksum512, PublicKey,
 };
 
 
@@ -110,6 +111,7 @@ fn round_trip(abi: &ABI, typename: &str, data: &str, hex: &str, expected: &str) 
     Ok(())
 }
 
+#[track_caller]
 fn check_error<F, T>(f: F, expected_error_msg: &str)
     where F: FnOnce() -> Result<T>
 {
@@ -609,26 +611,27 @@ fn roundtrip_crypto_types() -> Result<()> {
 
     let abi = transaction_abi();
 
-    check_round_trip(abi, "checksum160",
-                     r#""0000000000000000000000000000000000000000""#,
-                     "0000000000000000000000000000000000000000");
-    check_round_trip(abi, "checksum160",
-                     r#""123456789abcdef01234567890abcdef70123456""#,
-                     "123456789abcdef01234567890abcdef70123456");
-    check_round_trip(abi, "checksum256",
-                     r#""0000000000000000000000000000000000000000000000000000000000000000""#,
-                     "0000000000000000000000000000000000000000000000000000000000000000");
-    check_round_trip(abi, "checksum256",
-                     r#""0987654321abcdef0987654321ffff1234567890abcdef001234567890abcdef""#,
-                     "0987654321abcdef0987654321ffff1234567890abcdef001234567890abcdef");
-    check_round_trip(abi, "checksum512",
-                     r#""00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000""#,
-                     "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000");
-    check_round_trip(abi, "checksum512",
-                     r#""0987654321abcdef0987654321ffff1234567890abcdef001234567890abcdef0987654321abcdef0987654321ffff1234567890abcdef001234567890abcdef""#,
-                     "0987654321abcdef0987654321ffff1234567890abcdef001234567890abcdef0987654321abcdef0987654321ffff1234567890abcdef001234567890abcdef");
+    let check_checksum160 = |c: &str| {
+        check_cross_conversion(abi, Checksum160::from_hex(&c[1..c.len()-1]).unwrap(), "checksum160", c, &c[1..c.len()-1])
+    };
+    let check_checksum256 = |c: &str| {
+        check_cross_conversion(abi, Checksum256::from_hex(&c[1..c.len()-1]).unwrap(), "checksum256", c, &c[1..c.len()-1])
+    };
+    let check_checksum512 = |c: &str| {
+        check_cross_conversion(abi, Checksum512::from_hex(&c[1..c.len()-1]).unwrap(), "checksum512", c, &c[1..c.len()-1])
+    };
 
-    check_round_trip2(abi, "public_key", r#""EOS1111111111111111111111111111111114T1Anm""#, "00000000000000000000000000000000000000000000000000000000000000000000", r#""PUB_K1_11111111111111111111111111111111149Mr2R""#);
+    check_checksum160(r#""0000000000000000000000000000000000000000""#);
+    check_checksum160(r#""123456789abcdef01234567890abcdef70123456""#);
+    check_checksum256(r#""0000000000000000000000000000000000000000000000000000000000000000""#);
+    check_checksum256(r#""0987654321abcdef0987654321ffff1234567890abcdef001234567890abcdef""#);
+    check_checksum512(r#""00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000""#);
+    check_checksum512(r#""0987654321abcdef0987654321ffff1234567890abcdef001234567890abcdef0987654321abcdef0987654321ffff1234567890abcdef001234567890abcdef""#);
+
+    check_cross_conversion2(abi, PublicKey::from_str("EOS1111111111111111111111111111111114T1Anm")?, "public_key",
+                            r#""EOS1111111111111111111111111111111114T1Anm""#,
+                            "00000000000000000000000000000000000000000000000000000000000000000000",
+                            r#""PUB_K1_11111111111111111111111111111111149Mr2R""#);
     check_round_trip2(abi, "public_key", r#""EOS11111111111111111111111115qCHTcgbQwptSz99m""#, "0000000000000000000000000000000000000000000000000000ffffffffffffffff", r#""PUB_K1_11111111111111111111111115qCHTcgbQwpvP72Uq""#);
     check_round_trip2(abi, "public_key", r#""EOS111111111111111114ZrjxJnU1LA5xSyrWMNuXTrYSJ57""#, "000000000000000000000000000000000000ffffffffffffffffffffffffffffffff", r#""PUB_K1_111111111111111114ZrjxJnU1LA5xSyrWMNuXTrVub2r""#);
     check_round_trip2(abi, "public_key", r#""EOS1111111113diW7pnisfdBvHTXP7wvW5k5Ky1e5DVuF23dosU""#, "00000000000000000000ffffffffffffffffffffffffffffffffffffffffffffffff", r#""PUB_K1_1111111113diW7pnisfdBvHTXP7wvW5k5Ky1e5DVuF4PizpM""#);
@@ -660,7 +663,7 @@ fn roundtrip_crypto_types() -> Result<()> {
     check_round_trip(abi, "signature", r#""SIG_K1_Kg2UKjXTX48gw2wWH4zmsZmWu3yarcfC21Bd9JPj7QoDURqiAacCHmtExPk3syPb2tFLsp1R4ttXLXgr7FYgDvKPC5RCkx""#, "002056355ed1079822d2728886b449f0f4a2bbf48bf38698c0ebe8c7079768882b1c64ac07d7a4bd85cf96b8a74fdcafef1a4805f946177c609fdf31abe2463038e5");
     check_round_trip(abi, "signature", r#""SIG_R1_Kfh19CfEcQ6pxkMBz6xe9mtqKuPooaoyatPYWtwXbtwHUHU8YLzxPGvZhkqgnp82J41e9R6r5mcpnxy1wAf1w9Vyo9wybZ""#, "012053a48d3bb9a321e4ae8f079eab72efa778c8c09bc4c2f734de6d19ad9bce6a137495d877d4e51a585376aa6c1a174295dabdb25286e803bf553735cd2d31b1fc");
 
-    check_error(|| try_encode(abi, "checksum256", r#""xy""#), "Invalid string length");
+    check_error(|| try_encode(abi, "checksum256", r#""xy""#), "Invalid character");
     check_error(|| try_encode(abi, "checksum256", r#""xy00000000000000000000000000000000000000000000000000000000000000""#), "Invalid character");
     check_error(|| try_encode(abi, "checksum256", "true"), "cannot convert given variant");
     check_error(|| try_encode(abi, "checksum256", r#""a0""#), "Invalid string length");
