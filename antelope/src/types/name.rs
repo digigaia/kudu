@@ -1,7 +1,6 @@
 use std::fmt;
 
-use serde::de::{self, Visitor};
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 use snafu::{Snafu, ensure};
 
 use antelope_macros::with_location;
@@ -46,12 +45,19 @@ impl Name {
             value: string_to_u64(s.as_bytes()),
         };
 
-        if s == result.to_string() {
+        if is_normalized(s.as_bytes(), result.value) {
             Ok(result)
         }
         else {
             InvalidNormalizationSnafu { given: s.to_owned(), normalized: result.to_string() }.fail()
         }
+    }
+
+    pub const fn constant(s: &str) -> Self {
+        if s.len() > 13 { panic!("Name too long! Max is 13 chars"); }
+        let value = string_to_u64(s.as_bytes());
+        if !is_normalized(s.as_bytes(), value) { panic!("Invalid normalization"); }
+        Name { value  }
     }
 
     /// Build a `Name` from its `u64` representation.
@@ -86,7 +92,7 @@ impl Name {
 //     Helper functions
 // -----------------------------------------------------------------------------
 
-fn char_to_symbol(c: u8) -> u64 {
+const fn char_to_symbol(c: u8) -> u64 {
     match c {
         b'a'..=b'z' => (c - b'a') as u64 + 6,
         b'1'..=b'5' => (c - b'1') as u64 + 1,
@@ -95,11 +101,13 @@ fn char_to_symbol(c: u8) -> u64 {
 }
 
 // see ref implementation in AntelopeIO/spring/libraries/chain/name.{hpp,cpp}
-fn string_to_u64(s: &[u8]) -> u64 {
+const fn string_to_u64(s: &[u8]) -> u64 {
     let mut n: u64 = 0;
-    // for i in 0..s.len().min(12) {
-    for (i, &c) in s.iter().enumerate().take(12) {
-        n |= char_to_symbol(c) << (64 - 5 * (i + 1));
+    let maxlen = if s.len() < 12 { s.len() } else { 12 };
+    let mut i = 0;
+    while i < maxlen {
+        n |= char_to_symbol(s[i]) << (64 - 5 * (i + 1));
+        i += 1;
     }
 
     // The for-loop encoded up to 60 high bits into uint64 'name' variable,
@@ -134,6 +142,38 @@ fn u64_to_bytes(n: u64) -> Vec<u8> {
     }
     s.truncate(end_pos);
     s
+}
+
+const fn is_normalized(s: &[u8], encoded: u64) -> bool {
+    let mut n = encoded;
+    let mut s2 = [b'.'; 13];
+    let mut i = 0;
+    while i < 13 {
+        let c: u8 = CHARMAP[n as usize & match i { 0 => 0x0F, _ => 0x1F }];
+        s2[12-i] = c;
+        n >>= match i { 0 => 4, _ => 5 };
+        i += 1;
+    }
+
+    // truncate string with unused trailing symbols
+    let mut end_pos = 13;
+    loop {
+        if end_pos == 0 { break; }
+        if s2[end_pos - 1] != b'.' {
+            break;
+        }
+        end_pos -= 1
+    }
+
+    // compare original string with normalized one
+    if s.len() != end_pos { return false; }
+    i = 0;
+    while i < end_pos {
+        if s[i] != s2[i] { return false; }
+        i += 1;
+    }
+
+    true
 }
 
 fn u64_to_string(n: u64) -> String {
@@ -189,28 +229,13 @@ impl Serialize for Name {
     }
 }
 
-struct NameVisitor;
-
-impl Visitor<'_> for NameVisitor {
-    type Value = Name;
-
-    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-        write!(formatter, "a string that is a valid EOS name")
-    }
-
-    fn visit_str<E>(self, s: &str) -> Result<Name, E>
-    where
-        E: de::Error,
-    {
-        Name::from_str(s).map_err(|e| de::Error::custom(e.to_string()))
-    }
-}
 impl<'de> Deserialize<'de> for Name {
     fn deserialize<D>(deserializer: D) -> Result<Name, D::Error>
     where
         D: Deserializer<'de>,
     {
-        deserializer.deserialize_str(NameVisitor)
+        let name: &str = <&str>::deserialize(deserializer)?;
+        Name::from_str(name).map_err(|e| de::Error::custom(e.to_string()))
     }
 }
 

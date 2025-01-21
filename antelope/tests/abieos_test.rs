@@ -2,7 +2,7 @@ use std::any::type_name_of_val;
 use std::fmt::Debug;
 use std::sync::{Once, OnceLock};
 
-use antelope::BlockTimestampType;
+use antelope::{BlockTimestampType, PermissionLevel};
 use color_eyre::eyre::Result;
 use serde::{de::DeserializeOwned, Serialize};
 use tracing::{trace, debug, info, instrument};
@@ -19,7 +19,8 @@ use antelope::{
     },
     ABIDefinition, Asset, Bytes, ByteStream, ExtendedAsset, InvalidValue, JsonValue, Name,
     Symbol, SymbolCode, TimePoint, TimePointSec, TypeNameRef, VarInt32, VarUint32, ABI,
-    Checksum160, Checksum256, Checksum512, PublicKey,
+    Checksum160, Checksum256, Checksum512, PublicKey, PrivateKey, Signature,
+    Transaction, Action, AccountName, PermissionName, Transfer
 };
 
 
@@ -157,7 +158,7 @@ macro_rules! check_cross_conversion {
         // 2- Rust -> bin -> Rust
         trace!("checking Rust native ({:?}: {}) -> bin: {}", &$value, type_name_of_val(&$value), $hex);
         let bin = to_bin(&$value);
-        let hex_data = hex::encode(&bin);
+        let hex_data = bin.to_hex();
         assert_eq!(hex_data, $hex, "rust native to binary");
         let value2: $typ = from_bin(&bin).unwrap();
         assert_eq!(value2, $value, "rust binary to native");
@@ -586,13 +587,13 @@ fn roundtrip_strings() -> Result<()> {
 
     let abi = transaction_abi();
     let check_string = |repr: &str, hex| {
-        check_cross_conversion(abi, repr[1..repr.len()-1].to_owned(), "string", repr, hex)
+        check_cross_conversion(abi, repr.to_owned(), "string", &format!(r#""{}""#, repr), hex);
     };
 
-    check_string(r#""""#, "00");
-    check_string(r#""z""#, "017a");
-    check_string(r#""This is a string.""#, "1154686973206973206120737472696e672e");
-    check_string(r#""' + '*'.repeat(128) + '""#, "1727202b20272a272e7265706561742831323829202b2027");
+    check_string("", "00");
+    check_string("z", "017a");
+    check_string("This is a string.", "1154686973206973206120737472696e672e");
+    check_string("' + '*'.repeat(128) + '", "1727202b20272a272e7265706561742831323829202b2027");
     check_cross_conversion_borrowed(
         abi, "\u{0000}  这是一个测试  Это тест  هذا اختبار 👍", "string",
         r#""\u0000  这是一个测试  Это тест  هذا اختبار 👍""#,
@@ -612,56 +613,106 @@ fn roundtrip_crypto_types() -> Result<()> {
     let abi = transaction_abi();
 
     let check_checksum160 = |c: &str| {
-        check_cross_conversion(abi, Checksum160::from_hex(&c[1..c.len()-1]).unwrap(), "checksum160", c, &c[1..c.len()-1])
+        check_cross_conversion(abi, Checksum160::from_hex(c).unwrap(), "checksum160", &format!(r#""{c}""#), c)
     };
     let check_checksum256 = |c: &str| {
-        check_cross_conversion(abi, Checksum256::from_hex(&c[1..c.len()-1]).unwrap(), "checksum256", c, &c[1..c.len()-1])
+        check_cross_conversion(abi, Checksum256::from_hex(c).unwrap(), "checksum256", &format!(r#""{c}""#), c)
     };
     let check_checksum512 = |c: &str| {
-        check_cross_conversion(abi, Checksum512::from_hex(&c[1..c.len()-1]).unwrap(), "checksum512", c, &c[1..c.len()-1])
+        check_cross_conversion(abi, Checksum512::from_hex(c).unwrap(), "checksum512", &format!(r#""{c}""#), c)
     };
 
-    check_checksum160(r#""0000000000000000000000000000000000000000""#);
-    check_checksum160(r#""123456789abcdef01234567890abcdef70123456""#);
-    check_checksum256(r#""0000000000000000000000000000000000000000000000000000000000000000""#);
-    check_checksum256(r#""0987654321abcdef0987654321ffff1234567890abcdef001234567890abcdef""#);
-    check_checksum512(r#""00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000""#);
-    check_checksum512(r#""0987654321abcdef0987654321ffff1234567890abcdef001234567890abcdef0987654321abcdef0987654321ffff1234567890abcdef001234567890abcdef""#);
+    check_checksum160("0000000000000000000000000000000000000000");
+    check_checksum160("123456789abcdef01234567890abcdef70123456");
+    check_checksum256("0000000000000000000000000000000000000000000000000000000000000000");
+    check_checksum256("0987654321abcdef0987654321ffff1234567890abcdef001234567890abcdef");
+    check_checksum512("00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000");
+    check_checksum512("0987654321abcdef0987654321ffff1234567890abcdef001234567890abcdef0987654321abcdef0987654321ffff1234567890abcdef001234567890abcdef");
 
-    check_cross_conversion2(abi, PublicKey::from_str("EOS1111111111111111111111111111111114T1Anm")?, "public_key",
-                            r#""EOS1111111111111111111111111111111114T1Anm""#,
-                            "00000000000000000000000000000000000000000000000000000000000000000000",
-                            r#""PUB_K1_11111111111111111111111111111111149Mr2R""#);
-    check_round_trip2(abi, "public_key", r#""EOS11111111111111111111111115qCHTcgbQwptSz99m""#, "0000000000000000000000000000000000000000000000000000ffffffffffffffff", r#""PUB_K1_11111111111111111111111115qCHTcgbQwpvP72Uq""#);
-    check_round_trip2(abi, "public_key", r#""EOS111111111111111114ZrjxJnU1LA5xSyrWMNuXTrYSJ57""#, "000000000000000000000000000000000000ffffffffffffffffffffffffffffffff", r#""PUB_K1_111111111111111114ZrjxJnU1LA5xSyrWMNuXTrVub2r""#);
-    check_round_trip2(abi, "public_key", r#""EOS1111111113diW7pnisfdBvHTXP7wvW5k5Ky1e5DVuF23dosU""#, "00000000000000000000ffffffffffffffffffffffffffffffffffffffffffffffff", r#""PUB_K1_1111111113diW7pnisfdBvHTXP7wvW5k5Ky1e5DVuF4PizpM""#);
-    check_round_trip2(abi, "public_key", r#""EOS11DsZ6Lyr1aXpm9aBqqgV4iFJpNbSw5eE9LLTwNAxqjJgmjgbT""#, "00000080ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff", r#""PUB_K1_11DsZ6Lyr1aXpm9aBqqgV4iFJpNbSw5eE9LLTwNAxqjJgXSdB8""#);
-    check_round_trip2(abi, "public_key", r#""EOS12wkBET2rRgE8pahuaczxKbmv7ciehqsne57F9gtzf1PVYNMRa2""#, "0000ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff", r#""PUB_K1_12wkBET2rRgE8pahuaczxKbmv7ciehqsne57F9gtzf1PVb7Rf7o""#);
-    check_round_trip2(abi, "public_key", r#""EOS1yp8ebBuKZ13orqUrZsGsP49e6K3ThVK1nLutxSyU5j9SaXz9a""#, "000080ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff", r#""PUB_K1_1yp8ebBuKZ13orqUrZsGsP49e6K3ThVK1nLutxSyU5j9Tx1r96""#);
-    check_round_trip2(abi, "public_key", r#""EOS9adaAMuB9v8yX1mZ5PtoB6VFSCeqRGjASd8ZTM6VUkiHL7mue4K""#, "00ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff", r#""PUB_K1_9adaAMuB9v8yX1mZ5PtoB6VFSCeqRGjASd8ZTM6VUkiHLB5XEdw""#);
-    check_round_trip2(abi, "public_key", r#""EOS69X3383RzBZj41k73CSjUNXM5MYGpnDxyPnWUKPEtYQmTBWz4D""#, "0002a5d2400af24411f64c29da2fe893ff2b6681a3b6ffbe980b2ee42ad10cc2e994", r#""PUB_K1_69X3383RzBZj41k73CSjUNXM5MYGpnDxyPnWUKPEtYQmVzqTY7""#);
-    check_round_trip2(abi, "public_key", r#""EOS7yBtksm8Kkg85r4in4uCbfN77uRwe82apM8jjbhFVDgEgz3w8S""#, "000395c2020968e922eb4319fb56eb4fb0e7543d4b84ad367d8dc1b922338eb7232b", r#""PUB_K1_7yBtksm8Kkg85r4in4uCbfN77uRwe82apM8jjbhFVDgEcarGb8""#);
-    check_round_trip2(abi, "public_key", r#""EOS7WnhaKwHpbSidYuh2DF1qAExTRUtPEdZCaZqt75cKcixuQUtdA""#, "000359d04e6519311041b10fe9e828a226b48f3f27a52f071f8e364cd317785abebc", r#""PUB_K1_7WnhaKwHpbSidYuh2DF1qAExTRUtPEdZCaZqt75cKcixtU7gEn""#);
-    check_round_trip2(abi, "public_key", r#""EOS7Bn1YDeZ18w2N9DU4KAJxZDt6hk3L7eUwFRAc1hb5bp6xJwxNV""#, "00032ea514c6b834dbdd6520d0ac420bcf2335fe138de3d2dc5b7b2f03f9f99e9fac", r#""PUB_K1_7Bn1YDeZ18w2N9DU4KAJxZDt6hk3L7eUwFRAc1hb5bp6uEBZA8""#);
-    check_round_trip(abi, "public_key", r#""PUB_K1_11111111111111111111111111111111149Mr2R""#, "00000000000000000000000000000000000000000000000000000000000000000000");
-    check_round_trip(abi, "public_key", r#""PUB_K1_11111111111111111111111115qCHTcgbQwpvP72Uq""#, "0000000000000000000000000000000000000000000000000000ffffffffffffffff");
-    check_round_trip(abi, "public_key", r#""PUB_K1_111111111111111114ZrjxJnU1LA5xSyrWMNuXTrVub2r""#, "000000000000000000000000000000000000ffffffffffffffffffffffffffffffff");
-    check_round_trip(abi, "public_key", r#""PUB_K1_1111111113diW7pnisfdBvHTXP7wvW5k5Ky1e5DVuF4PizpM""#, "00000000000000000000ffffffffffffffffffffffffffffffffffffffffffffffff");
-    check_round_trip(abi, "public_key", r#""PUB_K1_11DsZ6Lyr1aXpm9aBqqgV4iFJpNbSw5eE9LLTwNAxqjJgXSdB8""#, "00000080ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
-    check_round_trip(abi, "public_key", r#""PUB_K1_12wkBET2rRgE8pahuaczxKbmv7ciehqsne57F9gtzf1PVb7Rf7o""#, "0000ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
-    check_round_trip(abi, "public_key", r#""PUB_K1_1yp8ebBuKZ13orqUrZsGsP49e6K3ThVK1nLutxSyU5j9Tx1r96""#, "000080ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
-    check_round_trip(abi, "public_key", r#""PUB_K1_9adaAMuB9v8yX1mZ5PtoB6VFSCeqRGjASd8ZTM6VUkiHLB5XEdw""#, "00ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
-    check_round_trip(abi, "public_key", r#""PUB_K1_69X3383RzBZj41k73CSjUNXM5MYGpnDxyPnWUKPEtYQmVzqTY7""#, "0002a5d2400af24411f64c29da2fe893ff2b6681a3b6ffbe980b2ee42ad10cc2e994");
-    check_round_trip(abi, "public_key", r#""PUB_K1_7yBtksm8Kkg85r4in4uCbfN77uRwe82apM8jjbhFVDgEcarGb8""#, "000395c2020968e922eb4319fb56eb4fb0e7543d4b84ad367d8dc1b922338eb7232b");
-    check_round_trip(abi, "public_key", r#""PUB_K1_7WnhaKwHpbSidYuh2DF1qAExTRUtPEdZCaZqt75cKcixtU7gEn""#, "000359d04e6519311041b10fe9e828a226b48f3f27a52f071f8e364cd317785abebc");
-    check_round_trip(abi, "public_key", r#""PUB_K1_7Bn1YDeZ18w2N9DU4KAJxZDt6hk3L7eUwFRAc1hb5bp6uEBZA8""#, "00032ea514c6b834dbdd6520d0ac420bcf2335fe138de3d2dc5b7b2f03f9f99e9fac");
+    let check_publickey2 = |old: &str, new, hex| {
+        check_cross_conversion2(abi, PublicKey::from_str(old).unwrap(), "public_key", &format!(r#""{old}""#), hex, &format!(r#""{new}""#));
+    };
 
-    check_round_trip(abi, "private_key", r#""PVT_R1_PtoxLPzJZURZmPS4e26pjBiAn41mkkLPrET5qHnwDvbvqFEL6""#, "0133fb621e78d5dc78f0029b6fd714bfe3b42fe4b72bc109051591e71f204d2813");
-    check_round_trip(abi, "private_key", r#""PVT_R1_vbRKUuE34hjMVQiePj2FEjM8FvuG7yemzQsmzx89kPS9J8Coz""#, "0179b0c1811bf83356f3fa2dedb76494d8d2bba188fae9c286f118e5e9f0621760");
-    check_round_trip2(abi, "private_key", r#""5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3""#, "00d2653ff7cbb2d8ff129ac27ef5781ce68b2558c41a74af1f2ddca635cbeef07d", r#""PVT_K1_2bfGi9rYsXQSXXTvJbDAPhHLQUojjaNLomdm3cEJ1XTzMqUt3V""#);
+    let check_publickey = |key, hex| { check_publickey2(key, key, hex); };
 
-    check_round_trip(abi, "signature", r#""SIG_K1_Kg2UKjXTX48gw2wWH4zmsZmWu3yarcfC21Bd9JPj7QoDURqiAacCHmtExPk3syPb2tFLsp1R4ttXLXgr7FYgDvKPC5RCkx""#, "002056355ed1079822d2728886b449f0f4a2bbf48bf38698c0ebe8c7079768882b1c64ac07d7a4bd85cf96b8a74fdcafef1a4805f946177c609fdf31abe2463038e5");
-    check_round_trip(abi, "signature", r#""SIG_R1_Kfh19CfEcQ6pxkMBz6xe9mtqKuPooaoyatPYWtwXbtwHUHU8YLzxPGvZhkqgnp82J41e9R6r5mcpnxy1wAf1w9Vyo9wybZ""#, "012053a48d3bb9a321e4ae8f079eab72efa778c8c09bc4c2f734de6d19ad9bce6a137495d877d4e51a585376aa6c1a174295dabdb25286e803bf553735cd2d31b1fc");
+    check_publickey2("EOS1111111111111111111111111111111114T1Anm",
+                     "PUB_K1_11111111111111111111111111111111149Mr2R",
+                     "00000000000000000000000000000000000000000000000000000000000000000000");
+    check_publickey2("EOS11111111111111111111111115qCHTcgbQwptSz99m",
+                     "PUB_K1_11111111111111111111111115qCHTcgbQwpvP72Uq",
+                     "0000000000000000000000000000000000000000000000000000ffffffffffffffff");
+    check_publickey2("EOS111111111111111114ZrjxJnU1LA5xSyrWMNuXTrYSJ57",
+                     "PUB_K1_111111111111111114ZrjxJnU1LA5xSyrWMNuXTrVub2r",
+                     "000000000000000000000000000000000000ffffffffffffffffffffffffffffffff");
+    check_publickey2("EOS1111111113diW7pnisfdBvHTXP7wvW5k5Ky1e5DVuF23dosU",
+                     "PUB_K1_1111111113diW7pnisfdBvHTXP7wvW5k5Ky1e5DVuF4PizpM",
+                     "00000000000000000000ffffffffffffffffffffffffffffffffffffffffffffffff");
+    check_publickey2("EOS11DsZ6Lyr1aXpm9aBqqgV4iFJpNbSw5eE9LLTwNAxqjJgmjgbT",
+                     "PUB_K1_11DsZ6Lyr1aXpm9aBqqgV4iFJpNbSw5eE9LLTwNAxqjJgXSdB8",
+                     "00000080ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
+    check_publickey2("EOS12wkBET2rRgE8pahuaczxKbmv7ciehqsne57F9gtzf1PVYNMRa2",
+                     "PUB_K1_12wkBET2rRgE8pahuaczxKbmv7ciehqsne57F9gtzf1PVb7Rf7o",
+                     "0000ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
+    check_publickey2("EOS1yp8ebBuKZ13orqUrZsGsP49e6K3ThVK1nLutxSyU5j9SaXz9a",
+                     "PUB_K1_1yp8ebBuKZ13orqUrZsGsP49e6K3ThVK1nLutxSyU5j9Tx1r96",
+                     "000080ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
+    check_publickey2("EOS9adaAMuB9v8yX1mZ5PtoB6VFSCeqRGjASd8ZTM6VUkiHL7mue4K",
+                     "PUB_K1_9adaAMuB9v8yX1mZ5PtoB6VFSCeqRGjASd8ZTM6VUkiHLB5XEdw",
+                     "00ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
+    check_publickey2("EOS69X3383RzBZj41k73CSjUNXM5MYGpnDxyPnWUKPEtYQmTBWz4D",
+                     "PUB_K1_69X3383RzBZj41k73CSjUNXM5MYGpnDxyPnWUKPEtYQmVzqTY7",
+                     "0002a5d2400af24411f64c29da2fe893ff2b6681a3b6ffbe980b2ee42ad10cc2e994");
+    check_publickey2("EOS7yBtksm8Kkg85r4in4uCbfN77uRwe82apM8jjbhFVDgEgz3w8S",
+                     "PUB_K1_7yBtksm8Kkg85r4in4uCbfN77uRwe82apM8jjbhFVDgEcarGb8",
+                     "000395c2020968e922eb4319fb56eb4fb0e7543d4b84ad367d8dc1b922338eb7232b");
+    check_publickey2("EOS7WnhaKwHpbSidYuh2DF1qAExTRUtPEdZCaZqt75cKcixuQUtdA",
+                     "PUB_K1_7WnhaKwHpbSidYuh2DF1qAExTRUtPEdZCaZqt75cKcixtU7gEn",
+                     "000359d04e6519311041b10fe9e828a226b48f3f27a52f071f8e364cd317785abebc");
+    check_publickey2("EOS7Bn1YDeZ18w2N9DU4KAJxZDt6hk3L7eUwFRAc1hb5bp6xJwxNV",
+                     "PUB_K1_7Bn1YDeZ18w2N9DU4KAJxZDt6hk3L7eUwFRAc1hb5bp6uEBZA8",
+                     "00032ea514c6b834dbdd6520d0ac420bcf2335fe138de3d2dc5b7b2f03f9f99e9fac");
+    check_publickey("PUB_K1_11111111111111111111111111111111149Mr2R",
+                    "00000000000000000000000000000000000000000000000000000000000000000000");
+    check_publickey("PUB_K1_11111111111111111111111115qCHTcgbQwpvP72Uq",
+                    "0000000000000000000000000000000000000000000000000000ffffffffffffffff");
+    check_publickey("PUB_K1_111111111111111114ZrjxJnU1LA5xSyrWMNuXTrVub2r",
+                    "000000000000000000000000000000000000ffffffffffffffffffffffffffffffff");
+    check_publickey("PUB_K1_1111111113diW7pnisfdBvHTXP7wvW5k5Ky1e5DVuF4PizpM",
+                    "00000000000000000000ffffffffffffffffffffffffffffffffffffffffffffffff");
+    check_publickey("PUB_K1_11DsZ6Lyr1aXpm9aBqqgV4iFJpNbSw5eE9LLTwNAxqjJgXSdB8",
+                    "00000080ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
+    check_publickey("PUB_K1_12wkBET2rRgE8pahuaczxKbmv7ciehqsne57F9gtzf1PVb7Rf7o",
+                    "0000ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
+    check_publickey("PUB_K1_1yp8ebBuKZ13orqUrZsGsP49e6K3ThVK1nLutxSyU5j9Tx1r96",
+                    "000080ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
+    check_publickey("PUB_K1_9adaAMuB9v8yX1mZ5PtoB6VFSCeqRGjASd8ZTM6VUkiHLB5XEdw",
+                    "00ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
+    check_publickey("PUB_K1_69X3383RzBZj41k73CSjUNXM5MYGpnDxyPnWUKPEtYQmVzqTY7",
+                    "0002a5d2400af24411f64c29da2fe893ff2b6681a3b6ffbe980b2ee42ad10cc2e994");
+    check_publickey("PUB_K1_7yBtksm8Kkg85r4in4uCbfN77uRwe82apM8jjbhFVDgEcarGb8",
+                    "000395c2020968e922eb4319fb56eb4fb0e7543d4b84ad367d8dc1b922338eb7232b");
+    check_publickey("PUB_K1_7WnhaKwHpbSidYuh2DF1qAExTRUtPEdZCaZqt75cKcixtU7gEn",
+                    "000359d04e6519311041b10fe9e828a226b48f3f27a52f071f8e364cd317785abebc");
+    check_publickey("PUB_K1_7Bn1YDeZ18w2N9DU4KAJxZDt6hk3L7eUwFRAc1hb5bp6uEBZA8",
+                    "00032ea514c6b834dbdd6520d0ac420bcf2335fe138de3d2dc5b7b2f03f9f99e9fac");
+
+    check_cross_conversion(abi, PrivateKey::from_str("PVT_R1_PtoxLPzJZURZmPS4e26pjBiAn41mkkLPrET5qHnwDvbvqFEL6")?,
+                           "private_key", r#""PVT_R1_PtoxLPzJZURZmPS4e26pjBiAn41mkkLPrET5qHnwDvbvqFEL6""#,
+                           "0133fb621e78d5dc78f0029b6fd714bfe3b42fe4b72bc109051591e71f204d2813");
+    check_cross_conversion(abi, PrivateKey::from_str("PVT_R1_vbRKUuE34hjMVQiePj2FEjM8FvuG7yemzQsmzx89kPS9J8Coz")?,
+                           "private_key", r#""PVT_R1_vbRKUuE34hjMVQiePj2FEjM8FvuG7yemzQsmzx89kPS9J8Coz""#,
+                           "0179b0c1811bf83356f3fa2dedb76494d8d2bba188fae9c286f118e5e9f0621760");
+    check_cross_conversion2(abi, PrivateKey::from_str("5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3")?,
+                           "private_key", r#""5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3""#,
+                            "00d2653ff7cbb2d8ff129ac27ef5781ce68b2558c41a74af1f2ddca635cbeef07d",
+                            r#""PVT_K1_2bfGi9rYsXQSXXTvJbDAPhHLQUojjaNLomdm3cEJ1XTzMqUt3V""#);
+
+    check_cross_conversion(abi, Signature::from_str("SIG_K1_Kg2UKjXTX48gw2wWH4zmsZmWu3yarcfC21Bd9JPj7QoDURqiAacCHmtExPk3syPb2tFLsp1R4ttXLXgr7FYgDvKPC5RCkx")?,
+                           "signature", r#""SIG_K1_Kg2UKjXTX48gw2wWH4zmsZmWu3yarcfC21Bd9JPj7QoDURqiAacCHmtExPk3syPb2tFLsp1R4ttXLXgr7FYgDvKPC5RCkx""#,
+                           "002056355ed1079822d2728886b449f0f4a2bbf48bf38698c0ebe8c7079768882b1c64ac07d7a4bd85cf96b8a74fdcafef1a4805f946177c609fdf31abe2463038e5");
+    check_cross_conversion(abi, Signature::from_str("SIG_R1_Kfh19CfEcQ6pxkMBz6xe9mtqKuPooaoyatPYWtwXbtwHUHU8YLzxPGvZhkqgnp82J41e9R6r5mcpnxy1wAf1w9Vyo9wybZ")?,
+                           "signature", r#""SIG_R1_Kfh19CfEcQ6pxkMBz6xe9mtqKuPooaoyatPYWtwXbtwHUHU8YLzxPGvZhkqgnp82J41e9R6r5mcpnxy1wAf1w9Vyo9wybZ""#,
+                           "012053a48d3bb9a321e4ae8f079eab72efa778c8c09bc4c2f734de6d19ad9bce6a137495d877d4e51a585376aa6c1a174295dabdb25286e803bf553735cd2d31b1fc");
 
     check_error(|| try_encode(abi, "checksum256", r#""xy""#), "Invalid character");
     check_error(|| try_encode(abi, "checksum256", r#""xy00000000000000000000000000000000000000000000000000000000000000""#), "Invalid character");
@@ -706,15 +757,15 @@ fn roundtrip_asset() -> Result<()> {
     let abi = transaction_abi();
     let asset = |s| { Asset::from_str(s).unwrap() };
     let check_asset = |repr: &str, hex| {
-        check_cross_conversion(abi, Asset::from_str(&repr[1..repr.len()-1]).unwrap(), "asset", repr, hex)
+        check_cross_conversion(abi, Asset::from_str(repr).unwrap(), "asset", &format!(r#""{}""#, repr), hex)
     };
 
-    check_asset(      r#""0 FOO""#, "000000000000000000464f4f00000000");
-    check_asset(    r#""0.0 FOO""#, "000000000000000001464f4f00000000");
-    check_asset(   r#""0.00 FOO""#, "000000000000000002464f4f00000000");
-    check_asset(  r#""0.000 FOO""#, "000000000000000003464f4f00000000");
-    check_asset( r#""1.2345 SYS""#, "39300000000000000453595300000000");
-    check_asset(r#""-1.2345 SYS""#, "c7cfffffffffffff0453595300000000");
+    check_asset(      "0 FOO", "000000000000000000464f4f00000000");
+    check_asset(    "0.0 FOO", "000000000000000001464f4f00000000");
+    check_asset(   "0.00 FOO", "000000000000000002464f4f00000000");
+    check_asset(  "0.000 FOO", "000000000000000003464f4f00000000");
+    check_asset( "1.2345 SYS", "39300000000000000453595300000000");
+    check_asset("-1.2345 SYS", "c7cfffffffffffff0453595300000000");
 
     check_cross_conversion(abi, Vec::<Asset>::new(), "asset[]", r#"[]"#, "00");
     check_cross_conversion(abi, vec![asset("0 FOO")], "asset[]", r#"["0 FOO"]"#,
@@ -745,23 +796,58 @@ fn roundtrip_transaction() -> Result<()> {
     let packed_trx_abi_def = ABIDefinition::from_str(PACKED_TRANSACTION_ABI)?;
     let packed_trx_abi = &ABI::from_definition(&packed_trx_abi_def)?;
 
-    check_round_trip(token_abi, "transfer",
-                     r#"{"from":"useraaaaaaaa","to":"useraaaaaaab","quantity":"0.0001 SYS","memo":"test memo"}"#,
-                     "608c31c6187315d6708c31c6187315d6010000000000000004535953000000000974657374206d656d6f");
+    let transfer = Transfer {
+        from: AccountName::constant("useraaaaaaaa"),
+        to: AccountName::constant("useraaaaaaab"),
+        quantity: Asset::from_str("0.0001 SYS")?,
+        memo: "test memo".into(),
+    };
+
+    check_cross_conversion(
+        token_abi, transfer.clone(), "transfer",
+        r#"{"from":"useraaaaaaaa","to":"useraaaaaaab","quantity":"0.0001 SYS","memo":"test memo"}"#,
+        "608c31c6187315d6708c31c6187315d6010000000000000004535953000000000974657374206d656d6f"
+    );
 
     check_round_trip(trx_abi, "transaction",
                      r#"{"expiration":"2009-02-13T23:31:31.000","ref_block_num":1234,"ref_block_prefix":5678,"max_net_usage_words":0,"max_cpu_usage_ms":0,"delay_sec":0,"context_free_actions":[],"actions":[{"account":"eosio.token","name":"transfer","authorization":[{"actor":"useraaaaaaaa","permission":"active"}],"data":"608c31c6187315d6708c31c6187315d60100000000000000045359530000000000"}],"transaction_extensions":[]}"#,
                      "d3029649d2042e160000000000000100a6823403ea3055000000572d3ccdcd01608c31c6187315d600000000a8ed323221608c31c6187315d6708c31c6187315d6010000000000000004535953000000000000");
 
-    check_round_trip2(
-        token_abi, "transfer",
+    check_cross_conversion2(
+        token_abi, transfer.clone(), "transfer",
         r#"{"to":"useraaaaaaab","memo":"test memo","from":"useraaaaaaaa","quantity":"0.0001 SYS"}"#,
         "608c31c6187315d6708c31c6187315d6010000000000000004535953000000000974657374206d656d6f",
         r#"{"from":"useraaaaaaaa","to":"useraaaaaaab","quantity":"0.0001 SYS","memo":"test memo"}"#,
     );
 
-    check_round_trip2(
-        trx_abi, "transaction",
+    let tx = Transaction {
+        expiration: TimePointSec::from_str("2009-02-13T23:31:31.000")?,
+        ref_block_num: 1234,
+        ref_block_prefix: 5678,
+        actions: vec![Action::new(
+            vec![PermissionLevel {
+                actor: AccountName::constant("useraaaaaaaa"),
+                permission: PermissionName::constant("active")
+            }],
+            Transfer {
+                from: Name::constant("useraaaaaaaa"),
+                to: Name::constant("useraaaaaaab"),
+                quantity: Asset::from_str("0.0001 SYS")?,
+                memo: "".into(),
+            },
+        )],
+        ..Default::default()
+    };
+
+    // check_round_trip2(
+    //     trx_abi, "transaction",
+    //     r#"{"ref_block_num":1234,"ref_block_prefix":5678,"expiration":"2009-02-13T23:31:31.000","max_net_usage_words":0,"max_cpu_usage_ms":0,"delay_sec":0,"context_free_actions":[],"actions":[{"account":"eosio.token","name":"transfer","authorization":[{"actor":"useraaaaaaaa","permission":"active"}],"data":"608c31c6187315d6708c31c6187315d60100000000000000045359530000000000"}],"transaction_extensions":[]}"#,
+    //     "d3029649d2042e160000000000000100a6823403ea3055000000572d3ccdcd01608c31c6187315d600000000a8ed323221608c31c6187315d6708c31c6187315d6010000000000000004535953000000000000",
+    //     r#"{"expiration":"2009-02-13T23:31:31.000","ref_block_num":1234,"ref_block_prefix":5678,"max_net_usage_words":0,"max_cpu_usage_ms":0,"delay_sec":0,"context_free_actions":[],"actions":[{"account":"eosio.token","name":"transfer","authorization":[{"actor":"useraaaaaaaa","permission":"active"}],"data":"608c31c6187315d6708c31c6187315d60100000000000000045359530000000000"}],"transaction_extensions":[]}"#,
+    // );
+
+    check_cross_conversion2(
+        trx_abi, tx, "transaction",
         r#"{"ref_block_num":1234,"ref_block_prefix":5678,"expiration":"2009-02-13T23:31:31.000","max_net_usage_words":0,"max_cpu_usage_ms":0,"delay_sec":0,"context_free_actions":[],"actions":[{"account":"eosio.token","name":"transfer","authorization":[{"actor":"useraaaaaaaa","permission":"active"}],"data":"608c31c6187315d6708c31c6187315d60100000000000000045359530000000000"}],"transaction_extensions":[]}"#,
         "d3029649d2042e160000000000000100a6823403ea3055000000572d3ccdcd01608c31c6187315d600000000a8ed323221608c31c6187315d6708c31c6187315d6010000000000000004535953000000000000",
         r#"{"expiration":"2009-02-13T23:31:31.000","ref_block_num":1234,"ref_block_prefix":5678,"max_net_usage_words":0,"max_cpu_usage_ms":0,"delay_sec":0,"context_free_actions":[],"actions":[{"account":"eosio.token","name":"transfer","authorization":[{"actor":"useraaaaaaaa","permission":"active"}],"data":"608c31c6187315d6708c31c6187315d60100000000000000045359530000000000"}],"transaction_extensions":[]}"#,

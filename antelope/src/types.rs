@@ -196,6 +196,12 @@ impl From<Bytes> for Vec<u8> {
     }
 }
 
+impl AsRef<[u8]> for Bytes {
+    fn as_ref(&self) -> &[u8] {
+        &self.0
+    }
+}
+
 impl Serialize for Bytes {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -243,7 +249,7 @@ macro_rules! impl_checksum {
 
         impl $typ {
             pub fn from_hex<T: AsRef<[u8]>>(data: T) -> Result<$typ, FromHexError> {
-                Ok($typ(hex::decode(data)?.try_into()
+                Ok(Self(hex::decode(data)?.try_into()
                         .map_err(|_| FromHexError::InvalidStringLength)?))
             }
             pub fn to_hex(&self) -> String {
@@ -259,7 +265,7 @@ macro_rules! impl_checksum {
 
         impl Default for $typ {
             fn default() -> Self {
-                $typ::from([0; $size])
+                Self::from([0; $size])
             }
         }
 

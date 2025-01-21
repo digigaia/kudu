@@ -5,6 +5,16 @@ use syn::{
     Data, DataEnum, DataStruct, DeriveInput, Error, Fields, FieldsNamed, Result, Variant,
 };
 
+
+/// control whether we want to have debugging information for the macro when compiling
+const DEBUG: bool = false;
+
+macro_rules! debug {
+    ( $($elem:expr),* ) => { if DEBUG { eprintln!( $($elem),* ); } }
+}
+
+
+
 pub fn derive(input: &DeriveInput) -> TokenStream {
     match try_expand(input) {
         Ok(expanded) => expanded,
@@ -31,6 +41,9 @@ fn derive_struct(input: &DeriveInput, fields: &FieldsNamed) -> Result<TokenStrea
     let fieldname = &fields.named.iter().map(|f| &f.ident).collect::<Vec<_>>();
     let fieldtype = &fields.named.iter().map(|f| &f.ty).collect::<Vec<_>>();
 
+    debug!("field names: {:?}", &fieldname);
+    debug!("field types: {:?}", &fieldtype);
+
     Ok(quote! {
         #[doc(hidden)]
         const _: () = {
@@ -43,7 +56,7 @@ fn derive_struct(input: &DeriveInput, fields: &FieldsNamed) -> Result<TokenStrea
                 fn decode(s: &mut antelope::ByteStream) -> ::core::result::Result<Self, antelope::SerializeError> {
                     Ok(Self {
                         #(
-                            #fieldname: #fieldtype::decode(s)?,
+                            #fieldname: <#fieldtype>::decode(s)?,
                         )*
                     })
                 }

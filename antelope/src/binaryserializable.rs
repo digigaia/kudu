@@ -52,10 +52,10 @@ pub trait BinarySerializable {
 
 // FIXME! Derive `BinarySerializable` for all builtin types
 
-pub fn to_bin<T: BinarySerializable>(value: &T) -> Vec<u8> {
+pub fn to_bin<T: BinarySerializable>(value: &T) -> Bytes {
     let mut s = ByteStream::new();
     value.encode(&mut s);
-    s.into_bytes()
+    Bytes(s.into_bytes())
 }
 
 pub fn to_hex<T: BinarySerializable>(value: &T) -> String {
@@ -69,8 +69,8 @@ pub fn to_hex<T: BinarySerializable>(value: &T) -> String {
 // }
 
 // FIXME: this makes an unnecessary copy
-pub fn from_bin<T: BinarySerializable>(bin: &[u8]) -> Result<T, SerializeError> {
-    let mut s = ByteStream::from(bin.to_vec());
+pub fn from_bin<T: BinarySerializable>(bin: impl AsRef<[u8]>) -> Result<T, SerializeError> {
+    let mut s = ByteStream::from(bin.as_ref().to_vec());
     T::decode(&mut s)
 }
 
@@ -354,6 +354,20 @@ impl<T: CryptoDataType, const DATA_SIZE: usize> BinarySerializable for CryptoDat
         let key_type = KeyType::from_index(stream.read_byte()?)?;
         let data = stream.read_bytes(DATA_SIZE)?.try_into().unwrap();  // safe unwrap
         Ok(Self::new(key_type, data))
+    }
+}
+
+// this, coupled with the blanket impl for Vec, gives us the impl for the `Extensions` type
+impl BinarySerializable for (u16, Bytes) {
+    fn encode(&self, stream: &mut ByteStream) {
+        self.0.encode(stream);
+        self.1.encode(stream);
+    }
+
+    fn decode(stream: &mut ByteStream) -> Result<Self, SerializeError> {
+        let id = u16::decode(stream)?;
+        let data = Bytes::decode(stream)?;
+        Ok((id, data))
     }
 }
 

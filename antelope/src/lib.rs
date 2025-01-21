@@ -41,6 +41,13 @@
 //!  - to convert between a Rust native value and a binary stream you need to use the
 //!    [`BinarySerializable`] trait, which you can automatically derive using the
 //!    `BinarySerializable` derive macro.
+//!
+//! ## WARNINGS / PITFALLS
+//!
+//!  - when defining your own types, use the [`antelope::Bytes`] type instead of `Vec<u8>`
+//!    otherwise the JSON serialization will not be correct
+//!  - when defining your own types that contain a Rust enum types, use the `antelope::SerializeEnum`
+//!    derive macro instead of `serde::Serialize` and `serde::Deserialize`
 //! ----
 
 #![doc = include_str!("../../NOTES.md")]

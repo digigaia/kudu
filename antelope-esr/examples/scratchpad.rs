@@ -11,7 +11,7 @@ use tracing_subscriber::{
 };
 
 use antelope::{
-    ABIDefinition, TimePoint, TimePointSec, JsonValue,
+    ABIDefinition, TimePoint, TimePointSec, JsonValue, Name,
     abidefinition::abi_schema,
     abiserializer::{to_bin, from_bin},
     convert::{variant_to_int, variant_to_uint}
@@ -106,6 +106,18 @@ pub enum Request {
 //         }
 //     }
 // };
+
+#[derive(BinarySerializable)]
+pub struct Action {
+    pub account: Name,
+    pub name: Name,
+}
+
+#[derive(BinarySerializable)]
+pub struct Transaction {
+    pub ref_block_num: u16,
+    pub actions: Vec<Action>,
+}
 
 fn main() -> Result<()> {
     init();

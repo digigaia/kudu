@@ -7,12 +7,15 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use crate::{
     AccountName, ActionName, BlockID, BlockTimestampType, Digest, Extensions, MicroSeconds,
-    PermissionName, TransactionID, TimePointSec, VarUint32
+    PermissionName, TransactionID, TimePointSec, VarUint32, Name, Asset, BinarySerializable,
+    binaryserializable::to_bin, Bytes,
 };
+
+extern crate self as antelope;
 
 // =============================================================================
 //
@@ -36,7 +39,12 @@ use crate::{
 
 // from: https://github.com/AntelopeIO/spring/blob/main/libraries/chain/include/eosio/chain/action.hpp
 
-#[derive(Eq, Hash, PartialEq, Debug, Copy, Clone, Default, Serialize)]
+pub trait Contract: BinarySerializable {
+    fn account() -> AccountName;
+    fn name() -> ActionName;
+}
+
+#[derive(Eq, Hash, PartialEq, Debug, Copy, Clone, Default, Deserialize, Serialize, BinarySerializable)]
 pub struct PermissionLevel {
     pub actor: AccountName,
     pub permission: PermissionName,
@@ -59,14 +67,24 @@ pub struct PermissionLevel {
 /// levels are declared on the action and validated independently of the executing
 /// application code. An application code will check to see if the required
 /// authorization were properly declared when it executes.
-#[derive(Eq, Hash, PartialEq, Debug, Clone, Default, Serialize)]
+#[derive(Eq, Hash, PartialEq, Debug, Clone, Default, Deserialize, Serialize, BinarySerializable)]
 pub struct Action {
     pub account: AccountName,
     pub name: ActionName,
-    pub auth: Vec<PermissionLevel>,
-    pub data: Vec<u8>,
+    pub authorization: Vec<PermissionLevel>,
+    pub data: Bytes,
 }
 
+impl Action {
+    pub fn new<T: Contract>(authorization: Vec<PermissionLevel>, contract: T) -> Action {
+        Action {
+            account: T::account(),
+            name: T::name(),
+            authorization,
+            data: to_bin(&contract)
+        }
+    }
+}
 
 // from: https://github.com/AntelopeIO/spring/blob/main/libraries/chain/include/eosio/chain/action_receipt.hpp
 
@@ -110,32 +128,32 @@ pub struct Trace {
 }
 
 
-#[derive(Eq, Hash, PartialEq, Debug, Clone, Default, Serialize)]
+#[derive(Eq, Hash, PartialEq, Debug, Clone, Default, Serialize, Deserialize, BinarySerializable)]
 pub struct Transaction {
     // -----------------------------------------------------------------------------
     //     TransactionHeader fields
     // -----------------------------------------------------------------------------
 
     /// The time at which a transaction expires.
-    expiration: TimePointSec,
+    pub expiration: TimePointSec,
     /// Specifies a block num in the last 2^16 blocks.
-    ref_block_num: u16,
+    pub ref_block_num: u16,
     /// Specifies the lower 32 bits of the block id.
-    ref_block_prefix: u32,
+    pub ref_block_prefix: u32,
     /// Upper limit on total network bandwidth (in 8 byte words) billed for this transaction.
-    max_net_usage_words: VarUint32,
+    pub max_net_usage_words: VarUint32,
     /// Upper limit on the total CPU time billed for this transaction.
-    max_cpu_usage_ms: u8,
+    pub max_cpu_usage_ms: u8,
     /// Number of seconds to delay this transaction for during which it may be canceled.
-    delay_sec: VarUint32,
+    pub delay_sec: VarUint32,
 
     // -----------------------------------------------------------------------------
     //     Transaction fields
     // -----------------------------------------------------------------------------
 
-    context_free_actions: Vec<Action>,
-    actions: Vec<Action>,
-    transaction_extensions: Extensions,
+    pub context_free_actions: Vec<Action>,
+    pub actions: Vec<Action>,
+    pub transaction_extensions: Extensions,
 }
 
 
@@ -143,5 +161,27 @@ pub struct Transaction {
 impl Transaction {
     pub fn id() -> TransactionID {
         todo!();  // sha256 hash of the serialized trx
+    }
+}
+
+
+
+/// not a native Antelope type but normally defined through an ABI
+/// It is provided here for convenience
+#[derive(Clone, Debug, PartialEq, Eq, BinarySerializable, Serialize, Deserialize)]
+pub struct Transfer {
+    pub from: Name,
+    pub to: Name,
+    pub quantity: Asset,
+    pub memo: String,
+}
+
+
+impl Contract for Transfer {
+    fn account() -> AccountName {
+        const { AccountName::constant("eosio.token") }
+     }
+    fn name() -> ActionName {
+        const { ActionName::constant("transfer") }
     }
 }
