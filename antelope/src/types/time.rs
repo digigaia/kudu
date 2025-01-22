@@ -61,6 +61,29 @@ macro_rules! impl_serialize {
     }
 }
 
+macro_rules! impl_from {
+    ($typ:ty, $inner:ty) => {
+        impl From<$inner> for $typ {
+            fn from(n: $inner) -> $typ {
+                Self(n)
+            }
+        }
+
+        impl From<$typ> for $inner {
+            fn from(t: $typ) -> $inner {
+                t.0
+            }
+        }
+
+        impl TryFrom<&str> for $typ {
+            type Error = ChronoParseError;
+            fn try_from(value: &str) -> Result<Self, Self::Error> {
+                Self::from_str(value)
+            }
+        }
+    }
+}
+
 
 // -----------------------------------------------------------------------------
 //     TimePoint
@@ -97,20 +120,9 @@ impl TimePoint {
     }
 }
 
-impl From<i64> for TimePoint {
-    fn from(n: i64) -> TimePoint {
-        TimePoint(n)
-    }
-}
-
-impl From<TimePoint> for i64 {
-    fn from(t: TimePoint) -> i64 {
-        t.0
-    }
-}
-
 impl_time_display!(TimePoint);
 impl_serialize!(TimePoint);
+impl_from!(TimePoint, i64);
 
 
 // -----------------------------------------------------------------------------
@@ -143,20 +155,9 @@ impl TimePointSec {
     }
 }
 
-impl From<u32> for TimePointSec {
-    fn from(n: u32) -> TimePointSec {
-        TimePointSec(n)
-    }
-}
-
-impl From<TimePointSec> for u32 {
-    fn from(t: TimePointSec) -> u32 {
-        t.0
-    }
-}
-
 impl_time_display!(TimePointSec);
 impl_serialize!(TimePointSec);
+impl_from!(TimePointSec, u32);
 
 
 // -----------------------------------------------------------------------------
@@ -189,17 +190,6 @@ impl BlockTimestampType {
     }
 }
 
-impl From<u32> for BlockTimestampType {
-    fn from(n: u32) -> BlockTimestampType {
-        BlockTimestampType(n)
-    }
-}
-
-impl From<BlockTimestampType> for u32 {
-    fn from(t: BlockTimestampType) -> u32 {
-        t.0
-    }
-}
-
 impl_time_display!(BlockTimestampType);
 impl_serialize!(BlockTimestampType);
+impl_from!(BlockTimestampType, u32);

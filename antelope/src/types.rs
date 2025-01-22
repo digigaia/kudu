@@ -190,6 +190,12 @@ impl From<&[u8]> for Bytes {
     }
 }
 
+impl From<&str> for Bytes {
+    fn from(s: &str) -> Bytes {
+        Bytes(s.as_bytes().to_vec())
+    }
+}
+
 impl From<Bytes> for Vec<u8> {
     fn from(b: Bytes) -> Vec<u8> {
         b.0

@@ -169,7 +169,7 @@ impl<'de, T: CryptoDataType, const DATA_SIZE: usize> Deserialize<'de> for Crypto
 }
 
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct PublicKeyType;
 
 impl CryptoDataType for PublicKeyType {
@@ -180,7 +180,7 @@ impl CryptoDataType for PublicKeyType {
 pub type PublicKey = CryptoData<PublicKeyType, 33>;
 
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct PrivateKeyType;
 
 impl CryptoDataType for PrivateKeyType {
@@ -191,7 +191,7 @@ impl CryptoDataType for PrivateKeyType {
 pub type PrivateKey = CryptoData<PrivateKeyType, 32>;
 
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct SignatureType;
 
 impl CryptoDataType for SignatureType {

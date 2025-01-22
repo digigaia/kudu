@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     AccountName, ActionName, BlockID, BlockTimestampType, Digest, Extensions, MicroSeconds,
     PermissionName, TransactionID, TimePointSec, VarUint32, Name, Asset, BinarySerializable,
-    binaryserializable::to_bin, Bytes,
+    binaryserializable::to_bin, Bytes, Signature,
 };
 
 extern crate self as antelope;
@@ -184,4 +184,13 @@ impl Contract for Transfer {
     fn name() -> ActionName {
         const { ActionName::constant("transfer") }
     }
+}
+
+
+#[derive(Eq, Hash, PartialEq, Debug, Clone, Default, Serialize, Deserialize, BinarySerializable)]
+pub struct PackedTransactionV0 {
+    pub signatures: Vec<Signature>,
+    pub compression: u8,
+    pub packed_context_free_data: Bytes,
+    pub packed_trx: Transaction,
 }

@@ -2,7 +2,7 @@ use std::any::type_name_of_val;
 use std::fmt::Debug;
 use std::sync::{Once, OnceLock};
 
-use antelope::{BlockTimestampType, PermissionLevel};
+use antelope::{BlockTimestampType, PackedTransactionV0, PermissionLevel};
 use color_eyre::eyre::Result;
 use serde::{de::DeserializeOwned, Serialize};
 use tracing::{trace, debug, info, instrument};
@@ -134,12 +134,7 @@ fn check_error<F, T>(f: F, expected_error_msg: &str)
 
 /// check roundtrip JSON -> variant -> bin -> variant -> JSON
 #[track_caller]
-fn check_round_trip(abi: &ABI, typename: &str, data: &str, hex: &str) {
-    round_trip(abi, typename, data, hex, data).unwrap()
-}
-
-#[track_caller]
-fn check_round_trip2(abi: &ABI, typename: &str, data: &str, hex: &str, expected: &str) {
+fn check_round_trip(abi: &ABI, typename: &str, data: &str, hex: &str, expected: &str) {
     round_trip(abi, typename, data, hex, expected).unwrap()
 }
 
@@ -153,7 +148,7 @@ macro_rules! check_cross_conversion {
     ($abi:ident, $value:expr, $typ:ty, $typename:expr, $data:expr, $hex:expr, $expected:expr, $flags:expr) => {
         // 1- JSON -> variant -> bin -> variant -> JSON
         trace!(r#"checking JSON: {} -> variant -> bin: "{}" -> variant -> JSON"#, $data, $hex);
-        check_round_trip2($abi, $typename, $data, $hex, $expected);
+        check_round_trip($abi, $typename, $data, $hex, $expected);
 
         // 2- Rust -> bin -> Rust
         trace!("checking Rust native ({:?}: {}) -> bin: {}", &$value, type_name_of_val(&$value), $hex);
@@ -809,16 +804,20 @@ fn roundtrip_transaction() -> Result<()> {
         "608c31c6187315d6708c31c6187315d6010000000000000004535953000000000974657374206d656d6f"
     );
 
-    check_round_trip(trx_abi, "transaction",
-                     r#"{"expiration":"2009-02-13T23:31:31.000","ref_block_num":1234,"ref_block_prefix":5678,"max_net_usage_words":0,"max_cpu_usage_ms":0,"delay_sec":0,"context_free_actions":[],"actions":[{"account":"eosio.token","name":"transfer","authorization":[{"actor":"useraaaaaaaa","permission":"active"}],"data":"608c31c6187315d6708c31c6187315d60100000000000000045359530000000000"}],"transaction_extensions":[]}"#,
-                     "d3029649d2042e160000000000000100a6823403ea3055000000572d3ccdcd01608c31c6187315d600000000a8ed323221608c31c6187315d6708c31c6187315d6010000000000000004535953000000000000");
-
     check_cross_conversion2(
-        token_abi, transfer.clone(), "transfer",
+        token_abi, transfer, "transfer",
         r#"{"to":"useraaaaaaab","memo":"test memo","from":"useraaaaaaaa","quantity":"0.0001 SYS"}"#,
         "608c31c6187315d6708c31c6187315d6010000000000000004535953000000000974657374206d656d6f",
         r#"{"from":"useraaaaaaaa","to":"useraaaaaaab","quantity":"0.0001 SYS","memo":"test memo"}"#,
     );
+
+    let transfer = Transfer {
+        from: Name::constant("useraaaaaaaa"),
+        to: Name::constant("useraaaaaaab"),
+        quantity: Asset::from_str("0.0001 SYS")?,
+        memo: "".into(),
+    };
+
 
     let tx = Transaction {
         expiration: TimePointSec::from_str("2009-02-13T23:31:31.000")?,
@@ -829,22 +828,16 @@ fn roundtrip_transaction() -> Result<()> {
                 actor: AccountName::constant("useraaaaaaaa"),
                 permission: PermissionName::constant("active")
             }],
-            Transfer {
-                from: Name::constant("useraaaaaaaa"),
-                to: Name::constant("useraaaaaaab"),
-                quantity: Asset::from_str("0.0001 SYS")?,
-                memo: "".into(),
-            },
+            transfer.clone(),
         )],
         ..Default::default()
     };
 
-    // check_round_trip2(
-    //     trx_abi, "transaction",
-    //     r#"{"ref_block_num":1234,"ref_block_prefix":5678,"expiration":"2009-02-13T23:31:31.000","max_net_usage_words":0,"max_cpu_usage_ms":0,"delay_sec":0,"context_free_actions":[],"actions":[{"account":"eosio.token","name":"transfer","authorization":[{"actor":"useraaaaaaaa","permission":"active"}],"data":"608c31c6187315d6708c31c6187315d60100000000000000045359530000000000"}],"transaction_extensions":[]}"#,
-    //     "d3029649d2042e160000000000000100a6823403ea3055000000572d3ccdcd01608c31c6187315d600000000a8ed323221608c31c6187315d6708c31c6187315d6010000000000000004535953000000000000",
-    //     r#"{"expiration":"2009-02-13T23:31:31.000","ref_block_num":1234,"ref_block_prefix":5678,"max_net_usage_words":0,"max_cpu_usage_ms":0,"delay_sec":0,"context_free_actions":[],"actions":[{"account":"eosio.token","name":"transfer","authorization":[{"actor":"useraaaaaaaa","permission":"active"}],"data":"608c31c6187315d6708c31c6187315d60100000000000000045359530000000000"}],"transaction_extensions":[]}"#,
-    // );
+    check_cross_conversion(
+        trx_abi, tx.clone(), "transaction",
+        r#"{"expiration":"2009-02-13T23:31:31.000","ref_block_num":1234,"ref_block_prefix":5678,"max_net_usage_words":0,"max_cpu_usage_ms":0,"delay_sec":0,"context_free_actions":[],"actions":[{"account":"eosio.token","name":"transfer","authorization":[{"actor":"useraaaaaaaa","permission":"active"}],"data":"608c31c6187315d6708c31c6187315d60100000000000000045359530000000000"}],"transaction_extensions":[]}"#,
+        "d3029649d2042e160000000000000100a6823403ea3055000000572d3ccdcd01608c31c6187315d600000000a8ed323221608c31c6187315d6708c31c6187315d6010000000000000004535953000000000000"
+    );
 
     check_cross_conversion2(
         trx_abi, tx, "transaction",
@@ -853,8 +846,27 @@ fn roundtrip_transaction() -> Result<()> {
         r#"{"expiration":"2009-02-13T23:31:31.000","ref_block_num":1234,"ref_block_prefix":5678,"max_net_usage_words":0,"max_cpu_usage_ms":0,"delay_sec":0,"context_free_actions":[],"actions":[{"account":"eosio.token","name":"transfer","authorization":[{"actor":"useraaaaaaaa","permission":"active"}],"data":"608c31c6187315d6708c31c6187315d60100000000000000045359530000000000"}],"transaction_extensions":[]}"#,
     );
 
-    check_round_trip(
-        packed_trx_abi, "packed_transaction_v0",
+    let tx = PackedTransactionV0 {
+        signatures: vec![Signature::from_str("SIG_K1_K5PGhrkUBkThs8zdTD9mGUJZvxL4eU46UjfYJSEdZ9PXS2Cgv5jAk57yTx4xnrdSocQm6DDvTaEJZi5WLBsoZC4XYNS8b3")?],
+        compression: 0,
+        packed_context_free_data: "".into(),
+        packed_trx: Transaction {
+            expiration: "2009-02-13T23:31:31.000".try_into()?,
+            ref_block_num: 1234,
+            ref_block_prefix: 5678,
+            actions: vec![Action::new(
+                vec![PermissionLevel {
+                    actor: "useraaaaaaaa".try_into()?,
+                    permission: "active".try_into()?,
+                }],
+                transfer,
+            )],
+            ..Default::default()
+        }
+    };
+
+    check_cross_conversion(
+        packed_trx_abi, tx, "packed_transaction_v0",
         r#"{"signatures":["SIG_K1_K5PGhrkUBkThs8zdTD9mGUJZvxL4eU46UjfYJSEdZ9PXS2Cgv5jAk57yTx4xnrdSocQm6DDvTaEJZi5WLBsoZC4XYNS8b3"],"compression":0,"packed_context_free_data":"","packed_trx":{"expiration":"2009-02-13T23:31:31.000","ref_block_num":1234,"ref_block_prefix":5678,"max_net_usage_words":0,"max_cpu_usage_ms":0,"delay_sec":0,"context_free_actions":[],"actions":[{"account":"eosio.token","name":"transfer","authorization":[{"actor":"useraaaaaaaa","permission":"active"}],"data":"608c31c6187315d6708c31c6187315d60100000000000000045359530000000000"}],"transaction_extensions":[]}}"#,
         "01001f4d6c791d32e38ca1a0a5f3139b8d1d521b641fe2ee675311fca4c755acdfca2d13fe4dee9953d2504fcb4382eeacbcef90e3e8034bdd32eba11f1904419df6af0000d3029649d2042e160000000000000100a6823403ea3055000000572d3ccdcd01608c31c6187315d600000000a8ed323221608c31c6187315d6708c31c6187315d6010000000000000004535953000000000000"
     );

@@ -1,6 +1,8 @@
 # TODO / FIXME
 
 - write `[tracing_test]` attr macro that makes a `[test]` and calls `tracing_init()` at the beginning
+  even better: `[antelope_test]` that makes a `[test]` that returns a `Result<()>`, calls `tracing_init()`
+  at the beginning() and returns `Ok(())` at the end.
 - add `[derive(Serialize)]` to all base types
 
 ## API DESIGN
@@ -33,6 +35,8 @@
       pub memo: String,
   }
   ```
+
+- implement `From` traits for base types everywhere it makes sense, and `TryFrom` too
 
 - clean/properly order imports in all file
 
@@ -104,6 +108,8 @@
 - have some tests for `APIClient`, think how to do this smartly to not pound the API server
 
 - check abieos/test.cpp to ensure we cover also all the error cases with proper error messages
+
+- check float128 support
 
 - check tests in <https://github.com/AntelopeIO/spring/blob/main/unittests/abi_tests.cpp>
   - at the end, there are tests about action results
