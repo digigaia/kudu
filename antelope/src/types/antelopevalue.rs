@@ -13,7 +13,7 @@ use tracing::instrument;
 use antelope_macros::with_location;
 
 use crate::{
-    json, JsonError, JsonValue,
+    json, JsonError, JsonValue, ByteStream, SerializeError, BinarySerializable,
     impl_auto_error_conversion,
 };
 
@@ -246,6 +246,88 @@ impl AntelopeValue {
                 Self::ExtendedAsset(Box::new(ExtendedAsset {
                     quantity: Asset::from_str(qty).context(AssetSnafu { repr: qty })?,
                     contract: Name::from_str(ea["contract"].as_str().with_context(incompatible_types)?).context(NameSnafu)?,
+                }))
+            },
+        })
+    }
+
+    pub fn to_bin(&self, stream: &mut ByteStream) {
+        match self {
+            Self::Bool(b) => b.encode(stream),
+            Self::Int8(n) => n.encode(stream),
+            Self::Int16(n) => n.encode(stream),
+            Self::Int32(n) => n.encode(stream),
+            Self::Int64(n) => n.encode(stream),
+            Self::Int128(n) => n.encode(stream),
+            Self::Uint8(n) => n.encode(stream),
+            Self::Uint16(n) => n.encode(stream),
+            Self::Uint32(n) => n.encode(stream),
+            Self::Uint64(n) => n.encode(stream),
+            Self::Uint128(n) => n.encode(stream),
+            Self::VarInt32(n) => n.encode(stream),
+            Self::VarUint32(n) => n.encode(stream),
+            Self::Float32(x) => x.encode(stream),
+            Self::Float64(x) => x.encode(stream),
+            #[cfg(feature = "float128")]
+            Self::Float128(x) => x.encode(stream),
+            Self::Bytes(b) => b.encode(stream),
+            Self::String(s) => s.encode(stream),
+            Self::TimePoint(t) => t.encode(stream),
+            Self::TimePointSec(t) => t.encode(stream),
+            Self::BlockTimestampType(t) => t.encode(stream),
+            Self::Checksum160(c) => stream.write_bytes(&c.0[..]),
+            Self::Checksum256(c) => stream.write_bytes(&c.0[..]),
+            Self::Checksum512(c) => stream.write_bytes(&c.0[..]),
+            Self::PublicKey(sig) => sig.encode(stream),
+            Self::PrivateKey(sig) => sig.encode(stream),
+            Self::Signature(sig) => sig.encode(stream),
+            Self::Name(name) => name.encode(stream),
+            Self::Symbol(sym) => sym.encode(stream),
+            Self::SymbolCode(sym) => sym.encode(stream),
+            Self::Asset(asset) => asset.encode(stream),
+            Self::ExtendedAsset(ea) => ea.deref().encode(stream),
+        }
+    }
+
+    #[instrument(skip(stream))]
+    pub fn from_bin(typename: AntelopeType, stream: &mut ByteStream) -> Result<Self, SerializeError> {
+        Ok(match typename {
+            AntelopeType::Bool => Self::Bool(bool::decode(stream)?),
+            AntelopeType::Int8 => Self::Int8(i8::decode(stream)?),
+            AntelopeType::Int16 => Self::Int16(i16::decode(stream)?),
+            AntelopeType::Int32 => Self::Int32(i32::decode(stream)?),
+            AntelopeType::Int64 => Self::Int64(i64::decode(stream)?),
+            AntelopeType::Int128 => Self::Int128(i128::decode(stream)?),
+            AntelopeType::Uint8 => Self::Uint8(u8::decode(stream)?),
+            AntelopeType::Uint16 => Self::Uint16(u16::decode(stream)?),
+            AntelopeType::Uint32 => Self::Uint32(u32::decode(stream)?),
+            AntelopeType::Uint64 => Self::Uint64(u64::decode(stream)?),
+            AntelopeType::Uint128 => Self::Uint128(u128::decode(stream)?),
+            AntelopeType::VarInt32 => Self::VarInt32(VarInt32::decode(stream)?),
+            AntelopeType::VarUint32 => Self::VarUint32(VarUint32::decode(stream)?),
+            AntelopeType::Float32 => Self::Float32(f32::decode(stream)?),
+            AntelopeType::Float64 => Self::Float64(f64::decode(stream)?),
+            #[cfg(feature = "float128")]
+            AntelopeType::Float128 => Self::Float128(f128::decode(stream)?),
+            AntelopeType::Bytes => Self::Bytes(Bytes::decode(stream)?),
+            AntelopeType::String => Self::String(String::decode(stream)?),
+            AntelopeType::TimePoint => Self::TimePoint(TimePoint::decode(stream)?),
+            AntelopeType::TimePointSec => Self::TimePointSec(TimePointSec::decode(stream)?),
+            AntelopeType::BlockTimestampType => Self::BlockTimestampType(BlockTimestampType::decode(stream)?),
+            AntelopeType::Checksum160 => Self::Checksum160(Box::new(Checksum160::decode(stream)?)),
+            AntelopeType::Checksum256 => Self::Checksum256(Box::new(Checksum256::decode(stream)?)),
+            AntelopeType::Checksum512 => Self::Checksum512(Box::new(Checksum512::decode(stream)?)),
+            AntelopeType::PublicKey => Self::PublicKey(Box::new(PublicKey::decode(stream)?)),
+            AntelopeType::PrivateKey => Self::PrivateKey(Box::new(PrivateKey::decode(stream)?)),
+            AntelopeType::Signature => Self::Signature(Box::new(Signature::decode(stream)?)),
+            AntelopeType::Name => Self::Name(Name::decode(stream)?),
+            AntelopeType::Symbol => Self::Symbol(Symbol::decode(stream)?),
+            AntelopeType::SymbolCode => Self::SymbolCode(SymbolCode::decode(stream)?),
+            AntelopeType::Asset => Self::Asset(Asset::decode(stream)?),
+            AntelopeType::ExtendedAsset => {
+                Self::ExtendedAsset(Box::new(ExtendedAsset {
+                    quantity: Asset::decode(stream)?,
+                    contract: Name::decode(stream)?
                 }))
             },
         })

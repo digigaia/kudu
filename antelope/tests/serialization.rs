@@ -6,7 +6,6 @@ use chrono::{NaiveDate, TimeZone, Utc};
 
 use antelope::{
     ByteStream, BinarySerializable,
-    abiserializable::ABISerializable,
     AntelopeType, AntelopeValue, Asset, Bytes, BlockTimestampType, ExtendedAsset,
     Name, Symbol, SymbolCode, TimePoint, TimePointSec, VarInt32, VarUint32, PublicKey, PrivateKey, Signature,
     Checksum160, Checksum256, Checksum512,

@@ -17,6 +17,9 @@ pub enum StreamError {
 
     #[snafu(display("odd number of chars in hex representation"))]
     OddLength,
+
+    #[snafu(display("varint too long to fit in u32"))]
+    InvalidVarInt,
 }
 
 
@@ -99,4 +102,46 @@ impl ByteStream {
     pub fn write_bytes(&mut self, bytes: &[u8]) {
         self.data.extend_from_slice(bytes)
     }
+
+    pub fn write_var_u32(&mut self, n: u32) {
+        let mut n = n;
+        loop {
+            if n >> 7 != 0 {
+                self.write_byte((0x80 | (n & 0x7f)) as u8);
+                n >>= 7
+            }
+            else {
+                self.write_byte(n as u8);
+                break;
+            }
+        }
+    }
+
+    pub fn write_var_i32(&mut self, n: i32) {
+        let unsigned = ((n as u32) << 1) ^ ((n >> 31) as u32);
+        self.write_var_u32(unsigned)
+    }
+
+    pub fn read_var_u32(&mut self) -> Result<u32, StreamError> {
+        let mut offset = 0;
+        let mut result = 0;
+        loop {
+            let byte = self.read_byte()?;
+            result |= (byte as u32 & 0x7F) << offset;
+            offset += 7;
+            if (byte & 0x80) == 0 { break; }
+
+            ensure!(offset < 32, InvalidVarIntSnafu);
+        }
+        Ok(result)
+    }
+
+    pub fn read_var_i32(&mut self) -> Result<i32, StreamError> {
+        let n = self.read_var_u32()?;
+        Ok(match n & 1 {
+            0 => n >> 1,
+            _ => ((!n) >> 1) | 0x8000_0000,
+        } as i32)
+    }
+
 }

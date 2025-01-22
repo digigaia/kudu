@@ -23,6 +23,19 @@
   }
   ```
 
+- define an attr macro for declaring contracts (such as in chain.rs) like so:
+  ```
+  #[contract(account="eosio.token", name="transfer")]
+  pub struct Transfer {
+      pub from: Name,
+      pub to: Name,
+      pub quantity: Asset,
+      pub memo: String,
+  }
+  ```
+
+- clean/properly order imports in all file
+
 ### Naming
 
 - rename `BlockTimestampType` to `BlockTimestamp` ?
@@ -33,6 +46,10 @@
 
 - to_hex -> hex representation of binary data, to_bin -> binary data itself (ie: `vec<u8>`)
 
+- `BinarySerializable` trait methods namings:
+  `encode()` -> `to_bin()`
+  `decode()` -> `from_bin()`
+  also: rename trait to `ABISerializable`?
 
 ### Investigate Serde
 
@@ -43,6 +60,7 @@
   Also: make sure we have a trait for this and implement it on all types? for now Name implements decode/encode as normal methods, not as trait methods
 
 - is ABISerializable still needed once we have serde compatibility? Could we even remove BinarySerializable??
+  -> actually we need BinarySerializable, so remove ABISerializer instead
 
 - write a JSON [Formatter](https://docs.rs/serde_json/1.0.68/serde_json/ser/trait.Formatter.html) to properly
   output values in the format expected by Antelope:

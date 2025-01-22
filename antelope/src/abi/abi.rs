@@ -15,7 +15,7 @@ use antelope_macros::with_location;
 
 use crate::{
     AntelopeType, AntelopeValue, Name, VarUint32, InvalidValue, TypeNameRef, impl_auto_error_conversion,
-    ABIDefinition, ABISerializable, ByteStream, BinarySerializable, SerializeError,
+    ABIDefinition, ByteStream, BinarySerializable, SerializeError,
     abidefinition::{
         TypeName, Struct, Variant
     },
@@ -247,8 +247,8 @@ impl ABI {
     }
 
     #[inline]
-    pub fn encode<T: ABISerializable>(&self, stream: &mut ByteStream, obj: &T) {
-        obj.to_bin(stream)
+    pub fn encode<T: BinarySerializable>(&self, stream: &mut ByteStream, obj: &T) {
+        obj.encode(stream)
     }
 
     #[inline]

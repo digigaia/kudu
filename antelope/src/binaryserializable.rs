@@ -1,7 +1,7 @@
 use std::str::{from_utf8, Utf8Error};
 
 use bytemuck::{cast_ref, pod_read_unaligned};
-use snafu::{ensure, Snafu, ResultExt};
+use snafu::{Snafu, ResultExt};
 
 use antelope_macros::with_location;
 
@@ -27,6 +27,9 @@ pub enum SerializeError {
     #[snafu(display("invalid crypto data"))]
     InvalidCryptoData { source: InvalidCryptoData },
 
+    #[snafu(display("cannot parse bool from stream"))]
+    InvalidBool,
+
     #[snafu(display("{msg}"))]
     InvalidData { msg: String },  // acts as a generic error type with a given message
 
@@ -50,23 +53,19 @@ pub trait BinarySerializable {
         Self: Sized;
 }
 
-// FIXME! Derive `BinarySerializable` for all builtin types
-
+/// Serialize a `BinarySerializable` type to binary data.
 pub fn to_bin<T: BinarySerializable>(value: &T) -> Bytes {
     let mut s = ByteStream::new();
     value.encode(&mut s);
     Bytes(s.into_bytes())
 }
 
+/// Return the hex representation of the binary serialization of a `BinarySerializable` type.
 pub fn to_hex<T: BinarySerializable>(value: &T) -> String {
     let mut s = ByteStream::new();
     value.encode(&mut s);
     s.hex_data()
 }
-
-// pub fn from_bin<T: BinarySerializable>(mut s: ByteStream) -> Result<T, SerializeError> {
-//     T::decode(&mut s)
-// }
 
 // FIXME: this makes an unnecessary copy
 pub fn from_bin<T: BinarySerializable>(bin: impl AsRef<[u8]>) -> Result<T, SerializeError> {
@@ -142,7 +141,7 @@ impl BinarySerializable for bool {
         match stream.read_byte()? {
             1 => Ok(true),
             0 => Ok(false),
-            _ => InvalidDataSnafu { msg: "cannot parse bool from stream".to_owned() }.fail(),
+            _ => InvalidBoolSnafu.fail(),
         }
     }
 }
@@ -188,22 +187,22 @@ impl_pod_serialization!(f128, 16);
 impl BinarySerializable for VarInt32 {
     #[inline]
     fn encode(&self, stream: &mut ByteStream) {
-        write_var_i32(stream, i32::from(*self))
+        stream.write_var_i32(i32::from(*self))
     }
     #[inline]
     fn decode(stream: &mut ByteStream) -> Result<Self, SerializeError> {
-        Ok(read_var_i32(stream)?.into())
+        Ok(stream.read_var_i32()?.into())
     }
 }
 
 impl BinarySerializable for VarUint32 {
     #[inline]
     fn encode(&self, stream: &mut ByteStream) {
-        write_var_u32(stream, u32::from(*self))
+        stream.write_var_u32(u32::from(*self))
     }
     #[inline]
     fn decode(stream: &mut ByteStream) -> Result<Self, SerializeError> {
-        Ok(read_var_u32(stream)?.into())
+        Ok(stream.read_var_u32()?.into())
     }
 }
 
@@ -214,11 +213,11 @@ impl BinarySerializable for VarUint32 {
 
 impl BinarySerializable for Bytes {
     fn encode(&self, stream: &mut ByteStream) {
-        write_var_u32(stream, self.0.len() as u32);
+        stream.write_var_u32(self.0.len() as u32);
         stream.write_bytes(&self.0[..]);
     }
     fn decode(stream: &mut ByteStream) -> Result<Self, SerializeError> {
-        let len = read_var_u32(stream)? as usize;
+        let len = stream.read_var_u32()? as usize;
         Ok(Bytes::from(stream.read_bytes(len)?))
     }
 }
@@ -226,7 +225,7 @@ impl BinarySerializable for Bytes {
 // convenience implementation to avoid allocating when encoding a &[u8]
 impl BinarySerializable for &[u8] {
     fn encode(&self, stream: &mut ByteStream) {
-        write_var_u32(stream, self.len() as u32);
+        stream.write_var_u32(self.len() as u32);
         stream.write_bytes(self);
     }
     fn decode(_stream: &mut ByteStream) -> Result<Self, SerializeError> {
@@ -236,11 +235,11 @@ impl BinarySerializable for &[u8] {
 
 impl BinarySerializable for String {
     fn encode(&self, stream: &mut ByteStream) {
-        write_var_u32(stream, self.len() as u32);
+        stream.write_var_u32(self.len() as u32);
         stream.write_bytes(self.as_bytes());
     }
     fn decode(stream: &mut ByteStream) -> Result<Self, SerializeError> {
-        let len = read_var_u32(stream)? as usize;
+        let len = stream.read_var_u32()? as usize;
         from_utf8(stream.read_bytes(len)?).context(Utf8Snafu).map(|s| s.to_owned())
     }
 }
@@ -248,7 +247,7 @@ impl BinarySerializable for String {
 // convenience implementation to avoid allocating encoding a &str
 impl BinarySerializable for &str {
     fn encode(&self, stream: &mut ByteStream) {
-        write_var_u32(stream, self.len() as u32);
+        stream.write_var_u32(self.len() as u32);
         stream.write_bytes(self.as_bytes());
     }
     fn decode(_stream: &mut ByteStream) -> Result<Self, SerializeError> {
@@ -376,46 +375,48 @@ impl BinarySerializable for (u16, Bytes) {
 //     util functions for varints and reading/writing str/bytes
 // -----------------------------------------------------------------------------
 
-fn write_var_u32(stream: &mut ByteStream, n: u32) {
-    let mut n = n;
-    loop {
-        if n >> 7 != 0 {
-            stream.write_byte((0x80 | (n & 0x7f)) as u8);
-            n >>= 7
-        }
-        else {
-            stream.write_byte(n as u8);
-            break;
-        }
-    }
-}
+// FIXME: move this inside `ByteStream` struct impl
 
-fn write_var_i32(stream: &mut ByteStream, n: i32) {
-    let unsigned = ((n as u32) << 1) ^ ((n >> 31) as u32);
-    write_var_u32(stream, unsigned)
-}
+// fn write_var_u32(stream: &mut ByteStream, n: u32) {
+//     let mut n = n;
+//     loop {
+//         if n >> 7 != 0 {
+//             stream.write_byte((0x80 | (n & 0x7f)) as u8);
+//             n >>= 7
+//         }
+//         else {
+//             stream.write_byte(n as u8);
+//             break;
+//         }
+//     }
+// }
 
-fn read_var_u32(stream: &mut ByteStream) -> Result<u32, SerializeError> {
-    let mut offset = 0;
-    let mut result = 0;
-    loop {
-        let byte = stream.read_byte()?;
-        result |= (byte as u32 & 0x7F) << offset;
-        offset += 7;
-        if (byte & 0x80) == 0 { break; }
+// fn write_var_i32(stream: &mut ByteStream, n: i32) {
+//     let unsigned = ((n as u32) << 1) ^ ((n >> 31) as u32);
+//     write_var_u32(stream, unsigned)
+// }
 
-        ensure!(offset < 32, InvalidDataSnafu { msg: "varint too long to fit in u32" });
-    }
-    Ok(result)
-}
+// fn read_var_u32(stream: &mut ByteStream) -> Result<u32, SerializeError> {
+//     let mut offset = 0;
+//     let mut result = 0;
+//     loop {
+//         let byte = stream.read_byte()?;
+//         result |= (byte as u32 & 0x7F) << offset;
+//         offset += 7;
+//         if (byte & 0x80) == 0 { break; }
 
-fn read_var_i32(stream: &mut ByteStream) -> Result<i32, SerializeError> {
-    let n = read_var_u32(stream)?;
-    Ok(match n & 1 {
-        0 => n >> 1,
-        _ => ((!n) >> 1) | 0x8000_0000,
-    } as i32)
-}
+//         ensure!(offset < 32, InvalidDataSnafu { msg: "varint too long to fit in u32" });
+//     }
+//     Ok(result)
+// }
+
+// fn read_var_i32(stream: &mut ByteStream) -> Result<i32, SerializeError> {
+//     let n = read_var_u32(stream)?;
+//     Ok(match n & 1 {
+//         0 => n >> 1,
+//         _ => ((!n) >> 1) | 0x8000_0000,
+//     } as i32)
+// }
 
 
 // -----------------------------------------------------------------------------
@@ -428,7 +429,7 @@ fn read_var_i32(stream: &mut ByteStream) -> Result<i32, SerializeError> {
 //    (possibly with the help of a macro) all the other needed types
 impl<T: BinarySerializable> BinarySerializable for Vec<T> {
     fn encode(&self, stream: &mut ByteStream) {
-        write_var_u32(stream, self.len() as u32);
+        stream.write_var_u32(self.len() as u32);
         for elem in self {
             elem.encode(stream);
         }

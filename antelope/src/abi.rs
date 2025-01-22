@@ -11,12 +11,10 @@
 
 pub mod abi;
 pub mod abidefinition;
-pub mod abiserializable;
 pub mod abiserializer;
 pub mod provider;
 pub mod data;
 
 pub use abi::{ABI, ABIError};
 pub use abidefinition::ABIDefinition;
-pub use abiserializable::ABISerializable;
 pub use provider::ABIProvider;
