@@ -141,7 +141,7 @@ fn symbol_code_to_string(value: u64) -> String {
 fn string_to_symbol(precision: u8, s: &str) -> Result<u64, InvalidSymbol> {
     ensure!(precision <= Symbol::MAX_PRECISION,
             PrecisionSnafu { given: precision, max: Symbol::MAX_PRECISION });
-    Ok(string_to_symbol_code(s)? << 8 | (precision as u64))
+    Ok((string_to_symbol_code(s)? << 8) | (precision as u64))
 }
 
 fn is_valid_symbol_name(name: &str) -> bool {

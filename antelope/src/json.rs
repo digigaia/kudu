@@ -12,8 +12,9 @@ pub struct EOSFormatter {
 /// JSON formatter with the following difference to `serde_json::Formatter`:
 ///  - `u128` and `i128` are implemented and are represented as strings (ie: double-quoted)
 ///  - although Antelope also quotes `u64` and `i64` types, we do not follow the same rule
-///    here as otherwise all `serde_json::Value::Number` variants will also be quoted as it
-///    is internally represented as an `i64`
+///    here as otherwise all `serde_json::Value::Number` variants will also be quoted as they
+///    are internally represented as `i64` (even though they might be used to represent
+///    smaller sized types such as `i8`, `i16`, etc.)
 ///  - `f32` and `f64` never use scientific notation, and floats that have a fractional
 ///    part do not have a trailing ".0" (contrary to Antelope types)
 impl EOSFormatter {

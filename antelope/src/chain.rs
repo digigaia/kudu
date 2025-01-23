@@ -10,9 +10,9 @@ use std::collections::{BTreeMap, BTreeSet};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    AccountName, ActionName, BlockID, BlockTimestampType, Digest, Extensions, MicroSeconds,
-    PermissionName, TransactionID, TimePointSec, VarUint32, Name, Asset, BinarySerializable,
-    binaryserializable::to_bin, Bytes, Signature,
+    AccountName, ActionName, BlockId, BlockTimestampType, Digest, Extensions, MicroSeconds,
+    PermissionName, TransactionId, TimePointSec, VarUint32, Name, Asset, BinarySerializable,
+    binaryserializable::to_bin, Bytes, Signature, SerializeEnumPrefixed,
 };
 
 extern crate self as antelope;
@@ -27,7 +27,7 @@ extern crate self as antelope;
 //      - fc::microseconds -> i64
 //      - boost::flat_map -> BTreeMap
 //      - boost::flat_set -> BTreeSet
-//      - std::vector<char> -> Vec<u8>
+//      - std::vector<char> -> Bytes
 //
 //     Notes:
 //      - on x86, char is usually signed char, but can be converted losslessly
@@ -36,6 +36,9 @@ extern crate self as antelope;
 //
 // =============================================================================
 
+
+pub type Map<K, V> = BTreeMap<K, V>;
+pub type Set<T> = BTreeSet<T>;
 
 // from: https://github.com/AntelopeIO/spring/blob/main/libraries/chain/include/eosio/chain/action.hpp
 
@@ -88,23 +91,40 @@ impl Action {
 
 // from: https://github.com/AntelopeIO/spring/blob/main/libraries/chain/include/eosio/chain/action_receipt.hpp
 
-/// For each action dispatched this receipt is generated.
-#[derive(Eq, Hash, PartialEq, Debug, Clone, Default)]
-pub struct ActionReceipt {
-    receiver: AccountName,
-    act_digest: Digest,
-    global_sequence: u64,
-    recv_sequence: u64,
-    auth_sequence: BTreeMap<AccountName, u64>,
-    code_sequence: VarUint32,
-    abi_sequence: VarUint32,
+#[derive(Eq, Hash, PartialEq, Debug, Clone, Default, Serialize, Deserialize, BinarySerializable)]
+pub struct AccountAuthSequence {
+    pub account: Name,
+    pub sequence: u64,
 }
 
-#[derive(Eq, Hash, PartialEq, Debug, Clone, Default)]
-pub struct AccountDelta {
-    account: AccountName,
-    delta: i64,
+/// For each action dispatched this receipt is generated.
+#[derive(Eq, Hash, PartialEq, Debug, Clone, Default, Serialize, Deserialize, BinarySerializable)]
+pub struct ActionReceiptV0 {
+    pub receiver: AccountName,
+    pub act_digest: Digest,
+    pub global_sequence: u64,
+    pub recv_sequence: u64,
+    // FIXME: check this field
+    pub auth_sequence: Vec<AccountAuthSequence>,
+    // pub auth_sequence: Vec<PermissionLevel>,
+    pub code_sequence: VarUint32,
+    pub abi_sequence: VarUint32,
 }
+
+#[derive(Eq, Hash, PartialEq, Debug, Clone, SerializeEnumPrefixed, BinarySerializable)]
+pub enum ActionReceipt {
+    V0(ActionReceiptV0),
+}
+
+// FIXME: check that the `Ord` is correct, as it differs from the C++ one which only compares on "account"
+//        (which is probably an optimization, and we should be fine)
+#[derive(Eq, Hash, PartialEq, Ord, PartialOrd, Debug, Clone, Default, Serialize, Deserialize, BinarySerializable)]
+pub struct AccountDelta {
+    pub account: AccountName,
+    pub delta: i64,
+}
+
+
 
 #[derive(Eq, Hash, PartialEq, Debug, Clone, Default)]
 pub struct Trace {
@@ -117,14 +137,14 @@ pub struct Trace {
     context_free: bool, // = false;
     elapsed: MicroSeconds,
     console: String,
-    trx_id: TransactionID, /// the transaction that generated this action
+    trx_id: TransactionId, /// the transaction that generated this action
     block_num: u32, // = 0;
     block_time: BlockTimestampType,
-    producer_block_id: Option<BlockID>,
-    account_ram_deltas: BTreeSet<AccountDelta>,
+    producer_block_id: Option<BlockId>,
+    account_ram_deltas: Set<AccountDelta>,
       // std::optional<fc::exception>    except;  // TODO / FIXME
     error_code: Option<u64>,
-    return_value: Vec<u8>,
+    return_value: Bytes,
 }
 
 
@@ -159,7 +179,7 @@ pub struct Transaction {
 
 
 impl Transaction {
-    pub fn id() -> TransactionID {
+    pub fn id() -> TransactionId {
         todo!();  // sha256 hash of the serialized trx
     }
 }
@@ -193,4 +213,88 @@ pub struct PackedTransactionV0 {
     pub compression: u8,
     pub packed_context_free_data: Bytes,
     pub packed_trx: Transaction,
+}
+
+#[derive(Eq, Hash, PartialEq, Debug, Clone, Default, Serialize, Deserialize, BinarySerializable)]
+pub struct TransactionTraceException {
+    pub error_code: i64,
+    pub error_message: String,
+}
+
+#[derive(Eq, Hash, PartialEq, Debug, Clone, Default, Serialize, Deserialize, BinarySerializable)]
+pub struct ActionTraceV0 {
+    pub action_ordinal: VarUint32,
+    pub creator_action_ordinal: VarUint32,
+    pub receipt: Option<ActionReceipt>,
+    pub receiver: Name,
+    pub act: Action,
+    pub context_free: bool,
+    pub elapsed: i64,
+    pub console: String,
+    pub account_ram_deltas: Vec<AccountDelta>,  // FIXME: replace me with flat_set
+    pub except: Option<String>,
+    pub error_code: Option<u64>,
+}
+
+#[derive(Eq, Hash, PartialEq, Debug, Clone, Default, Serialize, Deserialize, BinarySerializable)]
+pub struct ActionTraceV1 {
+    pub action_ordinal: VarUint32,
+    pub creator_action_ordinal: VarUint32,
+    pub receipt: Option<ActionReceipt>,
+    pub receiver: Name,
+    pub act: Action,
+    pub context_free: bool,
+    pub elapsed: i64,
+    pub console: String,
+    pub account_ram_deltas: Vec<AccountDelta>,  // FIXME: replace me with flat_set
+    pub account_disk_deltas: Vec<AccountDelta>,
+    pub except: Option<String>,
+    pub error_code: Option<u64>,
+    pub return_value: Bytes,
+}
+
+#[derive(Eq, Hash, PartialEq, Debug, Clone, SerializeEnumPrefixed, BinarySerializable)]
+pub enum ActionTrace {
+    V0(ActionTraceV0),
+    V1(ActionTraceV1),
+}
+
+// FIXME: defined in leap:libraries/state_history
+#[derive(Eq, Hash, PartialEq, Debug, Clone, Default, Serialize, Deserialize, BinarySerializable)]
+pub struct PartialTransaction {
+
+}
+
+// NOTE: this is the one used in the tests with the ship_abi.json ABI
+//       it seems to be an old one as the one defined in "leap/chain/trace.hpp" differs significantly
+// TODO: we should also define the new one corresponding to the current Antelope version
+#[derive(Eq, Hash, PartialEq, Debug, Clone, Default, Serialize, Deserialize, BinarySerializable)]
+pub struct TransactionTraceV0 {
+    pub id: TransactionId,
+    pub status: u8,
+    pub cpu_usage_us: u32,
+    pub net_usage_words: VarUint32,
+    pub elapsed: i64,
+    pub net_usage: u64,
+    pub scheduled: bool,
+    pub action_traces: Vec<ActionTrace>,
+    pub account_ram_delta: Option<AccountDelta>,
+    pub except: Option<String>,
+    pub error_code: Option<u64>,
+    pub failed_dtrx_trace: Option<Box<TransactionTraceV0>>,
+    pub partial: Option<PartialTransaction>,
+}
+
+#[derive(Eq, Hash, PartialEq, Debug, Clone, SerializeEnumPrefixed, BinarySerializable)]
+pub enum TransactionTrace {
+    V0(TransactionTraceV0),
+}
+
+#[derive(Eq, Hash, PartialEq, Debug, Clone, SerializeEnumPrefixed, BinarySerializable)]
+pub enum TransactionTraceMsg {
+    #[serde(rename="transaction_trace_exception")]
+    Exception(TransactionTraceException),
+
+    #[serde(rename="transaction_trace")]
+    Trace(TransactionTrace),
 }

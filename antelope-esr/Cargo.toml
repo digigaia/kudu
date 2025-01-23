@@ -23,7 +23,7 @@ flate2 = "1.0"
 flagset = "0.4.5"
 
 [features]
-default = ["detailed-error"]
+default = ["float128"]
 float128 = ["antelope/float128"]
 detailed-error = [
     "antelope/detailed-error",

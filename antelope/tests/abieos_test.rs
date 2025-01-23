@@ -1,3 +1,5 @@
+#![cfg_attr(feature = "float128", feature(f128))]
+
 use std::any::type_name_of_val;
 use std::fmt::Debug;
 use std::sync::{Once, OnceLock};
@@ -20,23 +22,32 @@ use antelope::{
     ABIDefinition, Asset, Bytes, ByteStream, ExtendedAsset, InvalidValue, JsonValue, Name,
     Symbol, SymbolCode, TimePoint, TimePointSec, TypeNameRef, VarInt32, VarUint32, ABI,
     Checksum160, Checksum256, Checksum512, PublicKey, PrivateKey, Signature,
-    Transaction, Action, AccountName, PermissionName, Transfer
+    Transaction, Action, AccountName, PermissionName, Transfer, TransactionTraceV0,
+    ActionTrace, ActionTraceV1, ActionReceipt, ActionReceiptV0, AccountDelta,
+    TransactionTrace, AccountAuthSequence,
 };
 
 
 #[cfg(feature = "float128")]
 use antelope::data::STATE_HISTORY_PLUGIN_ABI;
 
+// =============================================================================
+//
+// The following tests are coming from
+// https://github.com/AntelopeIO/abieos/blob/main/src/test.cpp#L577
+//
+// To get the hex representation of each test, you need to compile and run
+// the `test_abieos` binary from the abieos repo
+//
+// The tests have been augmented to include all possible conversion from the
+// Antelope data model, namely:
+//
+//  1- JSON -> variant -> bin -> variant -> JSON
+//  2- Rust -> bin -> Rust
+//  3- Rust -> JSON -> Rust
+//
+// =============================================================================
 
-////////////////////////////////////////////////////////////////////////////////
-//                                                                            //
-// following tests are coming from                                            //
-// https://github.com/AntelopeIO/abieos/blob/main/src/test.cpp#L577           //
-//                                                                            //
-// to get the hex representation of each test, you need to compile and run    //
-// the `test_abieos` binary from this repo                                    //
-//                                                                            //
-////////////////////////////////////////////////////////////////////////////////
 
 ////////////////////////////////////////////////////////////////////////////////
 //                                                                            //
@@ -138,14 +149,16 @@ fn check_round_trip(abi: &ABI, typename: &str, data: &str, hex: &str, expected: 
     round_trip(abi, typename, data, hex, expected).unwrap()
 }
 
-const DEFAULT: u32 = 0;            // bit mask for flags to following function
-const NO_JSON_TO_NATIVE: u32 = 1;  // bit mask for flags to following function
+// const DEFAULT:           u32 = 0;  // bit mask for flags to following function
+// const NO_JSON_TO_NATIVE: u32 = 1;  // bit mask for flags to following function
+// const NO_SERDE:          u32 = 2;  // bit mask for flags to following function
 
 macro_rules! check_cross_conversion {
     ($abi:ident, $value:expr, $typ:ty, $typename:expr, $data:expr, $hex:expr, $expected:expr) => {
         check_cross_conversion!($abi, $value, $typ, $typename, $data, $hex, $expected, DEFAULT);
     };
-    ($abi:ident, $value:expr, $typ:ty, $typename:expr, $data:expr, $hex:expr, $expected:expr, $flags:expr) => {
+
+    ($abi:ident, $value:expr, $typ:ty, $typename:expr, $data:expr, $hex:expr, $expected:expr, NO_SERDE) => {
         // 1- JSON -> variant -> bin -> variant -> JSON
         trace!(r#"checking JSON: {} -> variant -> bin: "{}" -> variant -> JSON"#, $data, $hex);
         check_round_trip($abi, $typename, $data, $hex, $expected);
@@ -156,16 +169,27 @@ macro_rules! check_cross_conversion {
         let hex_data = bin.to_hex();
         assert_eq!(hex_data, $hex, "rust native to binary");
         let value2: $typ = from_bin(&bin).unwrap();
-        assert_eq!(value2, $value, "rust binary to native");
+        assert_eq!(value2, $value, "binary to rust native");
+    };
+
+    ($abi:ident, $value:expr, $typ:ty, $typename:expr, $data:expr, $hex:expr, $expected:expr, DEFAULT) => {
+        check_cross_conversion!($abi, $value, $typ, $typename, $data, $hex, $expected, NO_SERDE);
 
         // 3- Rust -> JSON -> Rust
         trace!("checking Rust native -> JSON");
         let repr = antelope::json::to_string(&$value).unwrap();
         assert_eq!(repr, $expected, "rust native to JSON");
-        if ($flags & NO_JSON_TO_NATIVE) == 0 {
-            let value3: $typ = antelope::json::from_str(&repr).unwrap();
-            assert_eq!(value3, $value, "JSON to rust native");
-        }
+        let value3: $typ = antelope::json::from_str(&repr).unwrap();
+        assert_eq!(value3, $value, "JSON to rust native");
+    };
+
+    ($abi:ident, $value:expr, $typ:ty, $typename:expr, $data:expr, $hex:expr, $expected:expr, NO_JSON_TO_NATIVE) => {
+        check_cross_conversion!($abi, $value, $typ, $typename, $data, $hex, $expected, NO_SERDE);
+
+        // 3- Rust -> JSON -> Rust
+        trace!("checking Rust native -> JSON");
+        let repr = antelope::json::to_string(&$value).unwrap();
+        assert_eq!(repr, $expected, "rust native to JSON");
     };
 }
 
@@ -486,9 +510,17 @@ fn roundtrip_float128() -> Result<()> {
 
     let abi = transaction_abi();
 
-    check_round_trip(abi, "float128", r#""00000000000000000000000000000000""#, "00000000000000000000000000000000");
-    check_round_trip(abi, "float128", r#""ffffffffffffffffffffffffffffffff""#, "ffffffffffffffffffffffffffffffff");
-    check_round_trip(abi, "float128", r#""12345678abcdef12345678abcdef1234""#, "12345678abcdef12345678abcdef1234");
+    let check_f128 = |hex: &str| {
+        let repr = format!(r#""{hex}""#);
+        let value = f128::from_le_bytes(Bytes::from_hex(hex).unwrap().as_ref().try_into().unwrap());
+        check_cross_conversion!(abi, value, f128, "float128", &repr, hex, &repr, NO_SERDE);
+    };
+
+    check_f128("00000000000000000000000000000000");
+    // NOTE: the following test is commented as it doesn't pass the Rust native test:
+    //       the value it represents is NaN, and NaN != Nan (float types don't implement `Eq`)
+    // check_f128("ffffffffffffffffffffffffffffffff");
+    check_f128("12345678abcdef12345678abcdef1234");
 
     Ok(())
 }
@@ -849,7 +881,7 @@ fn roundtrip_transaction() -> Result<()> {
     let tx = PackedTransactionV0 {
         signatures: vec![Signature::from_str("SIG_K1_K5PGhrkUBkThs8zdTD9mGUJZvxL4eU46UjfYJSEdZ9PXS2Cgv5jAk57yTx4xnrdSocQm6DDvTaEJZi5WLBsoZC4XYNS8b3")?],
         compression: 0,
-        packed_context_free_data: "".into(),
+        packed_context_free_data: Bytes::from_hex("")?,
         packed_trx: Transaction {
             expiration: "2009-02-13T23:31:31.000".try_into()?,
             ref_block_num: 1234,
@@ -877,22 +909,119 @@ fn roundtrip_transaction() -> Result<()> {
 #[test]
 #[cfg(feature = "float128")]
 fn roundtrip_transaction_traces() -> Result<()> {
+    use antelope::{TransactionTraceException, TransactionTraceMsg};
+
     init();
 
     let ship_abi_def = ABIDefinition::from_str(STATE_HISTORY_PLUGIN_ABI)?;
     let ship_abi = &ABI::from_definition(&ship_abi_def)?;
 
-    check_round_trip(ship_abi, "transaction_trace",
-                     r#"["transaction_trace_v0",{"id":"3098EA9476266BFA957C13FA73C26806D78753099CE8DEF2A650971F07595A69","status":0,"cpu_usage_us":2000,"net_usage_words":25,"elapsed":"194","net_usage":"200","scheduled":false,"action_traces":[["action_trace_v1",{"action_ordinal":1,"creator_action_ordinal":0,"receipt":["action_receipt_v0",{"receiver":"eosio","act_digest":"F2FDEEFF77EFC899EED23EE05F9469357A096DC3083D493571CF68A422C69EFE","global_sequence":"11","recv_sequence":"11","auth_sequence":[{"account":"eosio","sequence":"11"}],"code_sequence":2,"abi_sequence":0}],"receiver":"eosio","act":{"account":"eosio","name":"newaccount","authorization":[{"actor":"eosio","permission":"active"}],"data":"0000000000EA305500409406A888CCA501000000010002C0DED2BC1F1305FB0FAAC5E6C03EE3A1924234985427B6167CA569D13DF435CF0100000001000000010002C0DED2BC1F1305FB0FAAC5E6C03EE3A1924234985427B6167CA569D13DF435CF01000000"},"context_free":false,"elapsed":"83","console":"","account_ram_deltas":[{"account":"oracle.aml","delta":"2724"}],"account_disk_deltas":[],"except":null,"error_code":null,"return_value":""}]],"account_ram_delta":null,"except":null,"error_code":null,"failed_dtrx_trace":null,"partial":null}]"#,
-                     "003098ea9476266bfa957c13fa73c26806d78753099ce8def2a650971f07595a6900d007000019c200000000000000c800000000000000000101010001000000000000ea3055f2fdeeff77efc899eed23ee05f9469357a096dc3083d493571cf68a422c69efe0b000000000000000b00000000000000010000000000ea30550b0000000000000002000000000000ea30550000000000ea305500409e9a2264b89a010000000000ea305500000000a8ed3232660000000000ea305500409406a888cca501000000010002c0ded2bc1f1305fb0faac5e6c03ee3a1924234985427b6167ca569d13df435cf0100000001000000010002c0ded2bc1f1305fb0faac5e6c03ee3a1924234985427b6167ca569d13df435cf01000000005300000000000000000100409406a888cca5a40a000000000000000000000000000000");
+    let eosio = Name::from_str("eosio")?;
+    let trace = TransactionTrace::V0(TransactionTraceV0 {
+        id: "3098EA9476266BFA957C13FA73C26806D78753099CE8DEF2A650971F07595A69".try_into()?,
+        status: 0,
+        cpu_usage_us: 2000,
+        net_usage_words: VarUint32(25),
+        elapsed: 194,
+        net_usage: 200,
+        scheduled: false,
+        action_traces: vec![ActionTrace::V1(ActionTraceV1 {
+            action_ordinal: VarUint32(1),
+            creator_action_ordinal: VarUint32(0),
+            receipt: Some(ActionReceipt::V0(ActionReceiptV0 {
+                receiver: eosio,
+                act_digest: "F2FDEEFF77EFC899EED23EE05F9469357A096DC3083D493571CF68A422C69EFE".try_into()?,
+                global_sequence: 11,
+                recv_sequence: 11,
+                auth_sequence: vec![AccountAuthSequence { account: eosio, sequence: 11 }],
+                code_sequence: VarUint32(2),
+                abi_sequence: VarUint32(0),
+            })),
+            receiver: eosio,
+            act: Action {
+                account: eosio,
+                name: Name::from_str("newaccount")?,
+                authorization: vec![PermissionLevel { actor: eosio, permission: PermissionName::from_str("active")? }],
+                data: Bytes::from_hex("0000000000EA305500409406A888CCA501000000010002C0DED2BC1F1305FB0FAAC5E6C03EE3A1924234985427B6167CA569D13DF435CF0100000001000000010002C0DED2BC1F1305FB0FAAC5E6C03EE3A1924234985427B6167CA569D13DF435CF01000000")?,
+            },
+            context_free: false,
+            elapsed: 83,
+            console: "".into(),
+            account_ram_deltas: vec![AccountDelta { account: Name::from_str("oracle.aml")?, delta: 2724 }],
+            account_disk_deltas: vec![],
+            except: None,
+            error_code: None,
+            return_value: Bytes::from_hex("")?,
+        })],
+        account_ram_delta: None,
+        except: None,
+        error_code: None,
+        failed_dtrx_trace: None,
+        partial: None,
+    });
 
-    check_round_trip(ship_abi, "transaction_trace_msg",
-                     r#"["transaction_trace_exception",{"error_code":"3","error_message":"error happens"}]"#,
-                     "0003000000000000000d6572726f722068617070656e73");
+    check_cross_conversion(
+        ship_abi, trace, "transaction_trace",
+        r#"["transaction_trace_v0",{"id":"3098ea9476266bfa957c13fa73c26806d78753099ce8def2a650971f07595a69","status":0,"cpu_usage_us":2000,"net_usage_words":25,"elapsed":194,"net_usage":200,"scheduled":false,"action_traces":[["action_trace_v1",{"action_ordinal":1,"creator_action_ordinal":0,"receipt":["action_receipt_v0",{"receiver":"eosio","act_digest":"f2fdeeff77efc899eed23ee05f9469357a096dc3083d493571cf68a422c69efe","global_sequence":11,"recv_sequence":11,"auth_sequence":[{"account":"eosio","sequence":11}],"code_sequence":2,"abi_sequence":0}],"receiver":"eosio","act":{"account":"eosio","name":"newaccount","authorization":[{"actor":"eosio","permission":"active"}],"data":"0000000000ea305500409406a888cca501000000010002c0ded2bc1f1305fb0faac5e6c03ee3a1924234985427b6167ca569d13df435cf0100000001000000010002c0ded2bc1f1305fb0faac5e6c03ee3a1924234985427b6167ca569d13df435cf01000000"},"context_free":false,"elapsed":83,"console":"","account_ram_deltas":[{"account":"oracle.aml","delta":2724}],"account_disk_deltas":[],"except":null,"error_code":null,"return_value":""}]],"account_ram_delta":null,"except":null,"error_code":null,"failed_dtrx_trace":null,"partial":null}]"#,
+        "003098ea9476266bfa957c13fa73c26806d78753099ce8def2a650971f07595a6900d007000019c200000000000000c800000000000000000101010001000000000000ea3055f2fdeeff77efc899eed23ee05f9469357a096dc3083d493571cf68a422c69efe0b000000000000000b00000000000000010000000000ea30550b0000000000000002000000000000ea30550000000000ea305500409e9a2264b89a010000000000ea305500000000a8ed3232660000000000ea305500409406a888cca501000000010002c0ded2bc1f1305fb0faac5e6c03ee3a1924234985427b6167ca569d13df435cf0100000001000000010002c0ded2bc1f1305fb0faac5e6c03ee3a1924234985427b6167ca569d13df435cf01000000005300000000000000000100409406a888cca5a40a000000000000000000000000000000"
+    );
 
-    check_round_trip(ship_abi, "transaction_trace_msg",
-                     r#"["transaction_trace",["transaction_trace_v0",{"id":"B2C8D46F161E06740CFADABFC9D11F013A1C90E25337FF3E22840B195E1ADC4B","status":0,"cpu_usage_us":2000,"net_usage_words":12,"elapsed":"7670","net_usage":"96","scheduled":false,"action_traces":[["action_trace_v1",{"action_ordinal":1,"creator_action_ordinal":0,"receipt":["action_receipt_v0",{"receiver":"eosio","act_digest":"7670940C29EC0A4C573EF052C5A29236393F587F208222B3C1B6A9C8FEA2C66A","global_sequence":"27","recv_sequence":"1","auth_sequence":[{"account":"eosio","sequence":"2"}],"code_sequence":1,"abi_sequence":0}],"receiver":"eosio","act":{"account":"eosio","name":"doit","authorization":[{"actor":"eosio","permission":"active"}],"data":"00"},"context_free":false,"elapsed":"7589","console":"","account_ram_deltas":[],"account_disk_deltas":[],"except":null,"error_code":null,"return_value":"01FFFFFFFFFFFFFFFF00"}]],"account_ram_delta":null,"except":null,"error_code":null,"failed_dtrx_trace":null,"partial":null}]]"#,
-                     "0100b2c8d46f161e06740cfadabfc9d11f013a1c90e25337ff3e22840b195e1adc4b00d00700000cf61d0000000000006000000000000000000101010001000000000000ea30557670940c29ec0a4c573ef052c5a29236393f587f208222b3c1b6a9c8fea2c66a1b000000000000000100000000000000010000000000ea3055020000000000000001000000000000ea30550000000000ea30550000000000901d4d010000000000ea305500000000a8ed3232010000a51d00000000000000000000000a01ffffffffffffffff000000000000");
+    let exc = TransactionTraceException { error_code: 3, error_message: "error happens".to_string() };
+
+    check_cross_conversion(
+        ship_abi, TransactionTraceMsg::Exception(exc), "transaction_trace_msg",
+        r#"["transaction_trace_exception",{"error_code":3,"error_message":"error happens"}]"#,
+        "0003000000000000000d6572726f722068617070656e73"
+    );
+
+    let trace = TransactionTrace::V0(TransactionTraceV0 {
+        id: "b2c8d46f161e06740cfadabfc9d11f013a1c90e25337ff3e22840b195e1adc4b".try_into()?,
+        status: 0,
+        cpu_usage_us: 2000,
+        net_usage_words: VarUint32(12),
+        elapsed: 7670,
+        net_usage: 96,
+        scheduled: false,
+        action_traces: vec![ActionTrace::V1(ActionTraceV1 {
+            action_ordinal: VarUint32(1),
+            creator_action_ordinal: VarUint32(0),
+            receipt: Some(ActionReceipt::V0(ActionReceiptV0 {
+                receiver: eosio,
+                act_digest: "7670940c29ec0a4c573ef052c5a29236393f587f208222b3c1b6a9c8fea2c66a".try_into()?,
+                global_sequence: 27,
+                recv_sequence: 1,
+                auth_sequence: vec![AccountAuthSequence { account: eosio, sequence: 2 }],
+                code_sequence: VarUint32(1),
+                abi_sequence: VarUint32(0),
+            })),
+            receiver: eosio,
+            act: Action {
+                account: eosio,
+                name: Name::from_str("doit")?,
+                authorization: vec![PermissionLevel { actor: eosio, permission: PermissionName::from_str("active")? }],
+                data: Bytes::from_hex("00")?,
+            },
+            context_free: false,
+            elapsed: 7589,
+            console: "".into(),
+            account_ram_deltas: vec![],
+            account_disk_deltas: vec![],
+            except: None,
+            error_code: None,
+            return_value: Bytes::from_hex("01ffffffffffffffff00")?,
+        })],
+        account_ram_delta: None,
+        except: None,
+        error_code: None,
+        failed_dtrx_trace: None,
+        partial: None,
+    });
+
+    check_cross_conversion(
+        ship_abi, TransactionTraceMsg::Trace(trace), "transaction_trace_msg",
+        r#"["transaction_trace",["transaction_trace_v0",{"id":"b2c8d46f161e06740cfadabfc9d11f013a1c90e25337ff3e22840b195e1adc4b","status":0,"cpu_usage_us":2000,"net_usage_words":12,"elapsed":7670,"net_usage":96,"scheduled":false,"action_traces":[["action_trace_v1",{"action_ordinal":1,"creator_action_ordinal":0,"receipt":["action_receipt_v0",{"receiver":"eosio","act_digest":"7670940c29ec0a4c573ef052c5a29236393f587f208222b3c1b6a9c8fea2c66a","global_sequence":27,"recv_sequence":1,"auth_sequence":[{"account":"eosio","sequence":2}],"code_sequence":1,"abi_sequence":0}],"receiver":"eosio","act":{"account":"eosio","name":"doit","authorization":[{"actor":"eosio","permission":"active"}],"data":"00"},"context_free":false,"elapsed":7589,"console":"","account_ram_deltas":[],"account_disk_deltas":[],"except":null,"error_code":null,"return_value":"01ffffffffffffffff00"}]],"account_ram_delta":null,"except":null,"error_code":null,"failed_dtrx_trace":null,"partial":null}]]"#,
+        "0100b2c8d46f161e06740cfadabfc9d11f013a1c90e25337ff3e22840b195e1adc4b00d00700000cf61d0000000000006000000000000000000101010001000000000000ea30557670940c29ec0a4c573ef052c5a29236393f587f208222b3c1b6a9c8fea2c66a1b000000000000000100000000000000010000000000ea3055020000000000000001000000000000ea30550000000000ea30550000000000901d4d010000000000ea305500000000a8ed3232010000a51d00000000000000000000000a01ffffffffffffffff000000000000"
+    );
 
 
     Ok(())

@@ -186,7 +186,7 @@ where
 #[cfg(feature = "float128")]
 pub fn variant_to_f128(v: &JsonValue) -> Result<f128> {
     if let Some(x) = v.as_f64()      { Ok(x.into()) }
-    else if let Some(s) = v.as_str() { Ok(f128::from_ne_bytes(hex_to_byte_array(s)
+    else if let Some(s) = v.as_str() { Ok(f128::from_le_bytes(hex_to_byte_array(s)
                                                               .context(HexDecodeSnafu { repr: s })?)) }
     else {
         IncompatibleVariantTypesSnafu { typename: "f128", value: v.clone() }.fail()

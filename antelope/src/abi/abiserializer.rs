@@ -102,7 +102,7 @@ where
 
 
 
-impl<'a> ser::Serializer for &'a mut ABISerializer {
+impl ser::Serializer for &mut ABISerializer {
     // The output type produced by this `Serializer` during successful
     // serialization. Most serializers that produce text or binary output should
     // set `Ok = ()` and serialize into an `io::Write` or buffer contained
@@ -632,7 +632,7 @@ where
 }
 
 
-impl<'de, 'a> de::Deserializer<'de> for &'a mut ABIDeserializer<'de> {
+impl<'de> de::Deserializer<'de> for &mut ABIDeserializer<'de> {
     type Error = Error;
 
     #[inline]

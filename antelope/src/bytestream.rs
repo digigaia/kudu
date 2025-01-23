@@ -5,6 +5,7 @@ use snafu::{ensure, Snafu};
 use tracing::trace;
 
 use antelope_macros::with_location;
+use crate::Bytes;
 
 #[with_location]
 #[derive(Debug, Snafu)]
@@ -42,16 +43,30 @@ impl From<ByteStream> for Vec<u8> {
     }
 }
 
+impl From<Vec<u8>> for ByteStream {
+    fn from(data: Vec<u8>) -> Self {
+        Self { data, read_pos: 0 }
+    }
+}
+
+impl From<Bytes> for ByteStream {
+    fn from(data: Bytes) -> Self {
+        Self { data: data.0, read_pos: 0 }
+    }
+}
+
+impl From<ByteStream> for Bytes {
+    fn from(stream: ByteStream) -> Bytes {
+        Bytes(stream.data)
+    }
+}
+
 impl ByteStream {
     pub fn new() -> Self {
         Self {
             data: vec![],
             read_pos: 0,
         }
-    }
-
-    pub fn from(data: Vec<u8>) -> Self {
-        Self { data, read_pos: 0 }
     }
 
     pub fn data(&self) -> &[u8] {

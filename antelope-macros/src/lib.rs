@@ -75,5 +75,23 @@ pub fn derive_binaryserializable(input: TokenStream) -> TokenStream {
 #[proc_macro_derive(SerializeEnum, attributes(serde))]
 pub fn derive_serialize_enum(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
-    serde::derive_serialize_enum(&input).into()
+    serde::derive_serialize_enum(&input, false).into()
+}
+
+/// Implement the `serde::Serialize` and `serde::Deserialize` trait
+///
+/// This version of the macro generates string tags which are composed of the
+/// discriminant name prefixed with the enum name.
+///
+/// Antelope blockchains expect enums (variant types) to be encoded as a
+/// tuple of `(discriminant, value)` which is not natively supported by `serde`,
+/// so this macro fills in the gap and should be used instead of
+/// `#[derive(Serialize, Deserialize)]` for enum types. By default the discriminant
+/// is serialized as a `snake_case` string.
+///
+/// It only exposes one attribute argument for fields which is `serde(rename)`.
+#[proc_macro_derive(SerializeEnumPrefixed, attributes(serde))]
+pub fn derive_serialize_enum_prefixed(input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as DeriveInput);
+    serde::derive_serialize_enum(&input, true).into()
 }

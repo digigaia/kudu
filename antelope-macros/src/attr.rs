@@ -34,6 +34,11 @@ pub fn snake_name_of_variant(var: &Variant) -> Result<String> {
     Ok(rename.unwrap_or_else(|| unraw(&var.ident).to_snake_case()))
 }
 
+pub fn prefixed_snake_name_of_variant(prefix: &str, var: &Variant) -> Result<String> {
+    let rename = attr_rename(&var.attrs)?;
+    Ok(rename.unwrap_or_else(|| format!("{prefix}{}", unraw(&var.ident)).to_snake_case()))
+}
+
 fn unraw(ident: &Ident) -> String {
     ident.to_string().trim_start_matches("r#").to_owned()
 }

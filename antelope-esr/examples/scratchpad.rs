@@ -1,8 +1,10 @@
+#![cfg_attr(feature = "float128", feature(f128))]
+
 use std::fmt::Debug;
 use std::sync::Once;
 
 use color_eyre::eyre::Result;
-use serde::{de::DeserializeOwned, Serialize};
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_json::json;
 use tracing::info;
 use tracing_subscriber::{
@@ -11,13 +13,14 @@ use tracing_subscriber::{
 };
 
 use antelope::{
-    ABIDefinition, TimePoint, TimePointSec, JsonValue, Name,
+    ABIDefinition, TimePoint, TimePointSec, JsonValue, Name, ByteStream, Bytes, BinarySerializable as BinaryTrait,
     abidefinition::abi_schema,
     abiserializer::{to_bin, from_bin},
     convert::{variant_to_int, variant_to_uint}
 };
 
 use antelope_macros::{BinarySerializable, SerializeEnum};
+
 
 static TRACING_INIT: Once = Once::new();
 
@@ -119,6 +122,19 @@ pub struct Transaction {
     pub actions: Vec<Action>,
 }
 
+#[derive(Eq, Hash, PartialEq, Debug, Clone, Default, Serialize, Deserialize, BinarySerializable)]
+pub struct TransactionTraceException {
+    pub error_code: i64,
+    pub error_message: String,
+}
+
+#[derive(Eq, Hash, PartialEq, Debug, Clone, SerializeEnum, BinarySerializable)]
+pub enum TransactionTraceMsg {
+    #[serde(rename="transaction_trace_exception")]
+    Exception(TransactionTraceException),
+}
+
+
 fn main() -> Result<()> {
     init();
     info!("░▒▓ WELCOME TO SCRATCHPAD ▓▒░");
@@ -176,6 +192,18 @@ fn main() -> Result<()> {
 
     let cid = ChainId::ChainId("hello".to_string());
     info!("{}", &serde_json::to_string(&cid)?);
+
+    let f128hex = [
+        "00000000000000000000000000000000",
+        "ffffffffffffffffffffffffffffffff",
+        "12345678abcdef12345678abcdef1234",
+    ];
+
+    for fhex in f128hex {
+        let mut s = ByteStream::from(Bytes::from_hex(fhex)?);
+        let x = f128::decode(&mut s)?;
+        info!("x = {:?}", hex::encode(x.to_le_bytes()));
+    }
 
     Ok(())
 }

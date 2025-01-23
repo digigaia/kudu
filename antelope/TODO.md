@@ -5,10 +5,19 @@
   at the beginning() and returns `Ok(())` at the end.
 - add `[derive(Serialize)]` to all base types
 
+- `SerializeEnum` should use the inner type as snake-case discriminant instead of the identifier
+  -> remove all the serde rename after that
+
+- write a note with the difference in behavior between this and the C++ Antelope version
+  - hex numbers are lowercase whereas C++ outputs in upper case
+  - C++ outputs i64 and u64 as double-quoted
+
 ## API DESIGN
 
 - clean abi.rs
   - check use and handling of binary extension
+  - check whether we really need `AntelopeValue`, because if not then it seems we should be able
+    to remove it altogether.
 
 - try defining the `ABISerializable` trait and implement it for all types, then replace
   the `AntelopeValue` struct with just the implementation of the base types
@@ -110,12 +119,15 @@
 - check abieos/test.cpp to ensure we cover also all the error cases with proper error messages
 
 - check float128 support
+  maybe try to have float128 support on stable as we only need the hex representation of f128
+  so we could have a stub for that type instead of the rust primitive which is only available on nightly
 
 - check tests in <https://github.com/AntelopeIO/spring/blob/main/unittests/abi_tests.cpp>
   - at the end, there are tests about action results
 
 - check other tests and ideas from: <https://github.com/wharfkit/antelope>, e.g.:
   <https://github.com/wharfkit/antelope/blob/master/test/chain.ts>
+
 
 ## PERFORMANCE
 
@@ -147,9 +159,13 @@
 
 - crypto primitives do not implement WebAuthn key and signatures yet
 
+- implement action_result in abi and abi_parser
+  see: <https://github.com/AntelopeIO/spring/commit/7da37b6bc41a63a9eaef5e79ff7aaf2aea854826#diff-a7893952d8a2b33ddc5b3c89250729ea6961784c8b9300a39f187a7357cc3149R165>
+
+## SECURITY CONSIDERATIONS
+
 - add note that the execution time of the various methods is not time bounded and recursive
   functions do not have a max depth that is checked either.
   This could be something added at a later time via a feature flag (eg: `hardened`)
 
-- implement action_result in abi and abi_parser
-  see: <https://github.com/AntelopeIO/spring/commit/7da37b6bc41a63a9eaef5e79ff7aaf2aea854826#diff-a7893952d8a2b33ddc5b3c89250729ea6961784c8b9300a39f187a7357cc3149R165>
+- think about `serde_json::Value::Number` size and whether we're good with it

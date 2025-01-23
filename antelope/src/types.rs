@@ -170,6 +170,7 @@ pub type Float64 = f64;
 pub struct Bytes(pub Vec<u8>);
 
 impl Bytes {
+    pub fn new() -> Self { Bytes(vec![]) }
     pub fn from_hex<T: AsRef<[u8]>>(data: T) -> Result<Bytes, FromHexError> {
         Ok(Bytes(hex::decode(data)?))
     }
@@ -190,11 +191,14 @@ impl From<&[u8]> for Bytes {
     }
 }
 
-impl From<&str> for Bytes {
-    fn from(s: &str) -> Bytes {
-        Bytes(s.as_bytes().to_vec())
-    }
-}
+// This should probably be using Bytes::from_hex if we define it, however this
+// conversion is probably prone to error so we don't define it for now unless
+// a good reason comes up that we should
+// impl From<&str> for Bytes {
+//     fn from(s: &str) -> Bytes {
+//         Bytes(s.as_bytes().to_vec())
+//     }
+// }
 
 impl From<Bytes> for Vec<u8> {
     fn from(b: Bytes) -> Vec<u8> {
@@ -269,6 +273,14 @@ macro_rules! impl_checksum {
             }
         }
 
+        impl TryFrom<&str> for $typ {
+            type Error = FromHexError;
+
+            fn try_from(s: &str) -> Result<Self, Self::Error> {
+                Self::from_hex(s)
+            }
+        }
+
         impl Default for $typ {
             fn default() -> Self {
                 Self::from([0; $size])
@@ -334,9 +346,9 @@ pub type AccountName = Name;
 pub type PermissionName = Name;
 pub type TableName = Name;
 
-pub type BlockID = Checksum256;
+pub type BlockId = Checksum256;
 pub type Checksum = Checksum256;
-pub type TransactionID = Checksum256;
+pub type TransactionId = Checksum256;
 pub type Digest = Checksum256;
 pub type Weight = u16;
 pub type BlockNum = u32;

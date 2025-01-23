@@ -128,6 +128,19 @@ impl<T: CryptoDataType, const DATA_SIZE: usize> CryptoData<T, DATA_SIZE> {
     }
 }
 
+
+// -----------------------------------------------------------------------------
+//     `TryFrom` implementation
+// -----------------------------------------------------------------------------
+
+impl<T: CryptoDataType, const DATA_SIZE: usize> TryFrom<&str> for CryptoData<T, DATA_SIZE> {
+    type Error = InvalidCryptoData;
+
+    fn try_from(s: &str) -> Result<Self, Self::Error> {
+        Self::from_str(s)
+    }
+}
+
 // -----------------------------------------------------------------------------
 //     `Display` implementation
 // -----------------------------------------------------------------------------

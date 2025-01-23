@@ -1,3 +1,4 @@
+use std::collections::{BTreeMap, BTreeSet};
 use std::str::{from_utf8, Utf8Error};
 
 use bytemuck::{cast_ref, pod_read_unaligned};
@@ -29,6 +30,9 @@ pub enum SerializeError {
 
     #[snafu(display("cannot parse bool from stream"))]
     InvalidBool,
+
+    #[snafu(display("invalid tag (discriminant): {tag} for variant type `{variant}`"), visibility(pub))]
+    InvalidTag { tag: u32, variant: String },
 
     #[snafu(display("{msg}"))]
     InvalidData { msg: String },  // acts as a generic error type with a given message
@@ -371,60 +375,20 @@ impl BinarySerializable for (u16, Bytes) {
 }
 
 
-// -----------------------------------------------------------------------------
-//     util functions for varints and reading/writing str/bytes
-// -----------------------------------------------------------------------------
-
-// FIXME: move this inside `ByteStream` struct impl
-
-// fn write_var_u32(stream: &mut ByteStream, n: u32) {
-//     let mut n = n;
-//     loop {
-//         if n >> 7 != 0 {
-//             stream.write_byte((0x80 | (n & 0x7f)) as u8);
-//             n >>= 7
-//         }
-//         else {
-//             stream.write_byte(n as u8);
-//             break;
-//         }
-//     }
-// }
-
-// fn write_var_i32(stream: &mut ByteStream, n: i32) {
-//     let unsigned = ((n as u32) << 1) ^ ((n >> 31) as u32);
-//     write_var_u32(stream, unsigned)
-// }
-
-// fn read_var_u32(stream: &mut ByteStream) -> Result<u32, SerializeError> {
-//     let mut offset = 0;
-//     let mut result = 0;
-//     loop {
-//         let byte = stream.read_byte()?;
-//         result |= (byte as u32 & 0x7F) << offset;
-//         offset += 7;
-//         if (byte & 0x80) == 0 { break; }
-
-//         ensure!(offset < 32, InvalidDataSnafu { msg: "varint too long to fit in u32" });
-//     }
-//     Ok(result)
-// }
-
-// fn read_var_i32(stream: &mut ByteStream) -> Result<i32, SerializeError> {
-//     let n = read_var_u32(stream)?;
-//     Ok(match n & 1 {
-//         0 => n >> 1,
-//         _ => ((!n) >> 1) | 0x8000_0000,
-//     } as i32)
-// }
-
-
-// -----------------------------------------------------------------------------
+// =============================================================================
+//
 //     other useful blanket implementations for containers
+//
+// =============================================================================
+
 // -----------------------------------------------------------------------------
+//     impl for Vec<T>
+// -----------------------------------------------------------------------------
+
 
 // NOTE: we have 2 choices here:
-//  - blanket impl, at the cost of a non-optimized impl for Vec<u8>
+//  - blanket impl, at the cost of a non-optimized impl for `Vec<u8>`
+//    -> however we should be using `Bytes` instead of `Vec<u8>`
 //  - optimized impl for Vec<u8>, but we have to manually implement
 //    (possibly with the help of a macro) all the other needed types
 impl<T: BinarySerializable> BinarySerializable for Vec<T> {
@@ -445,6 +409,10 @@ impl<T: BinarySerializable> BinarySerializable for Vec<T> {
     }
 }
 
+// -----------------------------------------------------------------------------
+//     impl for Option<T>
+// -----------------------------------------------------------------------------
+
 impl<T: BinarySerializable> BinarySerializable for Option<T> {
     fn encode(&self, stream: &mut ByteStream) {
         match self {
@@ -463,5 +431,68 @@ impl<T: BinarySerializable> BinarySerializable for Option<T> {
             true => Some(T::decode(stream)?),
             false => None,
         })
+    }
+}
+
+// -----------------------------------------------------------------------------
+//     impl for Box<T>
+// -----------------------------------------------------------------------------
+
+impl<T: BinarySerializable> BinarySerializable for Box<T> {
+    fn encode(&self, stream: &mut ByteStream) {
+        self.as_ref().encode(stream);
+    }
+
+    fn decode(stream: &mut ByteStream) -> Result<Self, SerializeError> {
+        Ok(Box::new(T::decode(stream)?))
+   }
+}
+
+// -----------------------------------------------------------------------------
+//     impl for BTreeSet<T>
+// -----------------------------------------------------------------------------
+
+impl<T: BinarySerializable + Ord> BinarySerializable for BTreeSet<T> {
+    fn encode(&self, stream: &mut ByteStream) {
+        stream.write_var_u32(self.len() as u32);
+        for v in self {
+            v.encode(stream);
+        }
+    }
+
+    fn decode(stream: &mut ByteStream) -> Result<Self, SerializeError> {
+        let len: u32 = VarUint32::decode(stream)?.into();
+        let mut result = BTreeSet::new();
+        for _ in 0..len {
+            result.insert(T::decode(stream)?);
+        }
+        Ok(result)
+    }
+}
+
+// -----------------------------------------------------------------------------
+//     impl for BTreeMap<K, V>
+// -----------------------------------------------------------------------------
+
+impl<K, V> BinarySerializable for BTreeMap<K, V>
+where
+    K: BinarySerializable + Ord,
+    V: BinarySerializable,
+{
+    fn encode(&self, stream: &mut ByteStream) {
+        stream.write_var_u32(self.len() as u32);
+        for (k, v) in self {
+            k.encode(stream);
+            v.encode(stream);
+        }
+    }
+
+    fn decode(stream: &mut ByteStream) -> Result<Self, SerializeError> {
+        let len: u32 = VarUint32::decode(stream)?.into();
+        let mut result = BTreeMap::new();
+        for _ in 0..len {
+            result.entry(K::decode(stream)?).or_insert(V::decode(stream)?);
+        }
+        Ok(result)
     }
 }
