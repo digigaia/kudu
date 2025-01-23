@@ -4,7 +4,6 @@ use std::any::type_name_of_val;
 use std::fmt::Debug;
 use std::sync::{Once, OnceLock};
 
-use antelope::{BlockTimestampType, PackedTransactionV0, PermissionLevel};
 use color_eyre::eyre::Result;
 use serde::{de::DeserializeOwned, Serialize};
 use tracing::{trace, debug, info, instrument};
@@ -13,7 +12,6 @@ use tracing_subscriber::{
     // fmt::format::FmtSpan,
 };
 
-// use antelope_abi::abidefinition::{ABIDefinition, TypeNameRef};
 use antelope::{
     binaryserializable::{to_bin, from_bin, BinarySerializable},
     data::{
@@ -22,9 +20,8 @@ use antelope::{
     ABIDefinition, Asset, Bytes, ByteStream, ExtendedAsset, InvalidValue, JsonValue, Name,
     Symbol, SymbolCode, TimePoint, TimePointSec, TypeNameRef, VarInt32, VarUint32, ABI,
     Checksum160, Checksum256, Checksum512, PublicKey, PrivateKey, Signature,
-    Transaction, Action, AccountName, Transfer,
+    Transaction, Action, AccountName, Transfer, BlockTimestampType, PackedTransactionV0
 };
-
 
 #[cfg(feature = "float128")]
 use antelope::{
@@ -35,13 +32,13 @@ use antelope::{
 
 // =============================================================================
 //
-// The following tests are coming from
+// The following tests are coming mainly from
 // https://github.com/AntelopeIO/abieos/blob/main/src/test.cpp#L577
 //
-// To get the hex representation of each test, you need to compile and run
-// the `test_abieos` binary from the abieos repo
+// To get the hex representation for the values of each test, you need to
+// compile and run the `test_abieos` binary from the abieos repo.
 //
-// The tests have been augmented to include all possible conversion from the
+// The tests have been augmented to include all possible conversions from the
 // Antelope data model, namely:
 //
 //  1- JSON -> variant -> bin -> variant -> JSON
