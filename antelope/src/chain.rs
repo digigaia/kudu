@@ -78,12 +78,34 @@ pub struct Action {
     pub data: Bytes,
 }
 
+pub trait IntoPermissionVec {
+    fn into_permission_vec(self) -> Vec<PermissionLevel>;
+}
+
+impl IntoPermissionVec for Vec<PermissionLevel> {
+    fn into_permission_vec(self) -> Vec<PermissionLevel> {
+        self
+    }
+}
+
+impl IntoPermissionVec for PermissionLevel {
+    fn into_permission_vec(self) -> Vec<PermissionLevel> {
+        vec![self]
+    }
+}
+
+impl IntoPermissionVec for (&str, &str) {
+    fn into_permission_vec(self) -> Vec<PermissionLevel> {
+        vec![PermissionLevel { actor: AccountName::constant(self.0), permission: PermissionName::constant(self.1) }]
+    }
+}
+
 impl Action {
-    pub fn new<T: Contract>(authorization: Vec<PermissionLevel>, contract: T) -> Action {
+    pub fn new<T: Contract>(authorization: impl IntoPermissionVec, contract: T) -> Action {
         Action {
             account: T::account(),
             name: T::name(),
-            authorization,
+            authorization: authorization.into_permission_vec(),
             data: to_bin(&contract)
         }
     }

@@ -22,14 +22,16 @@ use antelope::{
     ABIDefinition, Asset, Bytes, ByteStream, ExtendedAsset, InvalidValue, JsonValue, Name,
     Symbol, SymbolCode, TimePoint, TimePointSec, TypeNameRef, VarInt32, VarUint32, ABI,
     Checksum160, Checksum256, Checksum512, PublicKey, PrivateKey, Signature,
-    Transaction, Action, AccountName, PermissionName, Transfer, TransactionTraceV0,
-    ActionTrace, ActionTraceV1, ActionReceipt, ActionReceiptV0, AccountDelta,
-    TransactionTrace, AccountAuthSequence,
+    Transaction, Action, AccountName, Transfer,
 };
 
 
 #[cfg(feature = "float128")]
-use antelope::data::STATE_HISTORY_PLUGIN_ABI;
+use antelope::{
+    data::STATE_HISTORY_PLUGIN_ABI,
+    TransactionTraceV0, ActionTrace, ActionTraceV1, ActionReceipt, ActionReceiptV0,
+    AccountDelta, TransactionTrace, AccountAuthSequence,
+};
 
 // =============================================================================
 //
@@ -51,8 +53,9 @@ use antelope::data::STATE_HISTORY_PLUGIN_ABI;
 
 ////////////////////////////////////////////////////////////////////////////////
 //                                                                            //
-// TODO: MISSING TYPES                                                        //
-//  - f128                                                                    //
+// TODO:                                                                      //
+//  - check integration_test, test_type_properties                            //
+//                                                                            //
 //                                                                            //
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -85,7 +88,7 @@ fn transaction_abi() -> &'static ABI {
 
 #[instrument(skip(ds, abi))]
 fn try_encode_stream(ds: &mut ByteStream, abi: &ABI, typename: TypeNameRef, data: &str) -> Result<()> {
-    let value: JsonValue = serde_json::from_str(data).map_err(InvalidValue::from)?;
+    let value: JsonValue = antelope::json::from_str(data).map_err(InvalidValue::from)?;
     info!("{:?}", &value);
     abi.encode_variant(ds, typename, &value)?;
     Ok(())
@@ -107,8 +110,9 @@ fn try_decode<T: AsRef<[u8]>>(abi: &ABI, typename: &str, data: T) -> Result<Json
     try_decode_stream(&mut ds, abi, typename.into())
 }
 
+/// check roundtrip JSON -> variant -> bin -> variant -> JSON
 #[track_caller]
-fn round_trip(abi: &ABI, typename: &str, data: &str, hex: &str, expected: &str) -> Result<()> {
+fn check_round_trip(abi: &ABI, typename: &str, data: &str, hex: &str, expected: &str) -> Result<()> {
     debug!(r#"==== round-tripping type "{typename}" with value {data}"#);
     let mut ds = ByteStream::new();
 
@@ -143,16 +147,6 @@ fn check_error<F, T>(f: F, expected_error_msg: &str)
     }
 }
 
-/// check roundtrip JSON -> variant -> bin -> variant -> JSON
-#[track_caller]
-fn check_round_trip(abi: &ABI, typename: &str, data: &str, hex: &str, expected: &str) {
-    round_trip(abi, typename, data, hex, expected).unwrap()
-}
-
-// const DEFAULT:           u32 = 0;  // bit mask for flags to following function
-// const NO_JSON_TO_NATIVE: u32 = 1;  // bit mask for flags to following function
-// const NO_SERDE:          u32 = 2;  // bit mask for flags to following function
-
 macro_rules! check_cross_conversion {
     ($abi:ident, $value:expr, $typ:ty, $typename:expr, $data:expr, $hex:expr, $expected:expr) => {
         check_cross_conversion!($abi, $value, $typ, $typename, $data, $hex, $expected, DEFAULT);
@@ -161,7 +155,7 @@ macro_rules! check_cross_conversion {
     ($abi:ident, $value:expr, $typ:ty, $typename:expr, $data:expr, $hex:expr, $expected:expr, NO_SERDE) => {
         // 1- JSON -> variant -> bin -> variant -> JSON
         trace!(r#"checking JSON: {} -> variant -> bin: "{}" -> variant -> JSON"#, $data, $hex);
-        check_round_trip($abi, $typename, $data, $hex, $expected);
+        check_round_trip($abi, $typename, $data, $hex, $expected).unwrap();
 
         // 2- Rust -> bin -> Rust
         trace!("checking Rust native ({:?}: {}) -> bin: {}", &$value, type_name_of_val(&$value), $hex);
@@ -193,8 +187,6 @@ macro_rules! check_cross_conversion {
     };
 }
 
-
-/// check lots of conversions! FIXME: describe them
 #[track_caller]
 fn check_cross_conversion2<T>(abi: &ABI, value: T, typename: &str, data: &str, hex: &str, expected: &str)
 where
@@ -210,7 +202,6 @@ where
 {
     check_cross_conversion2(abi, value, typename, data, hex, data)
 }
-
 
 // This is weird, we can't seem to get the owned type via <T as ToOwned>,
 // so we're making a new trait just for these tests with the proper associated type
@@ -324,14 +315,15 @@ fn roundtrip_i8() -> Result<()> {
     check_error(|| try_encode(abi, "uint8",  "-1"), "cannot convert given variant");
     check_error(|| try_encode(abi, "uint8", "256"), "integer out of range");
 
-    // NOTE: we need to use either a `Vec` or an array slice, but if we use a fixed-size
-    //       array then the size is known at compile-time and is not encoded in the
-    //       binary stream (arrays get encoded as tuples, not sequences)
-    let array: Vec<u8> = vec![10u8, 9, 8];
-    check_cross_conversion_borrowed(abi, &array[..0], "uint8[]", "[]",       "00");
-    check_cross_conversion_borrowed(abi, &array[..1], "uint8[]", "[10]",     "010a");
-    check_cross_conversion_borrowed(abi, &array[..2], "uint8[]", "[10,9]",   "020a09");
-    check_cross_conversion         (abi,  array,      "uint8[]", "[10,9,8]", "030a0908");
+    // NOTE: we can use either a `Vec`, an array or an array slice
+    let v = vec![10u8, 9, 8];
+    let a =     [10u8, 9, 8];
+    check_cross_conversion_borrowed(abi, &v[..0], "uint8[]", "[]",       "00");
+    check_cross_conversion_borrowed(abi, &v[..1], "uint8[]", "[10]",     "010a");
+    check_cross_conversion_borrowed(abi, &v[..2], "uint8[]", "[10,9]",   "020a09");
+    check_cross_conversion_borrowed(abi, &a[..2], "uint8[]", "[10,9]",   "020a09");
+    check_cross_conversion         (abi,  v,      "uint8[]", "[10,9,8]", "030a0908");
+    check_cross_conversion         (abi,  a,      "uint8[]", "[10,9,8]", "030a0908");
 
     Ok(())
 }
@@ -489,16 +481,16 @@ fn roundtrip_floats() -> Result<()> {
 
     let abi = transaction_abi();
 
-    check_cross_conversion(abi, 0.0f32, "float32", "0", "00000000");
-    check_cross_conversion(abi, 0.125f32, "float32", "0.125", "0000003e");
+    check_cross_conversion(abi,  0.0f32,   "float32",  "0",     "00000000");
+    check_cross_conversion(abi,  0.125f32, "float32",  "0.125", "0000003e");
     check_cross_conversion(abi, -0.125f32, "float32", "-0.125", "000000be");
-    check_cross_conversion(abi, 0.0, "float64", "0", "0000000000000000");
-    check_cross_conversion(abi, 0.125, "float64", "0.125", "000000000000c03f");
+    check_cross_conversion(abi,  0.0,   "float64" , "0",     "0000000000000000");
+    check_cross_conversion(abi,  0.125, "float64",  "0.125", "000000000000c03f");
     check_cross_conversion(abi, -0.125, "float64", "-0.125", "000000000000c0bf");
     check_cross_conversion2(abi, 151115727451828646838272.0, "float64",
                                 "151115727451828646838272.0", "000000000000c044", "151115727451828650000000");
     check_cross_conversion2(abi, -151115727451828646838272.0, "float64",
-                                 "-151115727451828646838272.0", "000000000000c0c4", "-151115727451828650000000");
+                                "-151115727451828646838272.0", "000000000000c0c4", "-151115727451828650000000");
 
     Ok(())
 }
@@ -855,13 +847,9 @@ fn roundtrip_transaction() -> Result<()> {
         expiration: TimePointSec::from_str("2009-02-13T23:31:31.000")?,
         ref_block_num: 1234,
         ref_block_prefix: 5678,
-        actions: vec![Action::new(
-            vec![PermissionLevel {
-                actor: AccountName::constant("useraaaaaaaa"),
-                permission: PermissionName::constant("active")
-            }],
-            transfer.clone(),
-        )],
+        actions: vec![
+            Action::new(("useraaaaaaaa", "active"), transfer.clone()),
+        ],
         ..Default::default()
     };
 
@@ -886,13 +874,7 @@ fn roundtrip_transaction() -> Result<()> {
             expiration: "2009-02-13T23:31:31.000".try_into()?,
             ref_block_num: 1234,
             ref_block_prefix: 5678,
-            actions: vec![Action::new(
-                vec![PermissionLevel {
-                    actor: "useraaaaaaaa".try_into()?,
-                    permission: "active".try_into()?,
-                }],
-                transfer,
-            )],
+            actions: vec![Action::new(("useraaaaaaaa", "active"), transfer)],
             ..Default::default()
         }
     };
@@ -1022,7 +1004,6 @@ fn roundtrip_transaction_traces() -> Result<()> {
         r#"["transaction_trace",["transaction_trace_v0",{"id":"b2c8d46f161e06740cfadabfc9d11f013a1c90e25337ff3e22840b195e1adc4b","status":0,"cpu_usage_us":2000,"net_usage_words":12,"elapsed":7670,"net_usage":96,"scheduled":false,"action_traces":[["action_trace_v1",{"action_ordinal":1,"creator_action_ordinal":0,"receipt":["action_receipt_v0",{"receiver":"eosio","act_digest":"7670940c29ec0a4c573ef052c5a29236393f587f208222b3c1b6a9c8fea2c66a","global_sequence":27,"recv_sequence":1,"auth_sequence":[{"account":"eosio","sequence":2}],"code_sequence":1,"abi_sequence":0}],"receiver":"eosio","act":{"account":"eosio","name":"doit","authorization":[{"actor":"eosio","permission":"active"}],"data":"00"},"context_free":false,"elapsed":7589,"console":"","account_ram_deltas":[],"account_disk_deltas":[],"except":null,"error_code":null,"return_value":"01ffffffffffffffff00"}]],"account_ram_delta":null,"except":null,"error_code":null,"failed_dtrx_trace":null,"partial":null}]]"#,
         "0100b2c8d46f161e06740cfadabfc9d11f013a1c90e25337ff3e22840b195e1adc4b00d00700000cf61d0000000000006000000000000000000101010001000000000000ea30557670940c29ec0a4c573ef052c5a29236393f587f208222b3c1b6a9c8fea2c66a1b000000000000000100000000000000010000000000ea3055020000000000000001000000000000ea30550000000000ea30550000000000901d4d010000000000ea305500000000a8ed3232010000a51d00000000000000000000000a01ffffffffffffffff000000000000"
     );
-
 
     Ok(())
 }

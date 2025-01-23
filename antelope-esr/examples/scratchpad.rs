@@ -13,7 +13,7 @@ use tracing_subscriber::{
 };
 
 use antelope::{
-    ABIDefinition, TimePoint, TimePointSec, JsonValue, Name, ByteStream, Bytes, BinarySerializable as BinaryTrait,
+    ABIDefinition, TimePoint, TimePointSec, JsonValue, Name,
     abidefinition::abi_schema,
     abiserializer::{to_bin, from_bin},
     convert::{variant_to_int, variant_to_uint}
@@ -45,20 +45,6 @@ where
     assert_eq!(value, value2, "rust binary to native");
 
 }
-
-// fn check_conversion_borrowed<BT, T>(value: T, hex: &str)
-// where
-//     T: Serialize + PartialEq + Debug,
-//     BT: PartialEq + Debug + DeserializeOwned,
-// {
-//     let bin = to_bin(&value).unwrap();
-//     let hex_data = hex::encode(&bin);
-//     assert_eq!(hex_data, hex, "rust native to binary");
-
-//     let value2: BT = from_bin(&bin).unwrap();
-//     assert_eq!(value, value2, "rust binary to native");
-
-// }
 
 macro_rules! check_conv {
     ($value:literal, $typ:ty, $hex:literal) => {
@@ -192,18 +178,6 @@ fn main() -> Result<()> {
 
     let cid = ChainId::ChainId("hello".to_string());
     info!("{}", &serde_json::to_string(&cid)?);
-
-    let f128hex = [
-        "00000000000000000000000000000000",
-        "ffffffffffffffffffffffffffffffff",
-        "12345678abcdef12345678abcdef1234",
-    ];
-
-    for fhex in f128hex {
-        let mut s = ByteStream::from(Bytes::from_hex(fhex)?);
-        let x = f128::decode(&mut s)?;
-        info!("x = {:?}", hex::encode(x.to_le_bytes()));
-    }
 
     Ok(())
 }

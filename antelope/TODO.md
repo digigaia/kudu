@@ -56,6 +56,8 @@
 - rename `TypeNameRef` to `TypeName` (?)
 
 - have constructors for base types be named `new` instead of `from_str`?
+  -> yes, and have `from_str` be the implementation of the `FromStr` trait, which will also
+     give us the `parse()` method on `str`
 
 - to_hex -> hex representation of binary data, to_bin -> binary data itself (ie: `vec<u8>`)
 

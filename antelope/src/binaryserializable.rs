@@ -1,4 +1,5 @@
 use std::collections::{BTreeMap, BTreeSet};
+use std::fmt::Debug;
 use std::str::{from_utf8, Utf8Error};
 
 use bytemuck::{cast_ref, pod_read_unaligned};
@@ -380,6 +381,28 @@ impl BinarySerializable for (u16, Bytes) {
 //     other useful blanket implementations for containers
 //
 // =============================================================================
+
+// -----------------------------------------------------------------------------
+//     impl for fixed-size arrays [T; N]
+// -----------------------------------------------------------------------------
+
+impl<T: BinarySerializable + Debug, const N: usize> BinarySerializable for [T; N] {
+    fn encode(&self, stream: &mut ByteStream) {
+        stream.write_var_u32(self.len() as u32);
+        for elem in self {
+            elem.encode(stream);
+        }
+    }
+
+    fn decode(stream: &mut ByteStream) -> Result<Self, SerializeError> {
+        let len: u32 = VarUint32::decode(stream)?.into();
+        let mut result = Vec::with_capacity(len as usize);
+        for _ in 0..len {
+            result.push(T::decode(stream)?);
+        }
+        Ok(result.try_into().unwrap())
+    }
+}
 
 // -----------------------------------------------------------------------------
 //     impl for Vec<T>
