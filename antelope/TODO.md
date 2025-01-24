@@ -47,7 +47,8 @@
 
 - implement `From` traits for base types everywhere it makes sense, and `TryFrom` too
 
-- clean/properly order imports in all file
+- clean/properly order imports in all file (maybe wait for Rust 2024 edition as it seems to
+  correspond better to the style we like)
 
 ### Naming
 
@@ -136,9 +137,11 @@
 - use a small string library so that ABIs have a much better cache locality
 
 - try using smallvec/tinyvec for the same reasons as small string, esp. on vectors that are
-  empty most of the time, eg: extensions, etc.
+  empty most of the time, eg: extensions, etc. or only contain 1 or 2 elements,
+  eg: `Action::authorization`, etc.
 
-- try using a `BTreeMap` or some other map that has better cache locality, or a faster hash, like: <https://github.com/rust-lang/rustc-hash>
+- try using a `BTreeMap` or some other map that has better cache locality, or a faster hash,
+  like: <https://github.com/rust-lang/rustc-hash>
 
 - check if anything from this [reddit thread about `serde_json`](https://www.reddit.com/r/rust/comments/w3q1oq/things_i_wish_i_had_known_about_serde_json/) applies
 

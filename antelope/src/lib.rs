@@ -4,15 +4,17 @@
 //!
 //! The main type used to represent values handled by Antelope blockchains is [`AntelopeValue`]
 //!
-
-#![doc = include_str!("../../TODO.md")]
-
-//! ----
-
-#![doc = include_str!("../TODO.md")]
-
-//! ----
-
+//! There is a to-do list of items needing to be completed before a first release here:
+//! [To-Do list](mod@todo), and a list of notes and resources here: [Notes](notes)
+//!
+//! # Feature flags
+//!
+//! - `detailed-error`: activate this to enable the [`macro@with_location`] macro. If
+//!                     not enabled, the [`macro@with_location`] macro will be a no-op.
+//! - `float128`: add support for the `float128` type. This currently needs a nightly Rust version
+//!               as `f128` support is still experimental.
+//!
+//!
 //! # Antelope data model
 //!
 //! ![Antelope data model][datamodel]
@@ -22,35 +24,33 @@
     doc = ::embed_doc_image::embed_image!("datamodel", "doc/antelope_data_model.drawio.svg")
 )]
 //!
-//! Data used in the Antelope blockchains can be found in a variety of formats.
-//! Including this library, we can find:
-//!  - Rust native data types
+//! Data used in the Antelope blockchains can be found in a variety of formats, namely:
+//!  - Rust native data types (structs defined in this library)
 //!  - JSON Value (`serde_json::Value`) (also called variant in Antelope terminology)
 //!  - JSON string representation
 //!  - binary data
 //!
-//! The above diagram shows those types and the different ways to convert between them.
-//!  - most of the conversions are handled via the serde `Serialize` and `Deserialize` trait,
-//!    however care should be taken when deriving that trait on a Rust native enum, as
-//!    the discriminant needs to be encoded in a specific way which cannot be achieved
-//!    by the `serde::Serialize` trait so you need to use the `antelope::SerializeEnum`
-//!    trait instead.
+//! The diagram above shows those types and the different ways to convert between them.
+//!  - most of the conversions are handled via the `serde::Serialize` and `serde::Deserialize`
+//!    traits.
 //!  - to convert between a JSON value and a binary stream you need to use an instance
-//!    of the `antelope::ABI` class which has been initialized with a data schema
-//!    (`ABIDefinition`).
+//!    of the [`ABI`] class which has been initialized with a data schema
+//!    ([`ABIDefinition`]).
 //!  - to convert between a Rust native value and a binary stream you need to use the
 //!    [`BinarySerializable`] trait, which you can automatically derive using the
-//!    `BinarySerializable` derive macro.
+//!    [`BinarySerializable`](macro@BinarySerializable) derive macro.
 //!
-//! ## WARNINGS / PITFALLS
+//! ## Warnings / pitfalls
 //!
-//!  - when defining your own types, use the [`antelope::Bytes`] type instead of `Vec<u8>`
-//!    otherwise the JSON serialization will not be correct
-//!  - when defining your own types that contain a Rust enum types, use the `antelope::SerializeEnum`
-//!    derive macro instead of `serde::Serialize` and `serde::Deserialize`
+//!  - when defining your own types, make sure to use the [`Bytes`] type instead of `Vec<u8>`
+//!    otherwise the JSON serialization will not be correct.
+//!  - when defining a variant type using a Rust enum, you need to use the [`SerializeEnum`]
+//!    derive macro instead of `serde::Serialize` and `serde::Deserialize`. This is because
+//!    the discriminant needs to be encoded in a specific way which cannot be achieved with
+//!    the `serde::Serialize` trait.
+//!
 //! ----
 
-#![doc = include_str!("../../NOTES.md")]
 
 // disable this lint to allow our types to implement a `from_str` constructor
 // without implement the `std::str::FromStr` trait
@@ -59,6 +59,10 @@
 #![allow(clippy::should_implement_trait)]
 
 #![cfg_attr(feature = "float128", feature(f128))]
+
+// this is only here while we keep the TODO list inside the documentation
+pub mod todo;
+pub mod notes;
 
 pub mod abi;
 pub mod api;
@@ -87,8 +91,6 @@ pub use chain::*;
 pub use abi::*;
 
 
-
-
 pub mod binaryserializable;
 pub mod bytestream;
 pub mod typenameref;
@@ -97,4 +99,53 @@ pub use bytestream::{ByteStream, StreamError};
 pub use binaryserializable::{BinarySerializable, SerializeError};
 pub use typenameref::TypeNameRef;
 
-pub use antelope_macros::{with_location, BinarySerializable, SerializeEnum, SerializeEnumPrefixed};
+/// Add a `location` field to all variants of a `Snafu` error enum
+///
+/// This will add the `location` field to all variants, which need to be either
+/// structs or the unit type (tuple variants are not allowed).
+/// The location field will be automatically populated when using the error selector.
+///
+/// This macro will also update the display string (if defined) to also show the
+/// location that has been captured.
+///
+/// **NOTE:** Adding the `location` field to an error enum will increase its size by
+///           32 bytes, and an additional 32 bytes for each variant that contains a
+///           `source` field (as this latter also has the extra size), recursively.
+///           This might become expensive quite quickly, that's why the corresponding
+///           feature isn't enabled by default.
+///
+/// **NOTE:** you cannot use a `whatever` variant in conjunction with this, nor can you
+///           manually define the `location` field yourself (it will conflict with the
+///           generated one).
+pub use antelope_macros::with_location;
+
+/// Implement the [`BinarySerializable`](trait@BinarySerializable) trait
+///
+/// This calls [`BinarySerializable::encode()`] and [`BinarySerializable::decode()`]
+/// on all members sequentially.
+pub use antelope_macros::BinarySerializable;
+
+/// Implement the `serde::Serialize` and `serde::Deserialize` trait
+///
+/// Antelope blockchains expect enums (variant types) to be encoded as a
+/// tuple of `(discriminant, value)` which is not natively supported by `serde`,
+/// so this macro fills in the gap and should be used instead of
+/// `#[derive(Serialize, Deserialize)]` for enum types. By default the discriminant
+/// is serialized as a `snake_case` string.
+///
+/// It exposes one attribute argument for fields which is `serde(rename)`.
+pub use antelope_macros::SerializeEnum;
+
+/// Implement the `serde::Serialize` and `serde::Deserialize` trait
+///
+/// This version of the macro generates string tags which are composed of the
+/// discriminant name prefixed with the enum name.
+///
+/// Antelope blockchains expect enums (variant types) to be encoded as a
+/// tuple of `(discriminant, value)` which is not natively supported by `serde`,
+/// so this macro fills in the gap and should be used instead of
+/// `#[derive(Serialize, Deserialize)]` for enum types. By default the discriminant
+/// is serialized as a `snake_case` string.
+///
+/// It exposes one attribute argument for fields which is `serde(rename)`.
+pub use antelope_macros::SerializeEnumPrefixed;

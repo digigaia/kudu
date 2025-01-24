@@ -281,14 +281,14 @@ pub enum ActionTrace {
     V1(ActionTraceV1),
 }
 
-// FIXME: defined in leap:libraries/state_history
+// FIXME: defined in spring:libraries/state_history
 #[derive(Eq, Hash, PartialEq, Debug, Clone, Default, Serialize, Deserialize, BinarySerializable)]
 pub struct PartialTransaction {
 
 }
 
 // NOTE: this is the one used in the tests with the ship_abi.json ABI
-//       it seems to be an old one as the one defined in "leap/chain/trace.hpp" differs significantly
+//       it seems to be an old one as the one defined in "spring:chain/trace.hpp" differs significantly
 // TODO: we should also define the new one corresponding to the current Antelope version
 #[derive(Eq, Hash, PartialEq, Debug, Clone, Default, Serialize, Deserialize, BinarySerializable)]
 pub struct TransactionTraceV0 {

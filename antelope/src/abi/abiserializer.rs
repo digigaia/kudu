@@ -897,7 +897,7 @@ impl<'a, 'de> BinSequence<'a, 'de> {
 
 // `SeqAccess` is provided to the `Visitor` to give it the ability to iterate
 // through elements of the sequence.
-impl<'de, 'a> SeqAccess<'de> for BinSequence<'a, 'de> {
+impl<'de> SeqAccess<'de> for BinSequence<'_, 'de> {
     type Error = Error;
 
     fn next_element_seed<T>(&mut self, seed: T) -> Result<Option<T::Value>>
