@@ -32,8 +32,8 @@ fn init() {
 
 #[test]
 fn placeholder_value() {
-    assert_eq!(SIGNER_NAME,       Name::from_str("............1").unwrap());
-    assert_eq!(SIGNER_PERMISSION, Name::from_str("............2").unwrap());
+    assert_eq!(SIGNER_NAME,       Name::new("............1").unwrap());
+    assert_eq!(SIGNER_PERMISSION, Name::new("............2").unwrap());
 }
 
 #[test]

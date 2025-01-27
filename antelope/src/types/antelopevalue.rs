@@ -119,19 +119,19 @@ impl AntelopeValue {
             AntelopeType::Float128 => Self::Float128(str_to_f128(repr)?),
             AntelopeType::Bytes => Self::Bytes(Bytes::from_hex(repr).context(FromHexSnafu)?),
             AntelopeType::String => Self::String(repr.to_owned()),
-            AntelopeType::TimePoint => Self::TimePoint(TimePoint::from_str(repr)?),
-            AntelopeType::TimePointSec => Self::TimePointSec(TimePointSec::from_str(repr)?),
-            AntelopeType::BlockTimestampType => Self::BlockTimestampType(BlockTimestampType::from_str(repr)?),
+            AntelopeType::TimePoint => Self::TimePoint(repr.parse()?),
+            AntelopeType::TimePointSec => Self::TimePointSec(repr.parse()?),
+            AntelopeType::BlockTimestampType => Self::BlockTimestampType(repr.parse()?),
             AntelopeType::Checksum160 => Self::Checksum160(Box::new(Checksum160::from_hex(repr).context(FromHexSnafu)?)),
             AntelopeType::Checksum256 => Self::Checksum256(Box::new(Checksum256::from_hex(repr).context(FromHexSnafu)?)),
             AntelopeType::Checksum512 => Self::Checksum512(Box::new(Checksum512::from_hex(repr).context(FromHexSnafu)?)),
-            AntelopeType::PublicKey => Self::PublicKey(Box::new(PublicKey::from_str(repr).context(CryptoDataSnafu)?)),
-            AntelopeType::PrivateKey => Self::PrivateKey(Box::new(PrivateKey::from_str(repr).context(CryptoDataSnafu)?)),
-            AntelopeType::Signature => Self::Signature(Box::new(Signature::from_str(repr).context(CryptoDataSnafu)?)),
-            AntelopeType::Name => Self::Name(Name::from_str(repr).context(NameSnafu)?),
-            AntelopeType::SymbolCode => Self::SymbolCode(SymbolCode::from_str(repr).context(SymbolSnafu)?),
-            AntelopeType::Symbol => Self::Symbol(Symbol::from_str(repr).context(SymbolSnafu)?),
-            AntelopeType::Asset => Self::Asset(Asset::from_str(repr).context(AssetSnafu { repr })?),
+            AntelopeType::PublicKey => Self::PublicKey(Box::new(PublicKey::new(repr).context(CryptoDataSnafu)?)),
+            AntelopeType::PrivateKey => Self::PrivateKey(Box::new(PrivateKey::new(repr).context(CryptoDataSnafu)?)),
+            AntelopeType::Signature => Self::Signature(Box::new(Signature::new(repr).context(CryptoDataSnafu)?)),
+            AntelopeType::Name => Self::Name(Name::new(repr).context(NameSnafu)?),
+            AntelopeType::SymbolCode => Self::SymbolCode(SymbolCode::new(repr).context(SymbolSnafu)?),
+            AntelopeType::Symbol => Self::Symbol(Symbol::new(repr).context(SymbolSnafu)?),
+            AntelopeType::Asset => Self::Asset(repr.parse().context(AssetSnafu { repr })?),
             AntelopeType::ExtendedAsset => Self::from_variant(typename, &serde_json::from_str(repr).context(JsonParseSnafu)?)?,
             // _ => { return Err(InvalidValue::InvalidType(typename.to_string())); },
         })
@@ -211,15 +211,15 @@ impl AntelopeValue {
             AntelopeType::String => Self::String(v.as_str().with_context(incompatible_types)?.to_owned()),
             AntelopeType::TimePoint => {
                 let repr = v.as_str().with_context(incompatible_types)?;
-                Self::TimePoint(TimePoint::from_str(repr)?)
+                Self::TimePoint(repr.parse()?)
             },
             AntelopeType::TimePointSec => {
                 let repr = v.as_str().with_context(incompatible_types)?;
-                Self::TimePointSec(TimePointSec::from_str(repr)?)
+                Self::TimePointSec(repr.parse()?)
             },
             AntelopeType::BlockTimestampType => {
                 let repr = v.as_str().with_context(incompatible_types)?;
-                Self::BlockTimestampType(BlockTimestampType::from_str(repr)?)
+                Self::BlockTimestampType(repr.parse()?)
             },
             AntelopeType::Checksum160 => {
                 Self::Checksum160(Box::new(Checksum160::from_hex(v.as_str().with_context(incompatible_types)?)
@@ -244,8 +244,8 @@ impl AntelopeValue {
                 let ea = v.as_object().with_context(incompatible_types)?;
                 let qty = variant_to_str(&ea["quantity"])?;
                 Self::ExtendedAsset(Box::new(ExtendedAsset {
-                    quantity: Asset::from_str(qty).context(AssetSnafu { repr: qty })?,
-                    contract: Name::from_str(ea["contract"].as_str().with_context(incompatible_types)?).context(NameSnafu)?,
+                    quantity: qty.parse().context(AssetSnafu { repr: qty })?,
+                    contract: Name::new(ea["contract"].as_str().with_context(incompatible_types)?).context(NameSnafu)?,
                 }))
             },
         })

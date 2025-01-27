@@ -1,4 +1,5 @@
 use std::fmt;
+use std::str::FromStr;
 
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 use snafu::{Snafu, ensure};
@@ -31,14 +32,14 @@ impl Name {
     /// ## Example
     /// ```
     /// # use antelope::{Name, InvalidName};
-    /// assert!(Name::from_str("nico").is_ok());
-    /// assert_eq!(Name::from_str("eosio.token")?.to_string(), "eosio.token");
-    /// assert_eq!(Name::from_str("a.b.c.d.e")?.to_string(), "a.b.c.d.e");
-    /// assert_eq!(Name::from_str("")?.as_u64(), 0);
+    /// assert!(Name::new("nico").is_ok());
+    /// assert_eq!(Name::new("eosio.token")?.to_string(), "eosio.token");
+    /// assert_eq!(Name::new("a.b.c.d.e")?.to_string(), "a.b.c.d.e");
+    /// assert_eq!(Name::new("")?.as_u64(), 0);
     /// # Ok::<(), InvalidName>(())
     /// ```
     ///
-    pub fn from_str(s: &str) -> Result<Self, InvalidName> {
+    pub fn new(s: &str) -> Result<Self, InvalidName> {
         ensure!(s.len() <= 13, TooLongSnafu { name: s.to_owned() });
 
         let result = Name {
@@ -76,14 +77,14 @@ impl Name {
     /// # Example
     /// ```
     /// # use antelope::{Name, InvalidName};
-    /// assert_eq!(Name::from_str("eosio.any")?.prefix(), Name::from_str("eosio")?);
-    /// assert_eq!(Name::from_str("eosio")?.prefix(), Name::from_str("eosio")?);
+    /// assert_eq!(Name::new("eosio.any")?.prefix(), Name::new("eosio")?);
+    /// assert_eq!(Name::new("eosio")?.prefix(), Name::new("eosio")?);
     /// # Ok::<(), InvalidName>(())
     /// ```
     pub fn prefix(&self) -> Name {
         // note: antelope C++ has a more efficient implementation based on direct bit twiddling,
         //       but we're going for a simpler implementation here
-        Name::from_str(self.to_string().rsplitn(2, '.').last().unwrap()).unwrap()  // both unwrap are safe here
+        Name::new(self.to_string().rsplitn(2, '.').last().unwrap()).unwrap()  // both unwrap are safe here
     }
 }
 
@@ -189,7 +190,7 @@ impl TryFrom<&str> for Name {
     type Error = InvalidName;
 
     fn try_from(s: &str) -> Result<Name, InvalidName> {
-        Name::from_str(s)
+        Name::new(s)
     }
 }
 
@@ -207,6 +208,18 @@ impl From<u64> for Name {
 impl fmt::Display for Name {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", u64_to_string(self.value))
+    }
+}
+
+
+// -----------------------------------------------------------------------------
+//     `FromStr` implementation
+// -----------------------------------------------------------------------------
+
+impl FromStr for Name {
+    type Err = InvalidName;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Name::new(s)
     }
 }
 
@@ -235,7 +248,7 @@ impl<'de> Deserialize<'de> for Name {
         D: Deserializer<'de>,
     {
         let name: &str = <&str>::deserialize(deserializer)?;
-        Name::from_str(name).map_err(|e| de::Error::custom(e.to_string()))
+        Name::new(name).map_err(|e| de::Error::custom(e.to_string()))
     }
 }
 
@@ -253,16 +266,16 @@ mod tests {
 
     #[test]
     fn simple_names() -> Result<()> {
-        let n = Name::from_str("nico")?;
+        let n = Name::new("nico")?;
         assert_eq!(n.to_string(), "nico");
 
-        let n2 = Name::from_str("eosio.token")?;
+        let n2 = Name::new("eosio.token")?;
         assert_eq!(n2.to_string(), "eosio.token");
 
-        let n3 = Name::from_str("a.b.c.d.e")?;
+        let n3 = Name::new("a.b.c.d.e")?;
         assert_eq!(n3.to_string(), "a.b.c.d.e");
 
-        assert_eq!(Name::from_str("")?,
+        assert_eq!(Name::new("")?,
                    Name::from_u64(0));
 
         Ok(())
@@ -285,13 +298,13 @@ mod tests {
         ];
 
         for n in names {
-            assert!(Name::from_str(n).is_err(), "Name \"{}\" should fail constructing but does not", n);
+            assert!(Name::new(n).is_err(), "Name \"{}\" should fail constructing but does not", n);
         }
     }
 
     #[test]
     fn basic_functionality() {
-        let name = Name::from_str("foobar").unwrap();
+        let name = Name::new("foobar").unwrap();
         let json = r#""foobar""#;
 
         assert_eq!(name, Name::from_u64(6712742083569909760));

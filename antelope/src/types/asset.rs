@@ -1,5 +1,6 @@
 use std::fmt;
 use std::num::ParseIntError;
+use std::str::FromStr;
 
 use serde::{
     Serialize, Deserialize,
@@ -44,22 +45,11 @@ pub struct Asset {
 impl Asset {
     const MAX_AMOUNT: i64 = (1 << 62) - 1;
 
-    pub fn new(amount: i64, symbol: Symbol) -> Asset {
-        Asset { amount, symbol }
-    }
-
-    fn is_amount_within_range(&self) -> bool {
-        -Self::MAX_AMOUNT <= self.amount && self.amount <= Self::MAX_AMOUNT
-    }
-
-    pub fn is_valid(&self) -> bool {
-        self.is_amount_within_range() && self.symbol.is_valid()
-    }
-
-    pub fn check_valid(&self) -> Result<(), InvalidAsset> {
-        ensure!(self.is_amount_within_range(), AmountOutOfRangeSnafu);
-        // no need to check for symbol.is_valid, it has been successfully constructed
-        Ok(())
+    pub fn new(amount: i64, symbol: Symbol) -> Result<Asset, InvalidAsset> {
+        ensure!((-Self::MAX_AMOUNT..Self::MAX_AMOUNT).contains(&amount), AmountOutOfRangeSnafu);
+        // no need to check for `symbol.is_valid()` as it has been successfully
+        // constructed so must be valid already
+        Ok(Asset { amount, symbol })
     }
 
     pub fn amount(&self) -> i64 { self.amount }
@@ -72,7 +62,44 @@ impl Asset {
         self.amount as f64 / self.precision() as f64
     }
 
-    pub fn from_str(s: &str) -> Result<Self, InvalidAsset> {
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ExtendedAsset {
+    pub quantity: Asset,
+    pub contract: Name,
+}
+
+
+// -----------------------------------------------------------------------------
+//     `Display` implementation
+// -----------------------------------------------------------------------------
+
+// FIXME: this could be made way more efficient
+impl fmt::Display for Asset {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let sign = if self.amount < 0 { "-" } else { "" };
+        let abs_amount: i64 = self.amount.abs();
+        let mut result = (abs_amount / self.precision()).to_string();
+        if self.decimals() != 0 {
+            let frac: i64 = abs_amount % self.precision();
+            result.push('.');
+            result.push_str(&(self.precision() + frac).to_string()[1..]); // ensure we have the right number of leading zeros
+        }
+
+        write!(f, "{}{} {}", sign, result, self.symbol_name())
+    }
+}
+
+
+// -----------------------------------------------------------------------------
+//     `FromStr` implementation
+// -----------------------------------------------------------------------------
+
+impl FromStr for Asset {
+    type Err = InvalidAsset;
+
+    fn from_str(s: &str) -> Result<Self, InvalidAsset> {
         let s = s.trim();
 
         // find space in order to split amount and symbol
@@ -93,7 +120,7 @@ impl Asset {
             precision = 0;
         }
 
-        let symbol = Symbol::from_str(&format!("{},{}", precision, symbol_str))
+        let symbol = Symbol::new(&format!("{},{}", precision, symbol_str))
             .context(InvalidSymbolSnafu)?;
 
         // parse amount
@@ -106,37 +133,17 @@ impl Asset {
                 // check we don't overflow
                 int_part
                     .checked_mul(symbol.precision())
+                    // FIXME: do not allocate the string here if we don't have an error
                     .context(AmountOverflowSnafu { amount: amount_str.to_owned() })?
                     .checked_add(frac_part)
                     .context(AmountOverflowSnafu { amount: amount_str.to_owned() })?
             },
         };
 
-        Ok(Self { amount, symbol })
+        Asset::new(amount, symbol)
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct ExtendedAsset {
-    pub quantity: Asset,
-    pub contract: Name,
-}
-
-
-impl fmt::Display for Asset {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let sign = if self.amount < 0 { "-" } else { "" };
-        let abs_amount: i64 = self.amount.abs();
-        let mut result = (abs_amount / self.precision()).to_string();
-        if self.decimals() != 0 {
-            let frac: i64 = abs_amount % self.precision();
-            result.push('.');
-            result.push_str(&(self.precision() + frac).to_string()[1..]); // ensure we have the right number of leading zeros
-        }
-
-        write!(f, "{}{} {}", sign, result, self.symbol_name())
-    }
-}
 
 // -----------------------------------------------------------------------------
 //     `Serde` traits implementation
@@ -170,6 +177,12 @@ impl<'de> Deserialize<'de> for Asset {
     }
 }
 
+
+// =============================================================================
+//
+//     Unittests
+//
+// =============================================================================
 
 #[cfg(test)]
 mod tests {

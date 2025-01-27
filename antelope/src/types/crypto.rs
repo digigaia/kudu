@@ -1,5 +1,6 @@
 use std::fmt;
 use std::marker::PhantomData;
+use std::str::FromStr;
 
 use bs58;
 use ripemd::{Digest, Ripemd160};
@@ -80,11 +81,11 @@ impl<T: CryptoDataType, const DATA_SIZE: usize> CryptoData<T, DATA_SIZE> {
     pub fn key_type(&self) -> KeyType { self.key_type }
     pub fn data(&self) -> &[u8; DATA_SIZE] { &self.data }
 
-    pub fn new(key_type: KeyType, data: [u8; DATA_SIZE]) -> Self {
+    pub fn with_key_type(key_type: KeyType, data: [u8; DATA_SIZE]) -> Self {
         Self { key_type, data, phantom: PhantomData }
     }
 
-    pub fn from_str(s: &str) -> Result<Self, InvalidCryptoData> {
+    pub fn new(s: &str) -> Result<Self, InvalidCryptoData> {
         // check legacy formats first
         if T::PREFIX == "PUB" && s.starts_with("EOS") {
             // legacy format public key
@@ -137,9 +138,10 @@ impl<T: CryptoDataType, const DATA_SIZE: usize> TryFrom<&str> for CryptoData<T, 
     type Error = InvalidCryptoData;
 
     fn try_from(s: &str) -> Result<Self, Self::Error> {
-        Self::from_str(s)
+        Self::new(s)
     }
 }
+
 
 // -----------------------------------------------------------------------------
 //     `Display` implementation
@@ -150,6 +152,18 @@ impl<T: CryptoDataType, const DATA_SIZE: usize> fmt::Display for CryptoData<T, D
         if self.key_type == KeyType::WebAuthn { unimplemented!("unsupported key type: {:?}", self.key_type); }
         write!(f, "{}_{}", T::PREFIX, key_data_to_string(&self.data,  self.key_type.prefix()))
    }
+}
+
+
+// -----------------------------------------------------------------------------
+//     `FromStr` implementation
+// -----------------------------------------------------------------------------
+
+impl<T: CryptoDataType, const DATA_SIZE: usize> FromStr for CryptoData<T, DATA_SIZE> {
+    type Err = InvalidCryptoData;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Self::new(s)
+    }
 }
 
 
@@ -177,7 +191,7 @@ impl<'de, T: CryptoDataType, const DATA_SIZE: usize> Deserialize<'de> for Crypto
         D: Deserializer<'de>,
     {
         let repr: &str = <&str>::deserialize(deserializer)?;
-        Self::from_str(repr).map_err(|e| de::Error::custom(e.to_string()))
+        Self::new(repr).map_err(|e| de::Error::custom(e.to_string()))
     }
 }
 

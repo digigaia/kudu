@@ -1,5 +1,6 @@
 use std::fmt;
 use std::num::ParseIntError;
+use std::str::FromStr;
 
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 use snafu::{ensure, Snafu, ResultExt, OptionExt};
@@ -40,7 +41,7 @@ impl SymbolCode {
 
     pub fn as_u64(&self) -> u64 { self.0 }
 
-    pub fn from_str(s: &str) -> Result<SymbolCode, InvalidSymbol> {
+    pub fn new(s: &str) -> Result<SymbolCode, InvalidSymbol> {
         string_to_symbol_code(s).map(SymbolCode)
     }
 }
@@ -59,13 +60,11 @@ impl Symbol {
         })
     }
 
-    pub fn from_str(s: &str) -> Result<Self, InvalidSymbol> {
+    pub fn new(s: &str) -> Result<Self, InvalidSymbol> {
         let s = s.trim();
         ensure!(!s.is_empty(), EmptySnafu);
         let pos = s.find(',').context(MissingCommaSnafu)?;
         let precision: u8 = s[..pos].parse().context(ParsePrecisionSnafu)?;
-        ensure!(precision <= Self::MAX_PRECISION,
-                PrecisionSnafu { given: precision, max: Self::MAX_PRECISION });
         Self::from_prec_and_str(precision, &s[pos + 1..])
     }
 
@@ -94,8 +93,13 @@ impl Symbol {
         p10
     }
 
+    #[inline]
+    pub fn code(&self) -> SymbolCode {
+        SymbolCode(self.value >> 8)
+    }
+
     pub fn name(&self) -> String {
-        symbol_code_to_string(self.value >> 8)
+        symbol_code_to_string(self.code().as_u64())
     }
 
     pub fn is_valid(&self) -> bool {
@@ -111,12 +115,11 @@ impl Symbol {
 // see ref implementation in AntelopeIO/spring/libraries/chain/symbol.{hpp,cpp}
 
 
-// FIXME: inline these into `SymbolCode` methods
+#[inline]
 fn string_to_symbol_code(s: &str) -> Result<u64, InvalidSymbol> {
     let mut result: u64 = 0;
     ensure!(!s.is_empty(), EmptySnafu);
 
-    // let name = std::str::from_utf8(s).unwrap(); // unwrap should be safe here
     let name = s;
     ensure!(s.len() <= 7, TooLongSnafu { name });
 
@@ -144,8 +147,9 @@ fn string_to_symbol(precision: u8, s: &str) -> Result<u64, InvalidSymbol> {
     Ok((string_to_symbol_code(s)? << 8) | (precision as u64))
 }
 
+#[inline]
 fn is_valid_symbol_name(name: &str) -> bool {
-    name.chars().all(|c| c.is_ascii_uppercase())
+    name.as_bytes().iter().all(|c| c.is_ascii_uppercase())
 }
 
 
@@ -164,6 +168,26 @@ impl fmt::Display for Symbol {
         write!(f, "{},{}", self.decimals(), self.name())
     }
 }
+
+
+// -----------------------------------------------------------------------------
+//     `FromStr` implementation
+// -----------------------------------------------------------------------------
+
+impl FromStr for SymbolCode {
+    type Err = InvalidSymbol;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        SymbolCode::new(s)
+    }
+}
+
+impl FromStr for Symbol {
+    type Err = InvalidSymbol;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Symbol::new(s)
+    }
+}
+
 
 // -----------------------------------------------------------------------------
 //     `Serde` traits implementation
@@ -189,7 +213,7 @@ impl<'de> Deserialize<'de> for SymbolCode {
         D: Deserializer<'de>,
     {
         let code: &str = <&str>::deserialize(deserializer)?;
-        SymbolCode::from_str(code).map_err(|e| de::Error::custom(e.to_string()))
+        SymbolCode::new(code).map_err(|e| de::Error::custom(e.to_string()))
     }
 }
 
@@ -213,7 +237,7 @@ impl<'de> Deserialize<'de> for Symbol {
         D: Deserializer<'de>,
     {
         let symbol: &str = <&str>::deserialize(deserializer)?;
-        Symbol::from_str(symbol).map_err(|e| de::Error::custom(e.to_string()))
+        Symbol::new(symbol).map_err(|e| de::Error::custom(e.to_string()))
     }
 }
 
@@ -230,7 +254,7 @@ mod tests {
 
     #[test]
     fn basic_functionality() {
-        let obj = Symbol::from_str("4,FOO").unwrap();
+        let obj = Symbol::new("4,FOO").unwrap();
         let json = r#""4,FOO""#;
 
         assert_eq!(obj.decimals(), 4);
@@ -252,7 +276,7 @@ mod tests {
         ];
 
         for s in symbols {
-            assert!(Symbol::from_str(s).is_err());
+            assert!(Symbol::new(s).is_err());
         }
     }
 }

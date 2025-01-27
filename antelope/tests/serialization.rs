@@ -486,15 +486,15 @@ fn roundtrip_crypto_types() -> Result<()> {
          "00032ea514c6b834dbdd6520d0ac420bcf2335fe138de3d2dc5b7b2f03f9f99e9fac"),
     ];
     check_round_trip_map_type(vals,
-                              |s| PublicKey::from_str(s).unwrap(),
+                              |s| PublicKey::new(s).unwrap(),
                               |k| AntelopeValue::PublicKey(Box::new(k)));
 
     // test old format for public keys
-    test_encode(PublicKey::from_str("EOS1111111111111111111111111111111114T1Anm")?,
+    test_encode(PublicKey::new("EOS1111111111111111111111111111111114T1Anm")?,
                 "00000000000000000000000000000000000000000000000000000000000000000000");
-    test_encode(PublicKey::from_str("EOS9adaAMuB9v8yX1mZ5PtoB6VFSCeqRGjASd8ZTM6VUkiHL7mue4K")?,
+    test_encode(PublicKey::new("EOS9adaAMuB9v8yX1mZ5PtoB6VFSCeqRGjASd8ZTM6VUkiHL7mue4K")?,
                 "00ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
-    test_encode(PublicKey::from_str("EOS7WnhaKwHpbSidYuh2DF1qAExTRUtPEdZCaZqt75cKcixuQUtdA")?,
+    test_encode(PublicKey::new("EOS7WnhaKwHpbSidYuh2DF1qAExTRUtPEdZCaZqt75cKcixuQUtdA")?,
                 "000359d04e6519311041b10fe9e828a226b48f3f27a52f071f8e364cd317785abebc");
 
     // ==== PrivateKey ====
@@ -505,10 +505,10 @@ fn roundtrip_crypto_types() -> Result<()> {
          "0179b0c1811bf83356f3fa2dedb76494d8d2bba188fae9c286f118e5e9f0621760"),
     ];
     check_round_trip_map_type(vals,
-                              |s| PrivateKey::from_str(s).unwrap(),
+                              |s| PrivateKey::new(s).unwrap(),
                               |k| AntelopeValue::PrivateKey(Box::new(k)));
 
-    test_encode(PrivateKey::from_str("5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3")?,
+    test_encode(PrivateKey::new("5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3")?,
                 "00d2653ff7cbb2d8ff129ac27ef5781ce68b2558c41a74af1f2ddca635cbeef07d");
 
     // ==== Signature ====
@@ -521,7 +521,7 @@ fn roundtrip_crypto_types() -> Result<()> {
                  "137495d877d4e51a585376aa6c1a174295dabdb25286e803bf553735cd2d31b1fc")),
     ];
     check_round_trip_map_type(vals,
-                              |s| Signature::from_str(s).unwrap(),
+                              |s| Signature::new(s).unwrap(),
                               |k| AntelopeValue::Signature(Box::new(k)));
 
     Ok(())
@@ -611,7 +611,7 @@ fn test_name() {
     ];
 
     check_round_trip_map_type(vals,
-                              |s| Name::from_str(s).unwrap(),
+                              |s| Name::new(s).unwrap(),
                               AntelopeValue::Name);
 }
 
@@ -624,7 +624,7 @@ fn test_symbol_code() {
     ];
 
     check_round_trip_map_type(vals,
-                              |s| SymbolCode::from_str(s).unwrap(),
+                              |s| SymbolCode::new(s).unwrap(),
                               AntelopeValue::SymbolCode);
 }
 
@@ -639,7 +639,7 @@ fn test_symbol() {
     ];
 
     check_round_trip_map_type(vals,
-                              |s| Symbol::from_str(s).unwrap(),
+                              |s| Symbol::new(s).unwrap(),
                               AntelopeValue::Symbol);
 }
 
@@ -659,9 +659,9 @@ fn test_asset() {
 #[test]
 fn test_extended_asset() -> Result<()> {
     let vals = [
-        ((Asset::from_str("0 FOO")?, Name::try_from("bar")?),
+        ((Asset::from_str("0 FOO")?, Name::new("bar")?),
          "000000000000000000464f4f00000000000000000000ae39"),
-        ((Asset::from_str("0.123456 SIX")?, Name::try_from("seven")?),
+        ((Asset::from_str("0.123456 SIX")?, Name::new("seven")?),
          "40e201000000000006534958000000000000000080a9b6c2"),
     ];
 

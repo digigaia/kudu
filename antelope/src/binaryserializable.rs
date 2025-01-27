@@ -23,6 +23,9 @@ pub enum SerializeError {
     #[snafu(display("invalid symbol"))]
     InvalidSymbol { source: InvalidSymbol },
 
+    #[snafu(display("invalid asset"))]
+    InvalidAsset { source: InvalidAsset },
+
     #[snafu(display("cannot decode bytes as utf-8"))]
     Utf8Error { source: Utf8Error },
 
@@ -47,6 +50,7 @@ pub enum SerializeError {
 
 impl_auto_error_conversion!(StreamError, SerializeError, StreamSnafu);
 impl_auto_error_conversion!(InvalidSymbol, SerializeError, InvalidSymbolSnafu);
+impl_auto_error_conversion!(InvalidAsset, SerializeError, InvalidAssetSnafu);
 impl_auto_error_conversion!(InvalidCryptoData, SerializeError, InvalidCryptoDataSnafu);
 
 
@@ -331,7 +335,7 @@ impl BinarySerializable for Asset {
     fn decode(stream: &mut ByteStream) -> Result<Self, SerializeError> {
         let amount = i64::decode(stream)?;
         let symbol = Symbol::decode(stream)?;
-        Ok(Asset::new(amount, symbol))
+        Ok(Asset::new(amount, symbol)?)
     }
 }
 
@@ -357,7 +361,7 @@ impl<T: CryptoDataType, const DATA_SIZE: usize> BinarySerializable for CryptoDat
     fn decode(stream: &mut ByteStream) -> Result<Self, SerializeError> {
         let key_type = KeyType::from_index(stream.read_byte()?)?;
         let data = stream.read_bytes(DATA_SIZE)?.try_into().unwrap();  // safe unwrap
-        Ok(Self::new(key_type, data))
+        Ok(Self::with_key_type(key_type, data))
     }
 }
 

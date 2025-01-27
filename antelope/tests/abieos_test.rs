@@ -2,6 +2,7 @@
 
 use std::any::type_name_of_val;
 use std::fmt::Debug;
+use std::str::FromStr;
 use std::sync::{Once, OnceLock};
 
 use color_eyre::eyre::Result;
@@ -563,7 +564,7 @@ fn roundtrip_names() -> Result<()> {
     init();
 
     let abi = transaction_abi();
-    let n = |s| Name::from_str(s).unwrap();
+    let n = |s| Name::new(s).unwrap();
 
     check_cross_conversion(abi, n(""),              "name", r#""""#,              "0000000000000000");
     check_cross_conversion(abi, n("1"),             "name", r#""1""#,             "0000000000000008");
@@ -646,7 +647,7 @@ fn roundtrip_crypto_types() -> Result<()> {
     check_checksum512("0987654321abcdef0987654321ffff1234567890abcdef001234567890abcdef0987654321abcdef0987654321ffff1234567890abcdef001234567890abcdef");
 
     let check_publickey2 = |old: &str, new, hex| {
-        check_cross_conversion2(abi, PublicKey::from_str(old).unwrap(), "public_key", &format!(r#""{old}""#), hex, &format!(r#""{new}""#));
+        check_cross_conversion2(abi, PublicKey::new(old).unwrap(), "public_key", &format!(r#""{old}""#), hex, &format!(r#""{new}""#));
     };
 
     let check_publickey = |key, hex| { check_publickey2(key, key, hex); };
@@ -712,21 +713,21 @@ fn roundtrip_crypto_types() -> Result<()> {
     check_publickey("PUB_K1_7Bn1YDeZ18w2N9DU4KAJxZDt6hk3L7eUwFRAc1hb5bp6uEBZA8",
                     "00032ea514c6b834dbdd6520d0ac420bcf2335fe138de3d2dc5b7b2f03f9f99e9fac");
 
-    check_cross_conversion(abi, PrivateKey::from_str("PVT_R1_PtoxLPzJZURZmPS4e26pjBiAn41mkkLPrET5qHnwDvbvqFEL6")?,
+    check_cross_conversion(abi, PrivateKey::new("PVT_R1_PtoxLPzJZURZmPS4e26pjBiAn41mkkLPrET5qHnwDvbvqFEL6")?,
                            "private_key", r#""PVT_R1_PtoxLPzJZURZmPS4e26pjBiAn41mkkLPrET5qHnwDvbvqFEL6""#,
                            "0133fb621e78d5dc78f0029b6fd714bfe3b42fe4b72bc109051591e71f204d2813");
-    check_cross_conversion(abi, PrivateKey::from_str("PVT_R1_vbRKUuE34hjMVQiePj2FEjM8FvuG7yemzQsmzx89kPS9J8Coz")?,
+    check_cross_conversion(abi, PrivateKey::new("PVT_R1_vbRKUuE34hjMVQiePj2FEjM8FvuG7yemzQsmzx89kPS9J8Coz")?,
                            "private_key", r#""PVT_R1_vbRKUuE34hjMVQiePj2FEjM8FvuG7yemzQsmzx89kPS9J8Coz""#,
                            "0179b0c1811bf83356f3fa2dedb76494d8d2bba188fae9c286f118e5e9f0621760");
-    check_cross_conversion2(abi, PrivateKey::from_str("5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3")?,
+    check_cross_conversion2(abi, PrivateKey::new("5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3")?,
                            "private_key", r#""5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3""#,
                             "00d2653ff7cbb2d8ff129ac27ef5781ce68b2558c41a74af1f2ddca635cbeef07d",
                             r#""PVT_K1_2bfGi9rYsXQSXXTvJbDAPhHLQUojjaNLomdm3cEJ1XTzMqUt3V""#);
 
-    check_cross_conversion(abi, Signature::from_str("SIG_K1_Kg2UKjXTX48gw2wWH4zmsZmWu3yarcfC21Bd9JPj7QoDURqiAacCHmtExPk3syPb2tFLsp1R4ttXLXgr7FYgDvKPC5RCkx")?,
+    check_cross_conversion(abi, Signature::new("SIG_K1_Kg2UKjXTX48gw2wWH4zmsZmWu3yarcfC21Bd9JPj7QoDURqiAacCHmtExPk3syPb2tFLsp1R4ttXLXgr7FYgDvKPC5RCkx")?,
                            "signature", r#""SIG_K1_Kg2UKjXTX48gw2wWH4zmsZmWu3yarcfC21Bd9JPj7QoDURqiAacCHmtExPk3syPb2tFLsp1R4ttXLXgr7FYgDvKPC5RCkx""#,
                            "002056355ed1079822d2728886b449f0f4a2bbf48bf38698c0ebe8c7079768882b1c64ac07d7a4bd85cf96b8a74fdcafef1a4805f946177c609fdf31abe2463038e5");
-    check_cross_conversion(abi, Signature::from_str("SIG_R1_Kfh19CfEcQ6pxkMBz6xe9mtqKuPooaoyatPYWtwXbtwHUHU8YLzxPGvZhkqgnp82J41e9R6r5mcpnxy1wAf1w9Vyo9wybZ")?,
+    check_cross_conversion(abi, Signature::new("SIG_R1_Kfh19CfEcQ6pxkMBz6xe9mtqKuPooaoyatPYWtwXbtwHUHU8YLzxPGvZhkqgnp82J41e9R6r5mcpnxy1wAf1w9Vyo9wybZ")?,
                            "signature", r#""SIG_R1_Kfh19CfEcQ6pxkMBz6xe9mtqKuPooaoyatPYWtwXbtwHUHU8YLzxPGvZhkqgnp82J41e9R6r5mcpnxy1wAf1w9Vyo9wybZ""#,
                            "012053a48d3bb9a321e4ae8f079eab72efa778c8c09bc4c2f734de6d19ad9bce6a137495d877d4e51a585376aa6c1a174295dabdb25286e803bf553735cd2d31b1fc");
 
@@ -751,12 +752,12 @@ fn roundtrip_symbol() -> Result<()> {
 
     let abi = transaction_abi();
 
-    check_cross_conversion(abi, SymbolCode::from_str("A")?,   "symbol_code", r#""A""#, "4100000000000000");
-    check_cross_conversion(abi, SymbolCode::from_str("B")?,   "symbol_code", r#""B""#, "4200000000000000");
-    check_cross_conversion(abi, SymbolCode::from_str("SYS")?, "symbol_code", r#""SYS""#, "5359530000000000");
-    check_cross_conversion(abi, Symbol::from_str("0,A")?,   "symbol", r#""0,A""#, "0041000000000000");
-    check_cross_conversion(abi, Symbol::from_str("1,Z")?,   "symbol", r#""1,Z""#, "015a000000000000");
-    check_cross_conversion(abi, Symbol::from_str("4,SYS")?, "symbol", r#""4,SYS""#, "0453595300000000");
+    check_cross_conversion(abi, SymbolCode::new("A")?,   "symbol_code", r#""A""#, "4100000000000000");
+    check_cross_conversion(abi, SymbolCode::new("B")?,   "symbol_code", r#""B""#, "4200000000000000");
+    check_cross_conversion(abi, SymbolCode::new("SYS")?, "symbol_code", r#""SYS""#, "5359530000000000");
+    check_cross_conversion(abi, Symbol::new("0,A")?,   "symbol", r#""0,A""#, "0041000000000000");
+    check_cross_conversion(abi, Symbol::new("1,Z")?,   "symbol", r#""1,Z""#, "015a000000000000");
+    check_cross_conversion(abi, Symbol::new("4,SYS")?, "symbol", r#""4,SYS""#, "0453595300000000");
 
     check_error(|| try_encode(abi, "symbol_code", r#""foo""#), "invalid symbol");
     check_error(|| try_encode(abi, "symbol_code", "true"), "cannot convert given variant");
@@ -791,10 +792,10 @@ fn roundtrip_asset() -> Result<()> {
     check_cross_conversion(abi, None::<Asset>, "asset?", "null", "00");
     check_cross_conversion(abi, Some(asset("0.123456 SIX")), "asset?", r#""0.123456 SIX""#, "0140e20100000000000653495800000000");
 
-    check_cross_conversion(abi, ExtendedAsset { quantity: Asset::from_str("0 FOO")?, contract: Name::from_str("bar")? },
+    check_cross_conversion(abi, ExtendedAsset { quantity: "0 FOO".parse()?, contract: Name::new("bar")? },
                            "extended_asset", r#"{"quantity":"0 FOO","contract":"bar"}"#,
                            "000000000000000000464f4f00000000000000000000ae39");
-    check_cross_conversion(abi, ExtendedAsset { quantity: Asset::from_str("0.123456 SIX")?, contract: Name::from_str("seven")? },
+    check_cross_conversion(abi, ExtendedAsset { quantity: "0.123456 SIX".parse()?, contract: Name::new("seven")? },
                            "extended_asset", r#"{"quantity":"0.123456 SIX","contract":"seven"}"#,
                            "40e201000000000006534958000000000000000080a9b6c2");
 
@@ -864,7 +865,7 @@ fn roundtrip_transaction() -> Result<()> {
     );
 
     let tx = PackedTransactionV0 {
-        signatures: vec![Signature::from_str("SIG_K1_K5PGhrkUBkThs8zdTD9mGUJZvxL4eU46UjfYJSEdZ9PXS2Cgv5jAk57yTx4xnrdSocQm6DDvTaEJZi5WLBsoZC4XYNS8b3")?],
+        signatures: vec![Signature::new("SIG_K1_K5PGhrkUBkThs8zdTD9mGUJZvxL4eU46UjfYJSEdZ9PXS2Cgv5jAk57yTx4xnrdSocQm6DDvTaEJZi5WLBsoZC4XYNS8b3")?],
         compression: 0,
         packed_context_free_data: Bytes::from_hex("")?,
         packed_trx: Transaction {

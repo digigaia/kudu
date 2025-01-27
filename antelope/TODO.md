@@ -96,7 +96,7 @@
   - <https://github.com/serde-rs/bytes>
   - serde-related crates: `serde_arrays`, `serde_with`
 
-  TODO: deprecated/remove non human-readable impls for Serialize/Deserialize types
+- deprecate/remove non human-readable impls for Serialize/Deserialize types
 
 - remove hex_to_boxed_array?
 
@@ -133,6 +133,8 @@
 
 
 ## PERFORMANCE
+
+- switch reqwest with ureq
 
 - use a small string library so that ABIs have a much better cache locality
 

@@ -1,4 +1,5 @@
 use std::fmt;
+use std::str::FromStr;
 
 use chrono::{DateTime, NaiveDate, NaiveDateTime, ParseError as ChronoParseError, TimeZone, Utc};
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
@@ -106,9 +107,6 @@ impl TimePoint {
                 .and_hms_micro_opt(hour, min, sec, micro)?
                 .and_utc()))
     }
-    pub fn from_str(s: &str) -> Result<TimePoint, ChronoParseError> {
-        Ok(TimePoint::from_datetime(parse_date(s)?))
-    }
     pub fn from_datetime(dt: DateTime<Utc>) -> Self {
         TimePoint(dt.timestamp_micros())
     }
@@ -123,6 +121,14 @@ impl TimePoint {
 impl_time_display!(TimePoint);
 impl_serialize!(TimePoint);
 impl_from!(TimePoint, i64);
+
+impl FromStr for TimePoint {
+    type Err = ChronoParseError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(TimePoint::from_datetime(parse_date(s)?))
+    }
+}
 
 
 // -----------------------------------------------------------------------------
@@ -140,10 +146,6 @@ impl TimePointSec {
                 .and_hms_opt(hour, min, sec)?
                 .and_utc()))
     }
-    pub fn from_str(s: &str) -> Result<TimePointSec, ChronoParseError> {
-        Ok(TimePointSec(parse_date(s)?.timestamp()
-                        .try_into().expect("Date not representable as a `u32`")))
-    }
     pub fn from_datetime(dt: DateTime<Utc>) -> Self {
         TimePointSec((dt.timestamp_millis() / 1000) as u32)
     }
@@ -159,6 +161,15 @@ impl_time_display!(TimePointSec);
 impl_serialize!(TimePointSec);
 impl_from!(TimePointSec, u32);
 
+impl FromStr for TimePointSec {
+    type Err = ChronoParseError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(TimePointSec(parse_date(s)?.timestamp()
+                        .try_into().expect("Date not representable as a `u32`")))
+    }
+}
+
 
 // -----------------------------------------------------------------------------
 //     BlockTimestampType
@@ -173,9 +184,6 @@ impl BlockTimestampType {
             NaiveDate::from_ymd_opt(year, month, day)?
                 .and_hms_milli_opt(hour, min, sec, milli)?
                 .and_utc()))
-    }
-    pub fn from_str(s: &str) -> Result<BlockTimestampType, ChronoParseError> {
-        Ok(BlockTimestampType(timestamp_to_block_slot(&parse_date(s)?)))
     }
     pub fn from_datetime(dt: DateTime<Utc>) -> Self {
         BlockTimestampType(timestamp_to_block_slot(&dt))
@@ -193,3 +201,11 @@ impl BlockTimestampType {
 impl_time_display!(BlockTimestampType);
 impl_serialize!(BlockTimestampType);
 impl_from!(BlockTimestampType, u32);
+
+impl FromStr for BlockTimestampType {
+    type Err = ChronoParseError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(BlockTimestampType(timestamp_to_block_slot(&parse_date(s)?)))
+    }
+}
