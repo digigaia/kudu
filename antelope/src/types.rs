@@ -134,7 +134,7 @@ pub type String = std::string::String;
 //     Time-related types
 // -----------------------------------------------------------------------------
 
-pub use crate::types::time::{TimePoint, TimePointSec, BlockTimestampType};
+pub use crate::types::time::{TimePoint, TimePointSec, BlockTimestamp};
 
 
 // -----------------------------------------------------------------------------

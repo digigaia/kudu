@@ -172,21 +172,21 @@ impl FromStr for TimePointSec {
 
 
 // -----------------------------------------------------------------------------
-//     BlockTimestampType
+//     BlockTimestamp
 // -----------------------------------------------------------------------------
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Default)]
-pub struct BlockTimestampType(u32);
+pub struct BlockTimestamp(u32);
 
-impl BlockTimestampType {
+impl BlockTimestamp {
     pub fn new(year: i32, month: u32, day: u32, hour: u32, min: u32, sec: u32, milli: u32) -> Option<Self> {
-        Some(BlockTimestampType::from_datetime(
+        Some(BlockTimestamp::from_datetime(
             NaiveDate::from_ymd_opt(year, month, day)?
                 .and_hms_milli_opt(hour, min, sec, milli)?
                 .and_utc()))
     }
     pub fn from_datetime(dt: DateTime<Utc>) -> Self {
-        BlockTimestampType(timestamp_to_block_slot(&dt))
+        BlockTimestamp(timestamp_to_block_slot(&dt))
     }
     pub fn to_datetime(&self) -> DateTime<Utc> {
         Utc.timestamp_millis_opt(
@@ -198,14 +198,14 @@ impl BlockTimestampType {
     }
 }
 
-impl_time_display!(BlockTimestampType);
-impl_serialize!(BlockTimestampType);
-impl_from!(BlockTimestampType, u32);
+impl_time_display!(BlockTimestamp);
+impl_serialize!(BlockTimestamp);
+impl_from!(BlockTimestamp, u32);
 
-impl FromStr for BlockTimestampType {
+impl FromStr for BlockTimestamp {
     type Err = ChronoParseError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ok(BlockTimestampType(timestamp_to_block_slot(&parse_date(s)?)))
+        Ok(BlockTimestamp(timestamp_to_block_slot(&parse_date(s)?)))
     }
 }

@@ -104,11 +104,11 @@ pub use abi::*;
 
 pub mod binaryserializable;
 pub mod bytestream;
-pub mod typenameref;
+pub mod typename;
 
 pub use bytestream::{ByteStream, StreamError};
 pub use binaryserializable::{BinarySerializable, SerializeError};
-pub use typenameref::TypeNameRef;
+pub use typename::TypeName;
 
 /// Add a `location` field to all variants of a `Snafu` error enum
 ///

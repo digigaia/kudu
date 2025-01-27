@@ -5,9 +5,9 @@ use crate::AntelopeType;
 // TODO: derive more? e.g. PartialEq, Eq, Hash, etc.
 
 #[derive(Clone, Copy, PartialEq, Eq)]
-pub struct TypeNameRef<'a>(pub &'a str);
+pub struct TypeName<'a>(pub &'a str);
 
-impl<'a> TypeNameRef<'a> {
+impl<'a> TypeName<'a> {
     pub fn is_array(&self) -> bool {
         self.0.ends_with("[]")
     }
@@ -44,21 +44,21 @@ impl<'a> TypeNameRef<'a> {
     /// ## Examples
     ///
     /// ```
-    /// # use antelope::TypeNameRef;
-    /// assert_eq!(TypeNameRef("int8"), TypeNameRef("int8"));
-    /// assert_eq!(TypeNameRef("int8[]"), TypeNameRef("int8"));
-    /// assert_eq!(TypeNameRef("int8[][]"), TypeNameRef("int8[]"));
-    /// assert_eq!(TypeNameRef("int8[][]?"), TypeNameRef("int8[][]"));
+    /// # use antelope::TypeName;
+    /// assert_eq!(TypeName("int8"), TypeName("int8"));
+    /// assert_eq!(TypeName("int8[]"), TypeName("int8"));
+    /// assert_eq!(TypeName("int8[][]"), TypeName("int8[]"));
+    /// assert_eq!(TypeName("int8[][]?"), TypeName("int8[][]"));
     /// ```
-    pub fn fundamental_type(&self) -> TypeNameRef<'a> {
+    pub fn fundamental_type(&self) -> TypeName<'a> {
         if self.is_array() {
-            TypeNameRef(&self.0[..self.0.len() - 2])
+            TypeName(&self.0[..self.0.len() - 2])
         }
         else if self.is_sized_array() {
-            TypeNameRef(&self.0[..self.0.rfind('[').unwrap()])  // safe unwrap
+            TypeName(&self.0[..self.0.rfind('[').unwrap()])  // safe unwrap
         }
         else if self.is_optional() {
-            TypeNameRef(&self.0[..self.0.len() - 1])
+            TypeName(&self.0[..self.0.len() - 1])
         }
         else {
             *self
@@ -69,9 +69,9 @@ impl<'a> TypeNameRef<'a> {
         self.0.ends_with('$')
     }
 
-    pub fn remove_bin_extension(&self) -> TypeNameRef<'a> {
+    pub fn remove_bin_extension(&self) -> TypeName<'a> {
         if self.0.ends_with('$') {
-            TypeNameRef(&self.0[..self.0.len()-1])
+            TypeName(&self.0[..self.0.len()-1])
         }
         else {
             *self
@@ -79,40 +79,40 @@ impl<'a> TypeNameRef<'a> {
     }
 }
 
-impl fmt::Debug for TypeNameRef<'_> {
+impl fmt::Debug for TypeName<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.0.fmt(f)
     }
 }
 
-impl fmt::Display for TypeNameRef<'_> {
+impl fmt::Display for TypeName<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.0.fmt(f)
     }
 }
 
-impl<'a> From<&'a String> for TypeNameRef<'a> {
-    fn from(t: &String) -> TypeNameRef {
-        TypeNameRef(t.as_str())
+impl<'a> From<&'a String> for TypeName<'a> {
+    fn from(t: &String) -> TypeName {
+        TypeName(t.as_str())
     }
 }
 
-impl<'a> From<&'a str> for TypeNameRef<'a> {
-    fn from(t: &str) -> TypeNameRef {
-        TypeNameRef(t)
+impl<'a> From<&'a str> for TypeName<'a> {
+    fn from(t: &str) -> TypeName {
+        TypeName(t)
     }
 }
 
-impl<'a> From<TypeNameRef<'a>> for &'a str {
-    fn from(t: TypeNameRef) -> &str {
+impl<'a> From<TypeName<'a>> for &'a str {
+    fn from(t: TypeName) -> &str {
         t.0
     }
 }
 
-impl<'a> TryFrom<TypeNameRef<'a>> for AntelopeType {
+impl<'a> TryFrom<TypeName<'a>> for AntelopeType {
     type Error = strum::ParseError;
 
-    fn try_from(value: TypeNameRef<'a>) -> Result<Self, Self::Error> {
+    fn try_from(value: TypeName<'a>) -> Result<Self, Self::Error> {
         AntelopeType::try_from(value.0)
     }
 

@@ -6,7 +6,7 @@ use chrono::{NaiveDate, TimeZone, Utc};
 
 use antelope::{
     ByteStream, BinarySerializable,
-    AntelopeType, AntelopeValue, Asset, Bytes, BlockTimestampType, ExtendedAsset,
+    AntelopeType, AntelopeValue, Asset, Bytes, BlockTimestamp, ExtendedAsset,
     Name, Symbol, SymbolCode, TimePoint, TimePointSec, VarInt32, VarUint32, PublicKey, PrivateKey, Signature,
     Checksum160, Checksum256, Checksum512,
 };
@@ -588,8 +588,8 @@ fn test_block_timestamp_type() {
     ];
 
     check_round_trip_map_type(vals,
-                              |s| BlockTimestampType::from_str(s).unwrap(),
-                              AntelopeValue::BlockTimestampType)
+                              |s| BlockTimestamp::from_str(s).unwrap(),
+                              AntelopeValue::BlockTimestamp)
 }
 
 

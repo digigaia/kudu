@@ -14,10 +14,10 @@ use tracing::{debug, warn, instrument};
 use antelope_macros::with_location;
 
 use crate::{
-    AntelopeType, AntelopeValue, Name, VarUint32, InvalidValue, TypeNameRef, impl_auto_error_conversion,
+    AntelopeType, AntelopeValue, Name, VarUint32, InvalidValue, TypeName, impl_auto_error_conversion,
     ABIDefinition, ByteStream, BinarySerializable, SerializeError,
     abidefinition::{
-        TypeName, Struct, Variant
+        TypeName as TypeNameOwned, Struct, Variant
     },
 };
 
@@ -30,12 +30,12 @@ type Result<T, E = ABIError> = core::result::Result<T, E>;
 #[derive(Default, Clone, Debug)]
 pub struct ABI {
     // ABI-related fields
-    typedefs: HashMap<TypeName, TypeName>,
-    structs: HashMap<TypeName, Struct>,
-    actions: HashMap<Name, TypeName>,
-    tables: HashMap<Name, TypeName>,
-    variants: HashMap<TypeName, Variant>,
-    action_results: HashMap<Name, TypeName>,
+    typedefs: HashMap<TypeNameOwned, TypeNameOwned>,
+    structs: HashMap<TypeNameOwned, Struct>,
+    actions: HashMap<Name, TypeNameOwned>,
+    tables: HashMap<Name, TypeNameOwned>,
+    variants: HashMap<TypeNameOwned, Variant>,
+    action_results: HashMap<Name, TypeNameOwned>,
 }
 
 
@@ -92,7 +92,7 @@ impl ABI {
             // note: this check seems redundant with the circular reference detection
             //       in `validate()` but this also checks that we have no duplicates
             //       between the previously defined structs and the typedefs
-            ensure!(!self.is_type(TypeNameRef(&td.new_type_name)),
+            ensure!(!self.is_type(TypeName(&td.new_type_name)),
                     IntegritySnafu { message: format!("type already exists: {}",
                                                       td.new_type_name) });
             self.typedefs.insert(td.new_type_name.clone(), td.type_.clone());
@@ -124,7 +124,7 @@ impl ABI {
         self.validate()
     }
 
-    pub fn is_type(&self, t: TypeNameRef) -> bool {
+    pub fn is_type(&self, t: TypeName) -> bool {
         // NOTE: this would be a better behavior IMO but it doesn't match the C++ code
         //       for Antelope Spring; keep the latter for better compatibility
 
@@ -139,16 +139,16 @@ impl ABI {
         // let t = t.fundamental_type();
         AntelopeValue::VARIANTS.contains(&t.0)
             || (self.typedefs.contains_key(t.0) &&
-               self.is_type(TypeNameRef(self.typedefs.get(t.0).unwrap())))  // safe unwrap
+               self.is_type(TypeName(self.typedefs.get(t.0).unwrap())))  // safe unwrap
             || self.structs.contains_key(t.0)
             || self.variants.contains_key(t.0)
     }
 
-    pub fn resolve_type<'a>(&'a self, t: TypeNameRef<'a>) -> TypeNameRef<'a> {
+    pub fn resolve_type<'a>(&'a self, t: TypeName<'a>) -> TypeName<'a> {
         let mut rtype = t;
         loop {
             match self.typedefs.get(rtype.0) {
-                Some(t) => rtype = TypeNameRef(t),
+                Some(t) => rtype = TypeName(t),
                 None => return rtype,
             }
         }
@@ -192,7 +192,7 @@ impl ABI {
 
             // check all field types are valid types
             for field in &s.fields {
-                ensure!(self.is_type(TypeNameRef(&field.type_[..]).remove_bin_extension()),
+                ensure!(self.is_type(TypeName(&field.type_[..]).remove_bin_extension()),
                         IntegritySnafu { message: format!("invalid type used in field '{}::{}': `{}`",
                                                           &s.name, &field.name, &field.type_) });
             }
@@ -239,7 +239,7 @@ impl ABI {
     pub fn variant_to_binary<'a, T>(&self, typename: T, obj: &JsonValue)
                                     -> Result<Vec<u8>>
     where
-        T: Into<TypeNameRef<'a>>
+        T: Into<TypeName<'a>>
     {
         let mut ds = ByteStream::new();
         self.encode_variant(&mut ds, typename.into(), obj)?;
@@ -255,14 +255,14 @@ impl ABI {
     pub fn encode_variant<'a, T>(&self, ds: &mut ByteStream, typename: T, object: &JsonValue)
                                  -> Result<(), ABIError>
     where
-        T: Into<TypeNameRef<'a>>
+        T: Into<TypeName<'a>>
     {
         self.encode_variant_(&mut VariantToBinaryContext::new(), ds, typename.into(), object)
     }
 
     #[instrument(skip(self, ctx, ds))]
     fn encode_variant_(&self, ctx: &mut VariantToBinaryContext, ds: &mut ByteStream,
-                       typename: TypeNameRef, object: &JsonValue)
+                       typename: TypeName, object: &JsonValue)
                        -> Result<(), ABIError> {
         // see C++ implementation here: https://github.com/AntelopeIO/spring/blob/main/libraries/chain/abi_serializer.cpp#L493
         let rtype = self.resolve_type(typename);
@@ -337,7 +337,7 @@ impl ABI {
                             message: format!("expected variant typename to be a string: {}",
                                              object[0])
                         });
-                let variant_type = TypeNameRef(object[0].as_str().unwrap());
+                let variant_type = TypeName(object[0].as_str().unwrap());
                 if let Some(vpos) = variant_def.types.iter().position(|v| v == variant_type.0) {
                     VarUint32::from(vpos).encode(ds);
                     self.encode_variant_(ctx, ds, variant_type, &object[1])?;
@@ -369,12 +369,12 @@ impl ABI {
             // ...and we are given an object -> serialize fields using their name
             if !struct_def.base.is_empty() {
                 let _ = ctx.disallow_extensions_unless(false);
-                self.encode_variant(ds, TypeNameRef(&struct_def.base), object)?;
+                self.encode_variant(ds, TypeName(&struct_def.base), object)?;
             }
 
             let mut allow_additional_fields = true;
             for (i, field) in struct_def.fields.iter().enumerate() {
-                let ftype = TypeNameRef(&field.type_);
+                let ftype = TypeName(&field.type_);
                 let nfields = struct_def.fields.len();
                 let present: bool = obj.contains_key(&field.name);
                 if present || ftype.is_optional() {
@@ -413,7 +413,7 @@ impl ABI {
 
             for (i, field) in struct_def.fields.iter().enumerate() {
                 // let field = &struct_def.fields[i];
-                let ftype = TypeNameRef(&field.type_);
+                let ftype = TypeName(&field.type_);
                 let nfields = struct_def.fields.len();
                 if i < arr.len() {
                     // TODO: ctx.push_to_path
@@ -448,7 +448,7 @@ impl ABI {
     pub fn binary_to_variant<'a, T>(&self, typename: T, bytes: Vec<u8>)
                                     -> Result<JsonValue>
     where
-        T: Into<TypeNameRef<'a>>
+        T: Into<TypeName<'a>>
     {
         let mut ds = ByteStream::from(bytes);
         self.decode_variant_(&mut ds, typename.into())
@@ -458,13 +458,13 @@ impl ABI {
     #[inline]
     pub fn decode_variant<'a, T>(&self, ds: &mut ByteStream, typename: T) -> Result<JsonValue, ABIError>
     where
-        T: Into<TypeNameRef<'a>>
+        T: Into<TypeName<'a>>
     {
         self.decode_variant_(ds, typename.into())
     }
 
     #[allow(clippy::collapsible_else_if)]
-    fn decode_variant_(&self, ds: &mut ByteStream, typename: TypeNameRef) -> Result<JsonValue, ABIError> {
+    fn decode_variant_(&self, ds: &mut ByteStream, typename: TypeName) -> Result<JsonValue, ABIError> {
         let rtype = self.resolve_type(typename);
         let ftype = rtype.fundamental_type();
 
@@ -525,7 +525,7 @@ impl ABI {
                         DecodeSnafu { message: format!("deserialized invalid tag {} for variant {}",
                                                        variant_tag, rtype)
                         });
-                let variant_type = TypeNameRef(&variant_def.types[variant_tag]);
+                let variant_type = TypeName(&variant_def.types[variant_tag]);
                 json!([variant_type.0, self.decode_variant(ds, variant_type)?])
             }
             else if let Some(struct_def) = self.structs.get(rtype.0) {
@@ -556,7 +556,7 @@ impl ABI {
         debug!("reading {nfields} fields");
         for field in &struct_def.fields {
             let fname = &field.name;
-            let ftype = TypeNameRef(&field.type_);
+            let ftype = TypeName(&field.type_);
             encountered_extension |= ftype.has_bin_extension();
             if ds.leftover().is_empty() {
                 if ftype.has_bin_extension() {

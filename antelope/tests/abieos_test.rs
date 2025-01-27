@@ -19,9 +19,9 @@ use antelope::{
         PACKED_TRANSACTION_ABI, TEST_ABI, TOKEN_HEX_ABI, TRANSACTION_ABI
     },
     ABIDefinition, Asset, Bytes, ByteStream, ExtendedAsset, InvalidValue, JsonValue, Name,
-    Symbol, SymbolCode, TimePoint, TimePointSec, TypeNameRef, VarInt32, VarUint32, ABI,
+    Symbol, SymbolCode, TimePoint, TimePointSec, TypeName, VarInt32, VarUint32, ABI,
     Checksum160, Checksum256, Checksum512, PublicKey, PrivateKey, Signature,
-    Transaction, Action, AccountName, Transfer, BlockTimestampType, PackedTransactionV0
+    Transaction, Action, AccountName, Transfer, BlockTimestamp, PackedTransactionV0
 };
 
 #[cfg(feature = "float128")]
@@ -85,7 +85,7 @@ fn transaction_abi() -> &'static ABI {
 // =============================================================================
 
 #[instrument(skip(ds, abi))]
-fn try_encode_stream(ds: &mut ByteStream, abi: &ABI, typename: TypeNameRef, data: &str) -> Result<()> {
+fn try_encode_stream(ds: &mut ByteStream, abi: &ABI, typename: TypeName, data: &str) -> Result<()> {
     let value: JsonValue = antelope::json::from_str(data).map_err(InvalidValue::from)?;
     info!("{:?}", &value);
     abi.encode_variant(ds, typename, &value)?;
@@ -97,7 +97,7 @@ fn try_encode(abi: &ABI, typename: &str, data: &str) -> Result<()> {
     try_encode_stream(&mut ds, abi, typename.into(), data)
 }
 
-fn try_decode_stream(ds: &mut ByteStream, abi: &ABI, typename: TypeNameRef) -> Result<JsonValue> {
+fn try_decode_stream(ds: &mut ByteStream, abi: &ABI, typename: TypeName) -> Result<JsonValue> {
     let decoded = abi.decode_variant(ds, typename)?;
     assert!(ds.leftover().is_empty(), "leftover data in stream after decoding");
     Ok(decoded)
@@ -542,8 +542,8 @@ fn roundtrip_datetimes() -> Result<()> {
                             "ff1f23e5c3790300", r#""2000-12-31T23:59:59.999""#,
                             NO_JSON_TO_NATIVE);
 
-    let bt = |y, m, d, h, mm, s, milli| { BlockTimestampType::new(y, m, d, h, mm, s, milli).unwrap() };
-    let check_bt = |value: BlockTimestampType, repr, hex| {
+    let bt = |y, m, d, h, mm, s, milli| { BlockTimestamp::new(y, m, d, h, mm, s, milli).unwrap() };
+    let check_bt = |value: BlockTimestamp, repr, hex| {
         check_cross_conversion(abi, value, "block_timestamp_type", repr, hex)
     };
     check_bt(bt(2000, 1,  1,  0,  0,  0,   0), r#""2000-01-01T00:00:00.000""#, "00000000");

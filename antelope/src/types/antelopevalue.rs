@@ -19,7 +19,7 @@ use crate::{
 
 use crate::types::{self,
     VarInt32, VarUint32, Bytes,
-    TimePoint, TimePointSec, BlockTimestampType,
+    TimePoint, TimePointSec, BlockTimestamp,
     Asset, ExtendedAsset, InvalidAsset,
     Name, InvalidName,
     Symbol, SymbolCode, InvalidSymbol,
@@ -72,7 +72,9 @@ pub enum AntelopeValue {
 
     TimePoint(TimePoint),
     TimePointSec(TimePointSec),
-    BlockTimestampType(BlockTimestampType),
+    #[strum(serialize = "block_timestamp_type")]
+    #[strum_discriminants(strum(serialize = "block_timestamp_type"))]
+    BlockTimestamp(BlockTimestamp),
 
     Checksum160(Box<Checksum160>),
     Checksum256(Box<Checksum256>),
@@ -121,7 +123,7 @@ impl AntelopeValue {
             AntelopeType::String => Self::String(repr.to_owned()),
             AntelopeType::TimePoint => Self::TimePoint(repr.parse()?),
             AntelopeType::TimePointSec => Self::TimePointSec(repr.parse()?),
-            AntelopeType::BlockTimestampType => Self::BlockTimestampType(repr.parse()?),
+            AntelopeType::BlockTimestamp => Self::BlockTimestamp(repr.parse()?),
             AntelopeType::Checksum160 => Self::Checksum160(Box::new(Checksum160::from_hex(repr).context(FromHexSnafu)?)),
             AntelopeType::Checksum256 => Self::Checksum256(Box::new(Checksum256::from_hex(repr).context(FromHexSnafu)?)),
             AntelopeType::Checksum512 => Self::Checksum512(Box::new(Checksum512::from_hex(repr).context(FromHexSnafu)?)),
@@ -160,7 +162,7 @@ impl AntelopeValue {
             Self::String(s) => json!(s),
             Self::TimePoint(t) => t.to_json(),
             Self::TimePointSec(t) => t.to_json(),
-            Self::BlockTimestampType(t) => t.to_json(),
+            Self::BlockTimestamp(t) => t.to_json(),
             Self::Checksum160(c) => json!(c.to_hex()),
             Self::Checksum256(c) => json!(c.to_hex()),
             Self::Checksum512(c) => json!(c.to_hex()),
@@ -217,9 +219,9 @@ impl AntelopeValue {
                 let repr = v.as_str().with_context(incompatible_types)?;
                 Self::TimePointSec(repr.parse()?)
             },
-            AntelopeType::BlockTimestampType => {
+            AntelopeType::BlockTimestamp => {
                 let repr = v.as_str().with_context(incompatible_types)?;
-                Self::BlockTimestampType(repr.parse()?)
+                Self::BlockTimestamp(repr.parse()?)
             },
             AntelopeType::Checksum160 => {
                 Self::Checksum160(Box::new(Checksum160::from_hex(v.as_str().with_context(incompatible_types)?)
@@ -274,7 +276,7 @@ impl AntelopeValue {
             Self::String(s) => s.encode(stream),
             Self::TimePoint(t) => t.encode(stream),
             Self::TimePointSec(t) => t.encode(stream),
-            Self::BlockTimestampType(t) => t.encode(stream),
+            Self::BlockTimestamp(t) => t.encode(stream),
             Self::Checksum160(c) => stream.write_bytes(&c.0[..]),
             Self::Checksum256(c) => stream.write_bytes(&c.0[..]),
             Self::Checksum512(c) => stream.write_bytes(&c.0[..]),
@@ -313,7 +315,7 @@ impl AntelopeValue {
             AntelopeType::String => Self::String(String::decode(stream)?),
             AntelopeType::TimePoint => Self::TimePoint(TimePoint::decode(stream)?),
             AntelopeType::TimePointSec => Self::TimePointSec(TimePointSec::decode(stream)?),
-            AntelopeType::BlockTimestampType => Self::BlockTimestampType(BlockTimestampType::decode(stream)?),
+            AntelopeType::BlockTimestamp => Self::BlockTimestamp(BlockTimestamp::decode(stream)?),
             AntelopeType::Checksum160 => Self::Checksum160(Box::new(Checksum160::decode(stream)?)),
             AntelopeType::Checksum256 => Self::Checksum256(Box::new(Checksum256::decode(stream)?)),
             AntelopeType::Checksum512 => Self::Checksum512(Box::new(Checksum512::decode(stream)?)),

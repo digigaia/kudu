@@ -10,7 +10,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    AccountName, ActionName, BlockId, BlockTimestampType, Digest, Extensions, MicroSeconds,
+    AccountName, ActionName, BlockId, BlockTimestamp, Digest, Extensions, MicroSeconds,
     PermissionName, TransactionId, TimePointSec, VarUint32, Name, Asset, BinarySerializable,
     binaryserializable::to_bin, Bytes, Signature, SerializeEnumPrefixed,
 };
@@ -161,7 +161,7 @@ pub struct Trace {
     console: String,
     trx_id: TransactionId, /// the transaction that generated this action
     block_num: u32, // = 0;
-    block_time: BlockTimestampType,
+    block_time: BlockTimestamp,
     producer_block_id: Option<BlockId>,
     account_ram_deltas: Set<AccountDelta>,
       // std::optional<fc::exception>    except;  // TODO / FIXME

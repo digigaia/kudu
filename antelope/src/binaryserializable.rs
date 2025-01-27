@@ -271,7 +271,7 @@ impl BinarySerializable for &str {
 
 impl_wrapped_serialization!(TimePoint, i64);
 impl_wrapped_serialization!(TimePointSec, u32);
-impl_wrapped_serialization!(BlockTimestampType, u32);
+impl_wrapped_serialization!(BlockTimestamp, u32);
 
 
 // -----------------------------------------------------------------------------
