@@ -19,21 +19,6 @@
   - check whether we really need `AntelopeValue`, because if not then it seems we should be able
     to remove it altogether.
 
-- try defining the `ABISerializable` trait and implement it for all types, then replace
-  the `AntelopeValue` struct with just the implementation of the base types
-  (note: we might still need AntelopeValue, maybe rename it to AntelopeVariant)
-
-  for ESR: <https://github.com/AntelopeIO/spring/blob/main/libraries/chain/include/eosio/chain/transaction.hpp#L53>
-  ```
-  pub struct TransactionHeader {
-      expiration: TimePointSec,
-      ref_block_num: u16,
-      ref_block_prefix: u32,
-      max_net_usage_words: usize, // FIXME: check this type
-      // etc...
-  }
-  ```
-
 - define an attr macro for declaring contracts (such as in chain.rs) like so:
   ```
   #[contract(account="eosio.token", name="transfer")]
@@ -65,36 +50,10 @@
 - `BinarySerializable` trait methods namings:
   `encode()` -> `to_bin()`
   `decode()` -> `from_bin()`
-  also: rename trait to `ABISerializable`?
+
+- rename `BinarySerializable` to `ABISerializable`?
 
 ### Investigate Serde
-
-- check whether ABIEncoder would be better written as a Serde serializer
-
-- rename ABISerializable to ABISerialize to be consistent with `serde`. Check other nomenclature as well.
-  are we sure about this?
-  Also: make sure we have a trait for this and implement it on all types? for now Name implements decode/encode as normal methods, not as trait methods
-
-- is ABISerializable still needed once we have serde compatibility? Could we even remove BinarySerializable??
-  -> actually we need BinarySerializable, so remove ABISerializer instead
-
-- write a JSON [Formatter](https://docs.rs/serde_json/1.0.68/serde_json/ser/trait.Formatter.html) to properly
-  output values in the format expected by Antelope:
-  - int64, int128 -> quote them as string
-  - float32, float64 -> do not use scientific notation
-
-- document that base types implement `Serialize` with `is_human_readable` to distinguish between
-  binary encoding (Antelope packing) and JSON output
-
-- Limitation of serde / blockers
-  serialization of bytes goes trought serialization of sequence of bytes (or tuple) -> inefficient
-      -> we repurposed the `serialize_bytes` call to write directly a byte slice **without** its length
-  that is problematic though when deserializing, we don't know how many bytes we should be reading
-  see:
-  - <https://github.com/serde-rs/serde/issues/2120>
-  - <https://github.com/uuid-rs/uuid/issues/557>
-  - <https://github.com/serde-rs/bytes>
-  - serde-related crates: `serde_arrays`, `serde_with`
 
 - deprecate/remove non human-readable impls for Serialize/Deserialize types
 

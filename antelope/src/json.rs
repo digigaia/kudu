@@ -1,13 +1,13 @@
+//! This module provides the same functionality as `serde_json` but uses a
+//! specific formatter for `to_string` that tries to match the way the
+//! the C++ Antelope code outputs JSON.
+
 use std::io;
 
 use serde::Serialize;
 
 use serde_json::Result;
 use serde_json::ser::{Formatter, CompactFormatter, Serializer};
-
-pub struct EOSFormatter {
-    base: CompactFormatter,
-}
 
 /// JSON formatter with the following difference to `serde_json::Formatter`:
 ///  - `u128` and `i128` are implemented and are represented as strings (ie: double-quoted)
@@ -17,6 +17,10 @@ pub struct EOSFormatter {
 ///    smaller sized types such as `i8`, `i16`, etc.)
 ///  - `f32` and `f64` never use scientific notation, and floats that have a fractional
 ///    part do not have a trailing ".0" (contrary to Antelope types)
+pub struct EOSFormatter {
+    base: CompactFormatter,
+}
+
 impl EOSFormatter {
     fn new() -> Self {
         EOSFormatter { base: CompactFormatter {} }
@@ -87,6 +91,7 @@ impl Formatter for EOSFormatter {
 }
 
 
+/// Serialize the given data structure as a String of JSON.
 pub fn to_string<T>(value: &T) -> Result<String>
 where
     T: ?Sized + Serialize,

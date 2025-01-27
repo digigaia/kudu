@@ -26,6 +26,7 @@ mod varint;
 use hex::FromHexError;
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
+
 // -----------------------------------------------------------------------------
 //     Native POD and varint types
 // -----------------------------------------------------------------------------

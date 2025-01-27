@@ -2,10 +2,13 @@
 //! This library provides data types and functions to interact with
 //! [Antelope](https://antelope.io) blockchains.
 //!
-//! The main type used to represent values handled by Antelope blockchains is [`AntelopeValue`]
+//! The basic types can be found in the [`types`] module, and the variant type used to represent
+//! values handled by Antelope blockchains is [`AntelopeValue`].
 //!
 //! There is a to-do list of items needing to be completed before a first release here:
-//! [To-Do list](mod@todo), and a list of notes and resources here: [Notes](notes)
+//! [To-Do list](doc::todo), and a list of notes and resources here: [Notes](doc::notes)
+//!
+//! You can also read an overview of the [architecture and design decisions](doc::architecture).
 //!
 //! # Feature flags
 //!
@@ -21,7 +24,7 @@
 //!
 #![cfg_attr(
     all(),
-    doc = ::embed_doc_image::embed_image!("datamodel", "doc/antelope_data_model.drawio.svg")
+    doc = ::embed_doc_image::embed_image!("datamodel", "src/doc/antelope_data_model.drawio.svg")
 )]
 //!
 //! Data used in the Antelope blockchains can be found in a variety of formats, namely:
@@ -39,6 +42,15 @@
 //!  - to convert between a Rust native value and a binary stream you need to use the
 //!    [`BinarySerializable`] trait, which you can automatically derive using the
 //!    [`BinarySerializable`](macro@BinarySerializable) derive macro.
+//!
+//! ## Traits implemented for native types
+//!
+//! Wherever possible, the following traits are implemented for the base types:
+//!  - [`Clone`], and also [`Copy`] when the struct size isn't prohibitively big
+//!  - [`Debug`](std::fmt::Debug) and [`Display`](std::fmt::Display)
+//!  - [`FromStr`](std::str::FromStr), allowing most types to be constructed from their `str`
+//!    representation via [`str::parse()`]
+//!  - [`PartialEq`], [`Eq`], [`PartialOrd`], [`Ord`], [`Hash`]
 //!
 //! ## Warnings / pitfalls
 //!
@@ -60,9 +72,7 @@
 
 #![cfg_attr(feature = "float128", feature(f128))]
 
-// this is only here while we keep the TODO list inside the documentation
-pub mod todo;
-pub mod notes;
+pub mod doc;
 
 pub mod abi;
 pub mod api;
@@ -75,6 +85,7 @@ pub mod types;
 
 // FIXME: check whether we want those typedefs? Does it make it easier or
 // does it obscure where those types are coming from?
+// maybe move them inside the `antelope::json` module?
 pub use serde_json::{
     Map as JsonMap,
     Value as JsonValue,

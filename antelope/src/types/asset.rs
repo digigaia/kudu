@@ -130,13 +130,12 @@ impl FromStr for Asset {
                 let int_part: i64 = amount_str[..dot_pos].parse().context(ParseAmountSnafu)?;
                 let mut frac_part: i64 = amount_str[dot_pos+1..].parse().context(ParseAmountSnafu)?;
                 if amount_str.starts_with('-') { frac_part *= -1; }
-                // check we don't overflow
+                // check that we don't overflow
                 int_part
                     .checked_mul(symbol.precision())
-                    // FIXME: do not allocate the string here if we don't have an error
-                    .context(AmountOverflowSnafu { amount: amount_str.to_owned() })?
+                    .with_context(|| AmountOverflowSnafu { amount: amount_str })?
                     .checked_add(frac_part)
-                    .context(AmountOverflowSnafu { amount: amount_str.to_owned() })?
+                    .with_context(|| AmountOverflowSnafu { amount: amount_str })?
             },
         };
 

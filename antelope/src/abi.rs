@@ -11,7 +11,6 @@
 
 pub mod abi;
 pub mod abidefinition;
-pub mod abiserializer;
 pub mod provider;
 pub mod data;
 

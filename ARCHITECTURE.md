@@ -12,13 +12,58 @@ This part lists the design decisions that went into the library. It helps docume
 some decisions and their rationale and keep a trace so we don't have to ask the
 same question or wonder why some choices have been made over and over again.
 
-## own class for `ByteStream`
+## JSON use within the library
 
-we investigated the possibility to use the `std::io::Read` and `std::io::Write`
+JSON serialization is handled by the `serde_json` crate, and serde traits are
+derived for all our types.
+
+Nonetheless, there are some differences in the way the Antelope C++ code
+handles JSON:
+ - `int64` and `int128` types are always quoted
+ - `float32` and `float64` never use scientific notation
+
+To get closer to that behavior, we implemented a JSON [Formatter] to
+properly output values in the format expected by Antelope which is automatically used
+when calling [`antelope::json::to_string()`][crate::json::to_string()]
+
+[Formatter]: https://docs.rs/serde_json/latest/serde_json/ser/trait.Formatter.html
+
+
+## On the usage of `serde` for binary data
+
+The library currently uses `serde` and its `Serialize` and `Deserialize` traits
+in order to provide (de)serialization to JSON. We tried to use it also for
+serialization to a binary stream (ie: ABI) and nearly achieved it, however we
+ran into the following issues that made us decide to implement ABI serialization
+using our own trait instead of `serde`:
+
+- serialization of bytes slices goes through serialization of sequence of bytes
+  (or tuple) and is quite inefficient because it will serialize each byte
+  independently.
+  We tried repurposing the `serialize_bytes` method on the `Serializer` to write
+  a byte slice **without** its length but that is problematic when deserializing
+  as we don't know how many bytes we should be reading.
+  See some related issues:
+   - <https://github.com/serde-rs/serde/issues/2120>
+   - <https://github.com/uuid-rs/uuid/issues/557>
+   - <https://github.com/serde-rs/bytes>
+   - serde-related crates: `serde_arrays`, `serde_with`
+- we couldn't find how to serialize the sequence length as a `VarUint32` instead
+  of `usize`
+
+On top of that, there was some *hacks* to try to serialize data to a binary stream.
+
+The conclusion of this is that we use our own `BinarySerializable` trait in
+order to serialize structs to a binary stream.
+
+
+## Own class for `ByteStream`
+
+We investigated the possibility to use the `std::io::Read` and `std::io::Write`
 trait but they don't provide enough convenience functions and don't bring much
 to the table for us
 
-we investigated the possibility to use the `bytes` crate which looks very nice,
+We investigated the possibility to use the `bytes` crate which looks very nice,
 except for one minor issue:
 the read and write operation are both infallible. This is ok for write operations
 for us (ie: we can always grow a vec or append to a file we are writing to), but
@@ -28,7 +73,7 @@ for with `StreamError`.
 
 ### Open question on `ByteStream`
 
-we considered the possibility of having a `ByteStream` trait with the following
+We considered the possibility of having a `ByteStream` trait with the following
 methods:
 
 ```
@@ -66,16 +111,16 @@ So for now, `ByteStream` stays as a normal struct.
 
 ### `thiserror` vs `snafu`
 
-we started with `thiserror` as it seems to be the most popular library for error
+We started with `thiserror` as it seems to be the most popular library for error
 handling in the Rust ecosystem. It served us well to a point but it has a few
 shortcomings for us:
 
-- automatic error conversion using the #[from] attribute can only handle one
+- automatic error conversion using the `#[from]` attribute can only handle one
   instance of a specific source error for all variants
 - errors lack some information such as location and/or backtrace which can make
   it hard to track their root causes easily
 
-we switched to `snafu` for the following reasons:
+We switched to `snafu` for the following reasons:
 
 - context selectors are very ergonomic (when one understands them!) and they
   allow to have some fields filled in automatically (location, backtrace)
@@ -101,7 +146,7 @@ It should only be used in unittests and user code, not in the libraries themselv
 
 ## ABIProvider trait vs. ABIProvider enum
 
-we started with ABIProvider being a trait to allow more flexibility and to allow
+We started with ABIProvider being a trait to allow more flexibility and to allow
 clients of the library to implement their own ABIProvider. This proved tricky
 with respect to API and design (maybe due to our own inexperience), so we switched
 to an enum representing all the possible ABIProvider implemented for now.
@@ -117,7 +162,7 @@ ABIProviderTrait or something similar.
 TODO: write why
 
 
-# STYLE
+# STYLE GUIDE
 
 ## Import order
 
@@ -153,7 +198,7 @@ like so:
 ```
 let v = vec![1, 2, 3];
 if (v.len() > 0 &&
-    v.get(0).unwrap() == 1)  // safe unwrap
+    v.get(0).unwrap() == 1)  // safe unwrap
 {
     println!("yay!");
 }
