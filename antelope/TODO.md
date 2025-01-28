@@ -59,15 +59,6 @@
   - invalid values
   - (de)serialization to JSON
 
-- review TimePoint types:
-  - is the inner type the number of microseconds or milliseconds?
-  - should we return a `Result` instead of an `Option` on constructors? This would be more consistent with other types
-    if so, check in the tests and replace the `unwrap` with `?`
-  - do we really need the from/into from u32/u64? It would be better to have a named constructor,
-    ie: TimePoint::from_millis
-    also: these conversions need to be fallible, ie: TimePoint(u32::MAX) does not really make sense
-  - check that downcasting u64 to u32 is ok everywhere
-
 - have some tests for `APIClient`, think how to do this smartly to not pound the API server
 
 - check abieos/test.cpp to ensure we cover also all the error cases with proper error messages
@@ -96,16 +87,7 @@
 - try using a `BTreeMap` or some other map that has better cache locality, or a faster hash,
   like: <https://github.com/rust-lang/rustc-hash>
 
-- check if anything from this [reddit thread about `serde_json`](https://www.reddit.com/r/rust/comments/w3q1oq/things_i_wish_i_had_known_about_serde_json/) applies
-
-- serializing bytes into a binary stream with serde currently calls `serialize_seq` and `serialize_u8` for each byte.
-  make sure that this actually gets inlined properly so that for instance serializing a `Checksum256` doesn't end up
-  calling a function 256 times, and also we should be able to memcpy all of it as well instead of byte per byte
-
-  the alternative would be to make a newtype for `Bytes` instead of aliasing it to `Vec<u8>` and then we could have a
-  specific implementation of `Serialize` for it
-
-  use the Rust playground to check it: <https://play.rust-lang.org/>
+- use the Rust playground to check code: <https://play.rust-lang.org/>
 
 
 ## MISC

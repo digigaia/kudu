@@ -39,7 +39,7 @@ using our own trait instead of `serde`:
 
 - serialization of bytes slices goes through serialization of sequence of bytes
   (or tuple) and is quite inefficient because it will serialize each byte
-  independently.
+  independently (by calling `serialize_seq` and `serialize_u8` for each byte).
   We tried repurposing the `serialize_bytes` method on the `Serializer` to write
   a byte slice **without** its length but that is problematic when deserializing
   as we don't know how many bytes we should be reading.
@@ -48,10 +48,14 @@ using our own trait instead of `serde`:
    - <https://github.com/uuid-rs/uuid/issues/557>
    - <https://github.com/serde-rs/bytes>
    - serde-related crates: `serde_arrays`, `serde_with`
-- we couldn't find how to serialize the sequence length as a `VarUint32` instead
-  of `usize`
+- serializing checksum types (ie: fixed-size arrays) would always serialize the
+  length first, which we don't want, unless we use `serialize_bytes()` but it
+  was already re-purposed (see previous point)
+- deserializing variable-length fields (eg: `VarUint32`) proved impossible
+- deserializing fixed-length arrays proved impossible too
 
-On top of that, there was some *hacks* to try to serialize data to a binary stream.
+On top of that, there were some *hacks* to try to serialize data to a binary stream
+that made the rest of the code work but be sub-optimal.
 
 The conclusion of this is that we use our own `BinarySerializable` trait in
 order to serialize structs to a binary stream.

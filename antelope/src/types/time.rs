@@ -22,7 +22,7 @@ fn parse_date(s: &str) -> Result<DateTime<Utc>, ChronoParseError> {
 fn timestamp_to_block_slot(dt: &DateTime<Utc>) -> u32 {
     let ms_since_epoch = (dt.timestamp_micros() / 1000) as u64 - config::BLOCK_TIMESTAMP_EPOCH;
     let result = ms_since_epoch / (config::BLOCK_INTERVAL_MS as u64);
-    result.try_into().expect("Timestamp too far in the future to fit in a `u32`")
+    result.try_into().expect("timestamp too far in the future to fit block slot in a `u32`")
 }
 
 macro_rules! impl_time_display {
@@ -147,7 +147,8 @@ impl TimePointSec {
                 .and_utc()))
     }
     pub fn from_datetime(dt: DateTime<Utc>) -> Self {
-        TimePointSec((dt.timestamp_millis() / 1000) as u32)
+        TimePointSec(dt.timestamp().try_into()
+                     .expect("date too far in the future: number of seconds exceeds `u32` capacity"))
     }
     pub fn to_datetime(&self) -> DateTime<Utc> {
         Utc.timestamp_millis_opt(self.0 as i64 * 1000).unwrap()  // safe unwrap
@@ -165,8 +166,7 @@ impl FromStr for TimePointSec {
     type Err = ChronoParseError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ok(TimePointSec(parse_date(s)?.timestamp()
-                        .try_into().expect("Date not representable as a `u32`")))
+        Ok(TimePointSec::from_datetime(parse_date(s)?))
     }
 }
 

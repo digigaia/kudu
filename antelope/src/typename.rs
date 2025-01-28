@@ -2,9 +2,9 @@ use std::fmt;
 
 use crate::AntelopeType;
 
-// TODO: derive more? e.g. PartialEq, Eq, Hash, etc.
-
-#[derive(Clone, Copy, PartialEq, Eq)]
+/// Newtype wrapper for a `&str` representing a type name that adds a few
+/// convenience methods.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct TypeName<'a>(pub &'a str);
 
 impl<'a> TypeName<'a> {
