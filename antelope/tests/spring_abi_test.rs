@@ -605,9 +605,9 @@ fn variants() -> Result<()> {
     // round-trip abi through multiple formats
     // json -> variant -> abi_def -> bin
     let mut stream = ByteStream::new();
-    ABIDefinition::from_str(variant_abi)?.encode(&mut stream);
+    ABIDefinition::from_str(variant_abi)?.to_bin(&mut stream);
     // bin -> abi_def -> variant -> abi_def
-    let abi = ABI::from_str(&json!(ABIDefinition::decode(&mut stream)?).to_string())?;
+    let abi = ABI::from_str(&json!(ABIDefinition::from_bin(&mut stream)?).to_string())?;
 
     // expected array containing variant
     let result = abi.variant_to_binary("v1", &json!(9));
@@ -655,9 +655,9 @@ fn aliased_variants() -> Result<()> {
     // round-trip abi through multiple formats
     // json -> variant -> abi_def -> bin
     let mut stream = ByteStream::new();
-    ABIDefinition::from_str(aliased_variant)?.encode(&mut stream);
+    ABIDefinition::from_str(aliased_variant)?.to_bin(&mut stream);
     // bin -> abi_def -> variant -> abi_def
-    let abi = ABI::from_str(&json!(ABIDefinition::decode(&mut stream)?).to_string())?;
+    let abi = ABI::from_str(&json!(ABIDefinition::from_bin(&mut stream)?).to_string())?;
 
     verify_round_trip(&abi, "foo", &json!(["int8",21]), "0015")
 }

@@ -36,7 +36,7 @@ where
     let mut stream = ByteStream::new();
 
     // abi.encode(&mut stream, &obj);
-    obj.encode(&mut stream);
+    obj.to_bin(&mut stream);
     assert_eq!(stream.hex_data(), repr,
                "wrong ABI serialization for: {obj:?}");
 }
@@ -49,11 +49,11 @@ where
     let mut stream = ByteStream::new();
 
     // abi.encode(&mut stream, &obj);
-    obj.encode(&mut stream);
+    obj.to_bin(&mut stream);
     assert_eq!(stream.hex_data(), repr,
                "wrong serialization for: {obj:?}");
 
-    let decoded = T::decode(&mut stream).unwrap();
+    let decoded = T::from_bin(&mut stream).unwrap();
     assert_eq!(decoded, obj,
                "deserialized object `{:?}` is not the same as original one `{:?}`",
                decoded, obj);

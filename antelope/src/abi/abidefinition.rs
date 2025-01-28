@@ -128,9 +128,9 @@ impl ABIDefinition {
         ABIDefinition::from_str(&v.to_string())
     }
 
-    pub fn from_bin(data: &mut ByteStream) -> Result<Self> {
+    pub fn decode(data: &mut ByteStream) -> Result<Self> {
         // FIXME: check how to deserialize properly the different versions: 1.0, 1.1, 1.2, ...
-        let version = String::decode(data).context(DeserializeSnafu { what: "version" })?;
+        let version = String::from_bin(data).context(DeserializeSnafu { what: "version" })?;
 
         ensure!(version.starts_with("eosio::abi/1."), VersionSnafu { version });
 
@@ -164,7 +164,7 @@ impl ABIDefinition {
         Self::from_variant(&abi)
     }
 
-    pub fn to_bin(&self, stream: &mut ByteStream) -> Result<()> {
+    pub fn encode(&self, stream: &mut ByteStream) -> Result<()> {
         let parser = bin_abi_parser();
         parser.encode(stream, &self.version);
         parser.encode_variant(stream, "typedef[]", &json!(self.types))?;
@@ -223,12 +223,13 @@ impl Default for ABIDefinition {
     }
 }
 
+// FIXME: review this, can't we have a single `to_bin`/`encode` method instead of this duplication?
 impl BinarySerializable for ABIDefinition {
-    fn encode(&self, stream: &mut ByteStream) {
-        self.to_bin(stream).unwrap()  // safe unwrap
+    fn to_bin(&self, stream: &mut ByteStream) {
+        self.encode(stream).unwrap()  // safe unwrap
     }
-    fn decode(stream: &mut ByteStream) -> Result<Self, SerializeError> {
-        ABIDefinition::from_bin(stream).context(ABISnafu)
+    fn from_bin(stream: &mut ByteStream) -> Result<Self, SerializeError> {
+        ABIDefinition::decode(stream).context(ABISnafu)
     }
 }
 

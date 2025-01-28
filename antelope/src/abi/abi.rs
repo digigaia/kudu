@@ -72,7 +72,7 @@ impl ABI {
 
     pub fn from_bin_abi(abi: &[u8]) -> Result<Self> {
         let mut data = ByteStream::from(abi.to_owned());
-        let abi_def = ABIDefinition::from_bin(&mut data)?;
+        let abi_def = ABIDefinition::decode(&mut data)?;
         Self::from_definition(&abi_def)
     }
 
@@ -248,7 +248,7 @@ impl ABI {
 
     #[inline]
     pub fn encode<T: BinarySerializable>(&self, stream: &mut ByteStream, obj: &T) {
-        obj.encode(stream)
+        obj.to_bin(stream)
     }
 
     #[inline]
@@ -282,7 +282,7 @@ impl ABI {
             let inner_type: AntelopeType = ftype.try_into().unwrap();  // safe unwrap
             if rtype.is_array() {
                 let a = object.as_array().ok_or_else(incompatible_types)?;
-                VarUint32::from(a.len()).encode(ds);
+                VarUint32::from(a.len()).to_bin(ds);
                 for v in a {
                     AntelopeValue::from_variant(inner_type, v)
                         .with_context(|_| VariantConversionSnafu { v: v.clone() })?
@@ -292,12 +292,12 @@ impl ABI {
             else if rtype.is_optional() {
                 match !object.is_null() {
                     true => {
-                        true.encode(ds);
+                        true.to_bin(ds);
                         AntelopeValue::from_variant(inner_type, object)
                             .with_context(|_| VariantConversionSnafu { v: object.clone() })?
                             .to_bin(ds);
                     },
-                    false => false.encode(ds),
+                    false => false.to_bin(ds),
                 }
             }
             else {
@@ -311,7 +311,7 @@ impl ABI {
 
             if rtype.is_array() {
                 let a = object.as_array().ok_or_else(incompatible_types)?;
-                VarUint32::from(a.len()).encode(ds);
+                VarUint32::from(a.len()).to_bin(ds);
                 for v in a {
                     self.encode_variant_(ctx, ds, ftype, v)?;
                 }
@@ -319,10 +319,10 @@ impl ABI {
             else if rtype.is_optional() {
                 match !object.is_null() {
                     true => {
-                        true.encode(ds);
+                        true.to_bin(ds);
                         self.encode_variant_(ctx, ds, ftype, object)?;
                     },
-                    false => false.encode(ds),
+                    false => false.to_bin(ds),
                 }
             }
             else if let Some(variant_def) = self.variants.get(rtype.0) {
@@ -339,7 +339,7 @@ impl ABI {
                         });
                 let variant_type = TypeName(object[0].as_str().unwrap());
                 if let Some(vpos) = variant_def.types.iter().position(|v| v == variant_type.0) {
-                    VarUint32::from(vpos).encode(ds);
+                    VarUint32::from(vpos).to_bin(ds);
                     self.encode_variant_(ctx, ds, variant_type, &object[1])?;
                 }
                 else {
@@ -486,7 +486,7 @@ impl ABI {
                 JsonValue::Array(a)
             }
             else if rtype.is_optional() {
-                let non_null = bool::decode(ds)
+                let non_null = bool::from_bin(ds)
                     .context(DeserializeSnafu { what: "optional discriminant" })?;
                 match non_null {
                     true => read_value(ds, type_, "optional value")?,
@@ -512,7 +512,7 @@ impl ABI {
                 JsonValue::Array(a)
             }
             else if rtype.is_optional() {
-                let non_null = bool::decode(ds)
+                let non_null = bool::from_bin(ds)
                     .context(DeserializeSnafu { what: "optional discriminant" })?;
                 match non_null {
                     true => self.decode_variant(ds, ftype)?,
@@ -589,7 +589,7 @@ fn read_value(stream: &mut ByteStream, type_: AntelopeType, what: &str) ->  Resu
 }
 
 fn decode_usize(stream: &mut ByteStream, what: &str) -> Result<usize, ABIError> {
-    let n = VarUint32::decode(stream).context(DeserializeSnafu { what })?;
+    let n = VarUint32::from_bin(stream).context(DeserializeSnafu { what })?;
     Ok(n.into())
 }
 

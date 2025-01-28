@@ -39,10 +39,6 @@
 
 - to_hex -> hex representation of binary data, to_bin -> binary data itself (ie: `vec<u8>`)
 
-- `BinarySerializable` trait methods namings:
-  `encode()` -> `to_bin()`
-  `decode()` -> `from_bin()`
-
 - rename `BinarySerializable` to `ABISerializable`?
 
 ### Investigate Serde

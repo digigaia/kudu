@@ -54,15 +54,15 @@ fn derive_binaryserializable_struct(input: &DeriveInput, fields: &FieldsNamed) -
         #[doc(hidden)]
         const _: () = {
             impl antelope::BinarySerializable for #ident {
-                fn encode(&self, s: &mut antelope::ByteStream) {
+                fn to_bin(&self, s: &mut antelope::ByteStream) {
                     #(
-                        self.#fieldname.encode(s);
+                        self.#fieldname.to_bin(s);
                     )*
                 }
-                fn decode(s: &mut antelope::ByteStream) -> ::core::result::Result<Self, antelope::SerializeError> {
+                fn from_bin(s: &mut antelope::ByteStream) -> ::core::result::Result<Self, antelope::SerializeError> {
                     Ok(Self {
                         #(
-                            #fieldname: <#fieldtype>::decode(s)?,
+                            #fieldname: <#fieldtype>::from_bin(s)?,
                         )*
                     })
                 }
@@ -112,20 +112,20 @@ fn derive_binaryserializable_enum(input: &DeriveInput, enumeration: &DataEnum) -
         #[doc(hidden)]
         const _: () = {
             impl antelope::BinarySerializable for #ident {
-                fn encode(&self, s: &mut antelope::ByteStream) {
+                fn to_bin(&self, s: &mut antelope::ByteStream) {
                     match *self {
                         #(
                             #ident::#var_idents(ref __field0) => {
-                                antelope::VarUint32(#index).encode(s);
-                                __field0.encode(s);
+                                antelope::VarUint32(#index).to_bin(s);
+                                __field0.to_bin(s);
                             }
                         )*
                     }
                 }
-                fn decode(s: &mut antelope::ByteStream) -> ::core::result::Result<Self, antelope::SerializeError> {
-                    Ok(match antelope::VarUint32::decode(s)?.0 {
+                fn from_bin(s: &mut antelope::ByteStream) -> ::core::result::Result<Self, antelope::SerializeError> {
+                    Ok(match antelope::VarUint32::from_bin(s)?.0 {
                         #(
-                            #index => #ident::#var_idents(<#var_type>::decode(s)?),
+                            #index => #ident::#var_idents(<#var_type>::from_bin(s)?),
                         )*
                         t => antelope::binaryserializable::InvalidTagSnafu { tag: t, variant: #ident_str }.fail()?,
                     })
