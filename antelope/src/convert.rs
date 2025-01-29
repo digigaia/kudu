@@ -68,19 +68,6 @@ type Result<T, E = ConversionError> = std::result::Result<T, E>;
 //     Hex conversion functions
 // -----------------------------------------------------------------------------
 
-#[inline]
-pub fn hex_to_byte_array<const N: usize>(s: &str) -> Result<[u8; N], FromHexError> {
-    let mut result = [0_u8; N];
-    hex::decode_to_slice(s, &mut result)?;
-    Ok(result)
-}
-
-#[inline]
-pub fn hex_to_boxed_array<const N: usize>(s: &str) -> Result<Box<[u8; N]>, FromHexError> {
-    hex_to_byte_array(s).map(Box::new)
-}
-
-
 /// Trait for signed integers that allows parsing negative integers
 /// from their hex representation
 pub trait NegativeHex : Integer + Signed {
@@ -186,8 +173,11 @@ where
 #[cfg(feature = "float128")]
 pub fn variant_to_f128(v: &JsonValue) -> Result<f128> {
     if let Some(x) = v.as_f64()      { Ok(x.into()) }
-    else if let Some(s) = v.as_str() { Ok(f128::from_le_bytes(hex_to_byte_array(s)
-                                                              .context(HexDecodeSnafu { repr: s })?)) }
+    else if let Some(s) = v.as_str() {
+        let mut result = [0_u8; N];
+        hex::decode_to_slice(s, &mut result).context(HexDecodeSnafu { repr: s })?;
+        Ok(f128::from_le_bytes(result))
+    }
     else {
         IncompatibleVariantTypesSnafu { typename: "f128", value: v.clone() }.fail()
     }

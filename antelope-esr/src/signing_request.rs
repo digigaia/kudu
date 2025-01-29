@@ -10,10 +10,9 @@ use snafu::prelude::*;
 use flate2::read::DeflateDecoder;
 use serde::{Serialize, Serializer, ser::SerializeStruct};
 
-use antelope_macros::{with_location, SerializeEnum};
-use antelope::{convert::hex_to_boxed_array, JsonValue, Name, json};
 use antelope::{
-    ByteStream, SerializeError, ABIError,
+    ByteStream, SerializeError, ABIError, Checksum256, JsonValue, Name, SerializeEnum,
+    json, with_location,
     provider::{get_signing_request_abi, ABIProvider},
 };
 
@@ -24,8 +23,6 @@ pub static SIGNER_PERMISSION: Name = Name::from_u64(2);
 
 
 
-type Checksum256 = Box<[u8; 32]>;
-
 // -----------------------------------------------------------------------------
 //     ChainId enum - can be an alias or the full chain ID
 // -----------------------------------------------------------------------------
@@ -35,7 +32,7 @@ pub enum ChainId {
     #[serde(rename="chain_alias")]
     Alias(u8),
     #[serde(rename="chain_id")]
-    Id(Checksum256), // AntelopeValue::Checksum256 variant assumed
+    Id(Box<Checksum256>),
 }
 
 // impl Serialize for ChainId {
@@ -411,7 +408,7 @@ impl TryFrom<JsonValue> for SigningRequest {
         result.chain_id = match chain_id_type {
             "chain_id" => {
                 let data = conv_str(&chain_id[1])?;
-                ChainId::Id(hex_to_boxed_array(data).context(HexDecodeSnafu)?)
+                ChainId::Id(Box::new(Checksum256::from_hex(data).context(HexDecodeSnafu)?))
             },
             "chain_alias" => {
                 let alias = chain_id[1].as_u64().unwrap();
