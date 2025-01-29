@@ -1,5 +1,5 @@
-use reqwest::Result;
 use serde_json::Value as JsonValue;
+use ureq;
 
 // see API endpoints from greymass here: https://www.greymass.com/endpoints
 
@@ -15,16 +15,22 @@ impl APIClient {
         }
     }
 
-    pub fn get(&self, path: &str) -> Result<JsonValue> {
-        self.call(path, &JsonValue::Null)
+    fn fullpath(&self, path: &str) -> String {
+        format!("{}{}", &self.endpoint, path)
     }
 
-    pub fn call(&self, path: &str, params: &JsonValue) -> Result<JsonValue> {
-        let fullpath = format!("{}{}", &self.endpoint, path);
-        let client = reqwest::blocking::Client::new();
-        let req = client.post(fullpath);
-        let req = if !params.is_null() { req.json(params) } else { req };
-        req.send()?.json()
+    pub fn get(&self, path: &str) -> Result<JsonValue, ureq::Error> {
+        ureq::get(self.fullpath(path))
+            .call()?
+            .body_mut()
+            .read_json()
+    }
+
+    pub fn call(&self, path: &str, params: &JsonValue) -> Result<JsonValue, ureq::Error> {
+        ureq::post(self.fullpath(path))
+            .send_json(params)?
+            .body_mut()
+            .read_json()
     }
 
 

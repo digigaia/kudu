@@ -71,8 +71,6 @@
 
 ## PERFORMANCE
 
-- switch reqwest with ureq
-
 - use a small string library so that ABIs have a much better cache locality
 
 - try using smallvec/tinyvec for the same reasons as small string, esp. on vectors that are
