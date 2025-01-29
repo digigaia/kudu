@@ -135,6 +135,25 @@ pub use typename::TypeName;
 ///           generated one).
 pub use antelope_macros::with_location;
 
+/// Attribute macro to easily declare structs representing contract actions.
+///
+/// This implements the [`Contract`] trait so that this struct can be used where
+/// [`Action`]s are expected.
+///
+/// # Example
+///
+/// ```
+/// #[contract(account="eosio.token", name="transfer")]
+/// pub struct Transfer {
+///     pub from: Name,
+///     pub to: Name,
+///     pub quantity: Asset,
+///     pub memo: String,
+/// }
+/// ```
+
+pub use antelope_macros::contract;
+
 /// Implement the [`BinarySerializable`](trait@BinarySerializable) trait
 ///
 /// This calls [`BinarySerializable::to_bin()`] and [`BinarySerializable::from_bin()`]

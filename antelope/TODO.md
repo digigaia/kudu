@@ -7,21 +7,10 @@
   - check whether we really need `AntelopeValue`, because if not then it seems we should be able
     to remove it altogether.
 
-- define an attr macro for declaring contracts (such as in chain.rs) like so:
-  ```
-  #[contract(account="eosio.token", name="transfer")]
-  pub struct Transfer {
-      pub from: Name,
-      pub to: Name,
-      pub quantity: Asset,
-      pub memo: String,
-  }
-  ```
-
 - implement `From` traits for base types everywhere it makes sense, and `TryFrom` too
 
-- clean/properly order imports in all file (maybe wait for Rust 2024 edition as it seems to
-  correspond better to the style we like)
+- clean/properly order imports in all file (maybe wait for Rust 2024 edition and use rustfmt
+  as it seems to correspond better to the style we like)
 
 ### Naming
 

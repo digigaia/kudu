@@ -6,10 +6,11 @@
 //!   not enabled, the [`macro@with_location`] macro will be a no-op.
 
 mod attr;
+mod contract;
 mod serde;
 
 use proc_macro::TokenStream;
-use syn::{parse_macro_input, DeriveInput};
+use syn::{parse_macro_input, DeriveInput, ItemStruct, MetaNameValue, punctuated::Punctuated};
 
 #[cfg(feature = "detailed-error")]
 use syn::ItemEnum;
@@ -39,6 +40,14 @@ fn with_location_impl(_attr: TokenStream, annotated_item: TokenStream) -> TokenS
     annotated_item
 }
 
+
+// the `antelope` crate re-exports this macro and adds documentation to it
+#[proc_macro_attribute]
+pub fn contract(attr: TokenStream, annotated_item: TokenStream) -> TokenStream {
+    let attrs = parse_macro_input!(attr with Punctuated::<MetaNameValue, syn::Token![,]>::parse_terminated);
+    let contract_struct = parse_macro_input!(annotated_item as ItemStruct);
+    contract::add_contract_trait_impl(attrs, contract_struct).into()
+}
 
 // the `antelope` crate re-exports this macro and adds documentation to it
 #[proc_macro_derive(BinarySerializable)]

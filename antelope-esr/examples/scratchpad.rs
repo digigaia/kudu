@@ -1,10 +1,8 @@
 #![cfg_attr(feature = "float128", feature(f128))]
 
-use std::fmt::Debug;
 use std::sync::Once;
 
 use color_eyre::eyre::Result;
-use serde::{Deserialize, Serialize};
 use serde_json::json;
 use tracing::info;
 use tracing_subscriber::{
@@ -13,12 +11,12 @@ use tracing_subscriber::{
 };
 
 use antelope::{
-    ABIDefinition, TimePoint, TimePointSec, JsonValue, Name,
+    ABIDefinition, TimePoint, TimePointSec, Name, Contract,
     abidefinition::abi_schema,
     convert::{variant_to_int, variant_to_uint}
 };
 
-use antelope_macros::{BinarySerializable, SerializeEnum};
+use antelope::{BinarySerializable, SerializeEnum, contract};
 
 
 static TRACING_INIT: Once = Once::new();
@@ -32,12 +30,6 @@ fn init() {
     });
 }
 
-#[derive(BinarySerializable)]
-struct MyStruct {
-    a: i32,
-    b: u32,
-}
-
 
 #[derive(SerializeEnum)]
 pub enum ChainId {
@@ -46,49 +38,12 @@ pub enum ChainId {
     ChainId(String), // AntelopeValue::Checksum256 variant assumed
 }
 
-#[derive(SerializeEnum)]
-pub enum Request {
-    Action(JsonValue),
-    // #[serde(rename="action[]")]
-    Actions(Vec<JsonValue>),
-    Transaction(JsonValue),
-    Identity,
-}
-
-// #[allow(deprecated, non_upper_case_globals)]
-// const _: () = {
-//     impl serde::Serialize for Request {
-//         fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-//         where
-//             S: serde::Serializer,
-//         {
-//             todo!()
-//         }
-//     }
-// };
-
-#[derive(BinarySerializable)]
-pub struct Action {
-    pub account: Name,
-    pub name: Name,
-}
-
-#[derive(BinarySerializable)]
-pub struct Transaction {
-    pub ref_block_num: u16,
-    pub actions: Vec<Action>,
-}
-
-#[derive(Eq, Hash, PartialEq, Debug, Clone, Default, Serialize, Deserialize, BinarySerializable)]
-pub struct TransactionTraceException {
-    pub error_code: i64,
-    pub error_message: String,
-}
-
-#[derive(Eq, Hash, PartialEq, Debug, Clone, SerializeEnum, BinarySerializable)]
-pub enum TransactionTraceMsg {
-    #[serde(rename="transaction_trace_exception")]
-    Exception(TransactionTraceException),
+#[derive(Clone, BinarySerializable)]
+#[contract(account="eosio.token", name="transfer")]
+pub struct Transfer {
+    pub from: Name,
+    pub to: Name,
+    pub memo: String,
 }
 
 
@@ -146,6 +101,9 @@ fn main() -> Result<()> {
 
     let cid = ChainId::ChainId("hello".to_string());
     info!("{}", &serde_json::to_string(&cid)?);
+
+    assert_eq!(Transfer::account().to_string(), "eosio.token");
+    assert_eq!(Transfer::name().to_string(), "transfer");
 
     Ok(())
 }
