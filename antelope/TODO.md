@@ -1,17 +1,5 @@
 # TODO / FIXME
 
-- write `[tracing_test]` attr macro that makes a `[test]` and calls `tracing_init()` at the beginning
-  even better: `[antelope_test]` that makes a `[test]` that returns a `Result<()>`, calls `tracing_init()`
-  at the beginning() and returns `Ok(())` at the end.
-- add `[derive(Serialize)]` to all base types
-
-- `SerializeEnum` should use the inner type as snake-case discriminant instead of the identifier
-  -> remove all the serde rename after that
-
-- write a note with the difference in behavior between this and the C++ Antelope version
-  - hex numbers are lowercase whereas C++ outputs in upper case
-  - C++ outputs i64 and u64 as double-quoted
-
 ## API DESIGN
 
 - clean abi.rs
@@ -36,8 +24,6 @@
   correspond better to the style we like)
 
 ### Naming
-
-- to_hex -> hex representation of binary data, to_bin -> binary data itself (ie: `vec<u8>`)
 
 - rename `BinarySerializable` to `ABISerializable`?
 

@@ -193,6 +193,13 @@ TODO: write why
 - `` "expected type `int8` for field 'quantity' on struct 's1'" ``
 - `` r#"value for 'obj.name' is "obj1" and its type is `str`"# ``
 
+## Nomenclature
+
+### `to_hex` / `to_bin`
+
+`bin` means some binary data, usually `Bytes`/`Vec<u8>`/etc. while `hex` means an hexadecimal
+representation of that data, usually `String`
+
 
 ## Usage of `unwrap`, `panic` and `assert`
 

@@ -61,7 +61,12 @@
 //!    the discriminant needs to be encoded in a specific way which cannot be achieved with
 //!    the `serde::Serialize` trait.
 //!
-//! ----
+//!
+//! # Differences between this library and the Antelope C++ library
+//!
+//!  - hex numbers here are lowercase whereas C++ outputs hex data in upper case
+//!  - C++ outputs `i64` and `u64` as double-quoted, this library doesn't
+
 
 
 // disable this lint to allow our types to implement a `from_str` constructor
@@ -132,7 +137,7 @@ pub use antelope_macros::with_location;
 
 /// Implement the [`BinarySerializable`](trait@BinarySerializable) trait
 ///
-/// This calls [`BinarySerializable::encode()`] and [`BinarySerializable::decode()`]
+/// This calls [`BinarySerializable::to_bin()`] and [`BinarySerializable::from_bin()`]
 /// on all members sequentially.
 pub use antelope_macros::BinarySerializable;
 
