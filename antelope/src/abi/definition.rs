@@ -8,8 +8,9 @@ use snafu::{ensure, ResultExt};
 use crate::binaryserializable::{BinarySerializable, ABISnafu};
 use crate::{
     ByteStream, SerializeError, JsonValue, ActionName, TableName,
-    abi::abi::{ABI, ABIError, JsonSnafu, DeserializeSnafu, VersionSnafu, IncompatibleVersionSnafu},
-    data::{ABI_SCHEMA, CONTRACT_ABI}
+    abi::serializer::ABI,
+    abi::error::{ABIError, JsonSnafu, DeserializeSnafu, VersionSnafu, IncompatibleVersionSnafu},
+    abi::data::{ABI_SCHEMA, CONTRACT_ABI}
 };
 
 // see doc at: https://docs.eosnetwork.com/manuals/cdt/latest/best-practices/abi/understanding-abi-files/
@@ -252,7 +253,7 @@ fn bin_abi_parser() -> &'static ABI {
 #[cfg(test)]
 mod tests {
     use serde_json::Error as JsonError;
-    use crate::data::ABI_EXAMPLE;
+    use crate::abi::data::ABI_EXAMPLE;
     use super::*;
 
     #[test]
@@ -262,6 +263,49 @@ mod tests {
         assert_eq!(abi.version, "eosio::abi/1.1");
 
         println!("{:#?}", &abi);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_serialize_struct() -> Result<(), ABIError> {
+        let abi = ABIDefinition {
+            structs: vec![
+                Struct {
+                    base: "".to_owned(),
+                    name: "foo".to_owned(),
+                    fields: vec![
+                        Field { name: "one".to_owned(), type_: "string".to_owned() },
+                        Field { name: "two".to_owned(), type_: "int8".to_owned() },
+                    ],
+                },
+                Struct {
+                    base: "foo".to_owned(),
+                    name: "bar".to_owned(),
+                    fields: vec![
+                        Field { name: "three".to_owned(), type_: "name?".to_owned() },
+                        Field { name: "four".to_owned(), type_: "string[]?".to_owned() },
+                    ],
+                },
+            ],
+            ..Default::default()
+        };
+
+        let obj = json!({
+            "one": "one",
+            "two": 2,
+            "three": "two",
+            "four": ['f', 'o', 'u', 'r'],
+        });
+
+        let abi = ABI::from_definition(&abi).unwrap();  // safe unwrap
+        let mut ds = ByteStream::new();
+        abi.encode_variant(&mut ds, "bar", &obj).unwrap();
+
+        assert_eq!(&ds.hex_data().to_uppercase(), "036F6E65020100000000000028CF01040166016F01750172");
+
+        let dec = abi.decode_variant(&mut ds, "bar")?;
+        assert_eq!(dec.to_string(), r#"{"one":"one","two":2,"three":"two","four":["f","o","u","r"]}"#);
 
         Ok(())
     }

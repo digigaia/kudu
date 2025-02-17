@@ -3,9 +3,10 @@ use std::str::FromStr;
 
 use color_eyre::eyre::Result;
 use chrono::{NaiveDate, TimeZone, Utc};
+use serde_json::json;
 
 use antelope::{
-    ByteStream, BinarySerializable,
+    ABI, ByteStream, BinarySerializable,
     AntelopeType, AntelopeValue, Asset, Bytes, BlockTimestamp, ExtendedAsset,
     Name, Symbol, SymbolCode, TimePoint, TimePointSec, VarInt32, VarUint32, PublicKey, PrivateKey, Signature,
     Checksum160, Checksum256, Checksum512,
@@ -409,6 +410,25 @@ fn test_bytes() {
     check_round_trip_map_type(vals, |s| Bytes::from_hex(s).unwrap(), AntelopeValue::Bytes);
 
     test_encode(&b"foo"[..], "03666f6f");  // can't decode to &str due to lifetime issues
+}
+
+#[test]
+fn test_serialize_array() {
+    let a = ["foo", "bar", "baz"];
+    let abi = ABI::new();
+    let mut ds = ByteStream::new();
+
+    abi.encode_variant(&mut ds, "string[]", &json!(a)).unwrap();
+    assert_eq!(ds.hex_data().to_uppercase(), "0303666F6F036261720362617A");
+
+    ds.clear();
+    abi.encode_variant(&mut ds, "string[][]", &json!([a])).unwrap();
+    assert_eq!(ds.hex_data().to_uppercase(), "010303666F6F036261720362617A");
+
+    ds.clear();
+    let v = vec!["foo", "bar", "baz"];
+    abi.encode_variant(&mut ds, "string[]", &json!(v)).unwrap();
+    assert_eq!(ds.hex_data().to_uppercase(), "0303666F6F036261720362617A");
 }
 
 

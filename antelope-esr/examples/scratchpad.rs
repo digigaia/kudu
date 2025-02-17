@@ -12,7 +12,7 @@ use tracing_subscriber::{
 
 use antelope::{
     ABIDefinition, TimePoint, TimePointSec, Name, Contract,
-    abidefinition::abi_schema,
+    abi::abi_schema,
     convert::{variant_to_int, variant_to_uint}
 };
 

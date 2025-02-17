@@ -13,7 +13,7 @@ use serde::{Serialize, Serializer, ser::SerializeStruct};
 use antelope::{
     ByteStream, SerializeError, ABIError, Checksum256, JsonValue, Name, SerializeEnum,
     json, with_location,
-    provider::{get_signing_request_abi, ABIProvider},
+    abi::{get_signing_request_abi, ABIProvider},
 };
 
 use tracing::{trace, debug, warn};

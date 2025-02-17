@@ -15,7 +15,7 @@ use tracing_subscriber::{
 
 use antelope::{
     binaryserializable::{to_bin, from_bin, BinarySerializable},
-    data::{
+    abi::data::{
         PACKED_TRANSACTION_ABI, TEST_ABI, TOKEN_HEX_ABI, TRANSACTION_ABI
     },
     ABIDefinition, Asset, Bytes, ByteStream, ExtendedAsset, InvalidValue, JsonValue, Name,
