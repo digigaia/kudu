@@ -28,10 +28,6 @@
 
 - check abieos/test.cpp to ensure we cover also all the error cases with proper error messages
 
-- check float128 support
-  maybe try to have float128 support on stable as we only need the hex representation of f128
-  so we could have a stub for that type instead of the rust primitive which is only available on nightly
-
 - check tests in <https://github.com/AntelopeIO/spring/blob/main/unittests/abi_tests.cpp>
   - at the end, there are tests about action results
 

@@ -29,7 +29,7 @@ ureq = { version = "3.0.2", features = ["json"] }
 embed-doc-image = "0.1.4"
 
 [features]
-# default = ["detailed-error"]
+default = []
 detailed-error = ["antelope-macros/detailed-error"]
 float128 = ["bytemuck/nightly_float"]
 hardened = []

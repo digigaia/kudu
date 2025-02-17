@@ -189,9 +189,17 @@ impl_pod_serialization!(u128, 16);
 
 impl_pod_serialization!(f32, 4);
 impl_pod_serialization!(f64, 8);
-#[cfg(feature = "float128")]
-impl_pod_serialization!(f128, 16);
 
+impl BinarySerializable for Float128 {
+    #[inline]
+    fn to_bin(&self, stream: &mut ByteStream) {
+        stream.write_bytes(self.to_bin_repr())
+    }
+    #[inline]
+    fn from_bin(stream: &mut ByteStream) -> Result<Self, SerializeError> {
+        Ok(Float128::from_bin_repr(stream.read_bytes(16)?.try_into().unwrap()))  // safe unwrap
+    }
+}
 
 impl BinarySerializable for VarInt32 {
     #[inline]

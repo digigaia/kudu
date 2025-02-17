@@ -1,5 +1,3 @@
-#![cfg_attr(feature = "float128", feature(f128))]
-
 use std::any::type_name_of_val;
 use std::fmt::Debug;
 use std::str::FromStr;
@@ -24,11 +22,11 @@ use antelope::{
     Transaction, Action, AccountName, Transfer, BlockTimestamp, PackedTransactionV0
 };
 
-#[cfg(feature = "float128")]
+// just for the float128 test!!
 use antelope::{
-    data::STATE_HISTORY_PLUGIN_ABI,
+    abi::data::STATE_HISTORY_PLUGIN_ABI, Float128,
     TransactionTraceV0, ActionTrace, ActionTraceV1, ActionReceipt, ActionReceiptV0,
-    AccountDelta, TransactionTrace, AccountAuthSequence,
+    AccountDelta, TransactionTrace, AccountAuthSequence, PermissionLevel, PermissionName,
 };
 
 // =============================================================================
@@ -494,7 +492,6 @@ fn roundtrip_floats() -> Result<()> {
 }
 
 #[test]
-#[cfg(feature = "float128")]
 fn roundtrip_float128() -> Result<()> {
     init();
 
@@ -502,8 +499,8 @@ fn roundtrip_float128() -> Result<()> {
 
     let check_f128 = |hex: &str| {
         let repr = format!(r#""{hex}""#);
-        let value = f128::from_le_bytes(Bytes::from_hex(hex).unwrap().as_ref().try_into().unwrap());
-        check_cross_conversion!(abi, value, f128, "float128", &repr, hex, &repr, NO_SERDE);
+        let value = Float128::from_bin_repr(Bytes::from_hex(hex).unwrap().as_ref().try_into().unwrap());
+        check_cross_conversion!(abi, value, Float128, "float128", &repr, hex, &repr, NO_SERDE);
     };
 
     check_f128("00000000000000000000000000000000");
@@ -887,7 +884,6 @@ fn roundtrip_transaction() -> Result<()> {
 }
 
 #[test]
-#[cfg(feature = "float128")]
 fn roundtrip_transaction_traces() -> Result<()> {
     use antelope::{TransactionTraceException, TransactionTraceMsg};
 

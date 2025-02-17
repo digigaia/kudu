@@ -18,6 +18,7 @@
 mod antelopevalue;
 mod asset;
 mod crypto;
+mod float128;
 mod name;
 mod symbol;
 mod time;
@@ -49,7 +50,7 @@ pub use varint::{VarInt32, VarUint32};
 
 pub type Float32 = f32;
 pub type Float64 = f64;
-
+pub use float128::Float128;
 
 // -----------------------------------------------------------------------------
 //     Bytes and String types

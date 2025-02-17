@@ -16,6 +16,7 @@ use antelope_macros::with_location;
 
 #[with_location]
 #[derive(Debug, Snafu)]
+#[snafu(visibility(pub(crate)))]
 pub enum ConversionError {
     #[snafu(display("invalid integer: {repr} - target type: {target}"))]
     Int {
@@ -118,11 +119,6 @@ where
     s.parse().context(FloatSnafu { repr: s })
 }
 
-#[cfg(feature = "float128")]
-pub fn str_to_f128(s: &str) -> Result<f128> {
-    str_to_float::<f64>(s).map(|x| x.into())
-}
-
 pub fn variant_to_int<T>(v: &JsonValue) -> Result<T>
 where
     T: TryFromInt64 + FromStr<Err = ParseIntError> + NegativeHex,
@@ -167,19 +163,6 @@ where
     else if let Some(s) = v.as_str() { s.parse().context(FloatSnafu { repr: s }) }
     else {
         IncompatibleVariantTypesSnafu { typename: type_name::<T>(), value: v.clone() }.fail()
-    }
-}
-
-#[cfg(feature = "float128")]
-pub fn variant_to_f128(v: &JsonValue) -> Result<f128> {
-    if let Some(x) = v.as_f64()      { Ok(x.into()) }
-    else if let Some(s) = v.as_str() {
-        let mut result = [0_u8; N];
-        hex::decode_to_slice(s, &mut result).context(HexDecodeSnafu { repr: s })?;
-        Ok(f128::from_le_bytes(result))
-    }
-    else {
-        IncompatibleVariantTypesSnafu { typename: "f128", value: v.clone() }.fail()
     }
 }
 

@@ -18,7 +18,7 @@ use crate::{
 };
 
 use crate::types::{self,
-    VarInt32, VarUint32, Bytes,
+    VarInt32, VarUint32, Float128, Bytes,
     TimePoint, TimePointSec, BlockTimestamp,
     Asset, ExtendedAsset, InvalidAsset,
     Name, InvalidName,
@@ -31,8 +31,6 @@ use crate::convert::{
     variant_to_int, variant_to_uint, variant_to_float, variant_to_str,
     str_to_int, str_to_float, ConversionError,
 };
-#[cfg(feature = "float128")]
-use crate::convert::{str_to_f128, variant_to_f128};
 
 // see full list in: https://github.com/AntelopeIO/spring/blob/main/libraries/chain/abi_serializer.cpp#L90
 #[derive(Debug, AsRefStr, EnumDiscriminants, VariantNames, Clone, PartialEq)]
@@ -64,8 +62,7 @@ pub enum AntelopeValue {
 
     Float32(f32),
     Float64(f64),
-    #[cfg(feature = "float128")]
-    Float128(f128),
+    Float128(Float128),
 
     Bytes(Bytes),
     String(types::String),
@@ -117,8 +114,7 @@ impl AntelopeValue {
             AntelopeType::VarUint32 => Self::VarUint32(str_to_int::<u32>(repr)?.into()),
             AntelopeType::Float32 => Self::Float32(str_to_float(repr)?),
             AntelopeType::Float64 => Self::Float64(str_to_float(repr)?),
-            #[cfg(feature = "float128")]
-            AntelopeType::Float128 => Self::Float128(str_to_f128(repr)?),
+            AntelopeType::Float128 => Self::Float128(repr.parse()?),
             AntelopeType::Bytes => Self::Bytes(Bytes::from_hex(repr).context(FromHexSnafu)?),
             AntelopeType::String => Self::String(repr.to_owned()),
             AntelopeType::TimePoint => Self::TimePoint(repr.parse()?),
@@ -156,8 +152,7 @@ impl AntelopeValue {
             Self::VarUint32(n) => json!(u32::from(*n)),
             Self::Float32(x) => json!(x),
             Self::Float64(x) => json!(x),
-            #[cfg(feature = "float128")]
-            Self::Float128(x) => json!(hex::encode(x.to_ne_bytes())),
+            Self::Float128(x) => json!(x.to_hex()),
             Self::Bytes(b) => json!(b.to_hex()),
             Self::String(s) => json!(s),
             Self::TimePoint(t) => t.to_json(),
@@ -205,8 +200,7 @@ impl AntelopeValue {
             AntelopeType::VarUint32 => Self::VarUint32(variant_to_uint::<u32>(v)?.into()),
             AntelopeType::Float32 => Self::Float32(variant_to_float(v)?),
             AntelopeType::Float64 => Self::Float64(variant_to_float(v)?),
-            #[cfg(feature = "float128")]
-            AntelopeType::Float128 => Self::Float128(variant_to_f128(v)?),
+            AntelopeType::Float128 => Self::Float128(Float128::from_variant(v)?),
             AntelopeType::Bytes => Self::Bytes(Bytes::from_hex(
                 v.as_str().with_context(incompatible_types)?
             ).context(FromHexSnafu)?),
@@ -270,7 +264,6 @@ impl AntelopeValue {
             Self::VarUint32(n) => n.to_bin(stream),
             Self::Float32(x) => x.to_bin(stream),
             Self::Float64(x) => x.to_bin(stream),
-            #[cfg(feature = "float128")]
             Self::Float128(x) => x.to_bin(stream),
             Self::Bytes(b) => b.to_bin(stream),
             Self::String(s) => s.to_bin(stream),
@@ -309,8 +302,7 @@ impl AntelopeValue {
             AntelopeType::VarUint32 => Self::VarUint32(VarUint32::from_bin(stream)?),
             AntelopeType::Float32 => Self::Float32(f32::from_bin(stream)?),
             AntelopeType::Float64 => Self::Float64(f64::from_bin(stream)?),
-            #[cfg(feature = "float128")]
-            AntelopeType::Float128 => Self::Float128(f128::from_bin(stream)?),
+            AntelopeType::Float128 => Self::Float128(Float128::from_bin(stream)?),
             AntelopeType::Bytes => Self::Bytes(Bytes::from_bin(stream)?),
             AntelopeType::String => Self::String(String::from_bin(stream)?),
             AntelopeType::TimePoint => Self::TimePoint(TimePoint::from_bin(stream)?),

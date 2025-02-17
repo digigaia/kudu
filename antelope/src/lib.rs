@@ -14,8 +14,11 @@
 //!
 //! - `detailed-error`: activate this to enable the [`macro@with_location`] macro. If
 //!                     not enabled, the [`macro@with_location`] macro will be a no-op.
-//! - `float128`: add support for the `float128` type. This currently needs a nightly Rust version
-//!               as `f128` support is still experimental.
+//! - `hardened`: implement safeguards to check for execution time and recursion depth
+//!               when validating ABIs. (NOT IMPLEMENTED YET!)
+//! - `float128`: add support for a native `float128` type. This currently needs a nightly Rust
+//!               version as `f128` support is still experimental. If this is not active,
+//!               the `Float128` will still be available but as a `[u8; 16]` wrapper.
 //!
 //!
 //! # Antelope data model

@@ -1,5 +1,3 @@
-#![cfg_attr(feature = "float128", feature(f128))]
-
 use std::sync::Once;
 
 use color_eyre::eyre::Result;
