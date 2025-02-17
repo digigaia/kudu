@@ -5,6 +5,8 @@ use std::str::FromStr;
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 use snafu::{ensure, Snafu, ResultExt, OptionExt};
 
+use crate::impl_auto_error_conversion;
+
 
 #[derive(Debug, Snafu)]
 pub enum InvalidSymbol {
@@ -30,6 +32,8 @@ pub enum InvalidSymbol {
     InvalidU64Representation { value: u64 },
 }
 
+impl_auto_error_conversion!(ParseIntError, InvalidSymbol, ParsePrecisionSnafu);
+
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct SymbolCode(u64);
@@ -46,6 +50,21 @@ impl SymbolCode {
     }
 }
 
+/// `Symbol` represents a token and contains precision and name.
+///
+/// When encoded as a `u64`, first byte represents the number of decimals,
+/// remaining bytes represent token name.
+/// Name must only include upper case chars.
+///
+/// ## Example
+/// ```
+/// # use antelope::{Symbol, SymbolCode, InvalidSymbol};
+/// let symbol: Symbol = "4,CUR".parse()?;
+/// assert_eq!(symbol.decimals(), 4);
+/// assert_eq!(symbol.precision(), 10000);
+/// assert_eq!(symbol.code(), SymbolCode::new("CUR")?);
+/// # Ok::<(), InvalidSymbol>(())
+/// ```
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct Symbol {
     value: u64,
@@ -154,6 +173,19 @@ fn is_valid_symbol_name(name: &str) -> bool {
 
 
 // -----------------------------------------------------------------------------
+//     Conversion traits
+// -----------------------------------------------------------------------------
+
+impl TryFrom<&str> for Symbol {
+    type Error = InvalidSymbol;
+
+    fn try_from(s: &str) -> Result<Symbol, InvalidSymbol> {
+        Symbol::from_str(s)
+    }
+}
+
+
+// -----------------------------------------------------------------------------
 //     `Display` implementation
 // -----------------------------------------------------------------------------
 
@@ -243,18 +275,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn basic_functionality() {
-        let obj = Symbol::new("4,FOO").unwrap();
-        let json = r#""4,FOO""#;
-
-        assert_eq!(obj.decimals(), 4);
-        assert_eq!(obj.name(), "FOO");
-
-        assert_eq!(serde_json::from_str::<Symbol>(json).unwrap(), obj);
-        assert_eq!(serde_json::to_string(&obj).unwrap(), json);
-    }
-
-    #[test]
     fn invalid_symbols() {
         let symbols = [
             "0,WAXXXXXX",
@@ -268,5 +288,17 @@ mod tests {
         for s in symbols {
             assert!(Symbol::new(s).is_err());
         }
+    }
+
+    #[test]
+    fn basic_functionality() {
+        let obj = Symbol::new("4,FOO").unwrap();
+        let json = r#""4,FOO""#;
+
+        assert_eq!(obj.decimals(), 4);
+        assert_eq!(obj.name(), "FOO");
+
+        assert_eq!(serde_json::from_str::<Symbol>(json).unwrap(), obj);
+        assert_eq!(serde_json::to_string(&obj).unwrap(), json);
     }
 }

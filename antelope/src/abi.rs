@@ -13,9 +13,11 @@ mod definition;
 mod error;
 mod provider;
 mod serializer;
+mod typename;
 pub mod data;
 
-pub use error::ABIError;
-pub use serializer::ABI;
 pub use definition::{ABIDefinition, abi_schema};
+pub use error::ABIError;
 pub use provider::{ABIProvider, get_signing_request_abi};
+pub use serializer::ABI;
+pub use typename::TypeName;

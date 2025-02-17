@@ -45,10 +45,11 @@ impl<'a> TypeName<'a> {
     ///
     /// ```
     /// # use antelope::TypeName;
-    /// assert_eq!(TypeName("int8"), TypeName("int8"));
-    /// assert_eq!(TypeName("int8[]"), TypeName("int8"));
-    /// assert_eq!(TypeName("int8[][]"), TypeName("int8[]"));
-    /// assert_eq!(TypeName("int8[][]?"), TypeName("int8[][]"));
+    /// fn ftype(t: &str) -> TypeName<'_> { TypeName(t).fundamental_type() }
+    /// assert_eq!(ftype("int8"), TypeName("int8"));
+    /// assert_eq!(ftype("int8[]"), TypeName("int8"));
+    /// assert_eq!(ftype("int8[][]"), TypeName("int8[]"));
+    /// assert_eq!(ftype("int8[][]?"), TypeName("int8[][]"));
     /// ```
     pub fn fundamental_type(&self) -> TypeName<'a> {
         if self.is_array() {

@@ -38,7 +38,6 @@ impl Name {
     /// assert_eq!(Name::new("")?.as_u64(), 0);
     /// # Ok::<(), InvalidName>(())
     /// ```
-    ///
     pub fn new(s: &str) -> Result<Self, InvalidName> {
         ensure!(s.len() <= 13, TooLongSnafu { name: s.to_owned() });
 

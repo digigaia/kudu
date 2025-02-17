@@ -4,10 +4,6 @@
 
 - clean abi.rs
   - check use and handling of binary extension
-  - check whether we really need `AntelopeValue`, because if not then it seems we should be able
-    to remove it altogether.
-
-- implement `From` traits for base types everywhere it makes sense, and `TryFrom` too
 
 - the `BinarySerializable` trait or the `ByteStream` struct needs to be revised:
   currently, `from_bin()` needs a `ByteStream` however the latter owns its data,
@@ -27,12 +23,6 @@
 
 
 ## CORRECTNESS / TESTING
-
-- IMPORTANT
-  unittests for base types should have at least the following:
-  - basic functionality
-  - invalid values
-  - (de)serialization to JSON
 
 - have some tests for `APIClient`, think how to do this smartly to not pound the API server
 

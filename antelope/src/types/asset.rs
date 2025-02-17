@@ -6,7 +6,7 @@ use serde::{de, Serialize, Serializer, Deserialize, Deserializer};
 use snafu::{ensure, Snafu, OptionExt, ResultExt};
 
 use antelope_macros::with_location;
-use crate::{Name, InvalidSymbol, Symbol};
+use crate::{InvalidSymbol, Name, Symbol, impl_auto_error_conversion};
 
 
 #[with_location]
@@ -31,7 +31,21 @@ pub enum InvalidAsset {
     InvalidSymbol { source: InvalidSymbol },
 }
 
+impl_auto_error_conversion!(ParseIntError, InvalidAsset, ParseAmountSnafu);
+impl_auto_error_conversion!(InvalidSymbol, InvalidAsset, InvalidSymbolSnafu);
 
+
+/// `Asset` includes amount and currency symbol.
+///
+/// ## Example
+/// ```
+/// # use antelope::{Asset, InvalidAsset, Symbol};
+/// # use snafu::Whatever;
+/// let asset: Asset = "10.0000 CUR".parse()?;
+/// assert_eq!(asset.to_real(), 10.0);
+/// assert_eq!(asset.symbol(), "4,CUR".parse::<Symbol>()?);
+/// # Ok::<(), InvalidAsset>(())
+/// ```
 #[derive(PartialEq, Eq, Debug, Copy, Clone)]
 pub struct Asset {
     amount: i64,
@@ -68,10 +82,23 @@ pub struct ExtendedAsset {
 
 
 // -----------------------------------------------------------------------------
+//     Conversion traits
+// -----------------------------------------------------------------------------
+
+impl TryFrom<&str> for Asset {
+    type Error = InvalidAsset;
+
+    fn try_from(s: &str) -> Result<Asset, InvalidAsset> {
+        Asset::from_str(s)
+    }
+}
+
+
+// -----------------------------------------------------------------------------
 //     `Display` implementation
 // -----------------------------------------------------------------------------
 
-// FIXME: this could be made way more efficient
+// FIXME: this could be made more efficient
 impl fmt::Display for Asset {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let sign = if self.amount < 0 { "-" } else { "" };
@@ -193,14 +220,13 @@ mod tests {
         ];
 
         for n in names {
-            println!("{}", n);
             assert!(Asset::from_str(n).is_err());
         }
     }
 
     #[test]
-    fn serialize_json() {
-        let obj = Asset::from_str("1.2345 FOO").unwrap();
+    fn basic_functionality() {
+        let obj: Asset = "1.2345 FOO".parse().unwrap();
         let json = r#""1.2345 FOO""#;
 
         assert_eq!(obj.amount(), 12345);

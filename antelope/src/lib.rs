@@ -80,6 +80,7 @@
 
 #![cfg_attr(feature = "float128", feature(f128))]
 
+#[cfg(not(doctest))]
 pub mod doc;
 
 pub mod abi;
@@ -87,7 +88,7 @@ pub mod api;
 pub mod chain;
 pub mod config;
 pub mod convert;
-pub mod error;
+pub mod macros;
 pub mod json;
 pub mod types;
 
@@ -106,15 +107,13 @@ pub use api::APIClient;
 pub use types::*;
 pub use chain::*;
 
-pub use abi::{ABI, ABIError, ABIDefinition, ABIProvider};
+pub use abi::{ABI, ABIError, ABIDefinition, ABIProvider, TypeName};
 
 pub mod binaryserializable;
 pub mod bytestream;
-pub mod typename;
 
 pub use bytestream::{ByteStream, StreamError};
 pub use binaryserializable::{BinarySerializable, SerializeError};
-pub use typename::TypeName;
 
 /// Add a `location` field to all variants of a `Snafu` error enum
 ///
@@ -144,7 +143,9 @@ pub use antelope_macros::with_location;
 /// # Example
 ///
 /// ```
+/// # use antelope::{Name, Asset, BinarySerializable, contract};
 /// #[contract(account="eosio.token", name="transfer")]
+/// #[derive(BinarySerializable)]
 /// pub struct Transfer {
 ///     pub from: Name,
 ///     pub to: Name,
