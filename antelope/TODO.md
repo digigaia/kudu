@@ -47,6 +47,7 @@
 ## PERFORMANCE
 
 - use a small string library so that ABIs have a much better cache locality
+  eg: "german strings": <https://cedardb.com/blog/german_strings/>
 
 - try using smallvec/tinyvec for the same reasons as small string, esp. on vectors that are
   empty most of the time, eg: extensions, etc. or only contain 1 or 2 elements,

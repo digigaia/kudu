@@ -26,7 +26,11 @@ file once they are implemented.
 ## CORRECTNESS / TESTING
 
 - check for `unwrap` and `panic!` and `assert` everywhere
-
+  use the following to forbid `unwrap()` and allow them on a case-by-case basis
+  ```
+  [lints.clippy]
+  unwrap_used = "deny"
+  ```
 
 ## MISC
 
