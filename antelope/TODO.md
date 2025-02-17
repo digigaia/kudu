@@ -62,6 +62,9 @@
 
 - investigate <https://github.com/eosrio/rs-abieos>
 
+- investigate `darling` crate to help with derive macros, here's a
+  [small example](https://github.com/imbolc/rust-derive-macro-guide)
+
 
 ## MISSING FEATURES
 

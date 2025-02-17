@@ -14,6 +14,9 @@ file once they are implemented.
 
 ## DOCUMENTATION
 
+- read the [rustdoc book](https://doc.rust-lang.org/stable/rustdoc/), see how we can enhance
+  the documentation
+
 - make modules private at the crate level so that items re-exported from them appear directly
   as top-level structs/traits/etc. instead of being listed in the "Re-exports" section
 

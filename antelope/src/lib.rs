@@ -52,6 +52,8 @@
 //!    representation via [`str::parse()`]
 //!  - [`PartialEq`], [`Eq`], [`PartialOrd`], [`Ord`], [`Hash`]
 //!
+//! <div class="warning">
+//!
 //! ## Warnings / pitfalls
 //!
 //!  - when defining your own types, make sure to use the [`Bytes`] type instead of `Vec<u8>`
@@ -61,6 +63,7 @@
 //!    the discriminant needs to be encoded in a specific way which cannot be achieved with
 //!    the `serde::Serialize` trait.
 //!
+//! </div>
 //!
 //! # Differences between this library and the Antelope C++ library
 //!
