@@ -106,14 +106,7 @@ impl Serialize for Bytes {
     where
         S: Serializer
     {
-        if serializer.is_human_readable() {
-            self.to_hex().serialize(serializer)
-        }
-        else {
-            // FIXME: deprecated?
-            unimplemented!();
-            // self.0.serialize(serializer)
-        }
+        self.to_hex().serialize(serializer)
     }
 }
 
@@ -181,12 +174,7 @@ macro_rules! impl_checksum {
             where
                 S: Serializer
             {
-                if serializer.is_human_readable() {
-                    self.to_hex().serialize(serializer)
-                }
-                else {
-                    self.0.serialize(serializer)
-                }
+                self.to_hex().serialize(serializer)
             }
         }
 

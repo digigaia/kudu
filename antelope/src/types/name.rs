@@ -233,12 +233,7 @@ impl Serialize for Name {
     where
         S: Serializer,
     {
-        if serializer.is_human_readable() {
-            self.to_string().serialize(serializer)
-        }
-        else {
-            self.as_u64().serialize(serializer)
-        }
+        self.to_string().serialize(serializer)
     }
 }
 

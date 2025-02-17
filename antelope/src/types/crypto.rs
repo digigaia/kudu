@@ -176,12 +176,7 @@ impl<T: CryptoDataType, const DATA_SIZE: usize> Serialize for CryptoData<T, DATA
     where
         S: Serializer
     {
-        if serializer.is_human_readable() {
-            self.to_string().serialize(serializer)
-        }
-        else {
-            unimplemented!()
-        }
+        self.to_string().serialize(serializer)
     }
 }
 

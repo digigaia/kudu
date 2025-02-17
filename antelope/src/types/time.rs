@@ -41,12 +41,7 @@ macro_rules! impl_serialize {
             fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
             where S: Serializer
             {
-                if serializer.is_human_readable() {
-                    self.to_string().serialize(serializer)
-                }
-                else {
-                    self.0.serialize(serializer)
-                }
+                self.to_string().serialize(serializer)
             }
         }
 

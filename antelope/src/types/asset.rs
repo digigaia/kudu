@@ -2,11 +2,7 @@ use std::fmt;
 use std::num::ParseIntError;
 use std::str::FromStr;
 
-use serde::{
-    Serialize, Deserialize,
-    de::{self, Deserializer},
-    ser::{Serializer, SerializeTupleStruct}
-};
+use serde::{de, Serialize, Serializer, Deserialize, Deserializer};
 use snafu::{ensure, Snafu, OptionExt, ResultExt};
 
 use antelope_macros::with_location;
@@ -153,15 +149,7 @@ impl Serialize for Asset {
     where
         S: Serializer,
     {
-        if serializer.is_human_readable() {
-            self.to_string().serialize(serializer)
-        }
-        else {
-            let mut ts = serializer.serialize_tuple_struct("Asset", 2)?;
-            ts.serialize_field(&self.amount)?;
-            ts.serialize_field(&self.symbol)?;
-            ts.end()
-        }
+        self.to_string().serialize(serializer)
     }
 }
 

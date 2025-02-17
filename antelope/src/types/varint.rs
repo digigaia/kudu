@@ -20,27 +20,7 @@ impl Serialize for VarInt32 {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where S: Serializer
     {
-        if serializer.is_human_readable() {
-            self.0.serialize(serializer)
-        }
-        else {
-            let mut n = ((self.0 as u32) << 1) ^ ((self.0 >> 31) as u32);
-            let mut buf = [0u8; 5];
-            let mut size = 0;
-            loop {
-                if n >> 7 != 0 {
-                    buf[size] = (0x80 | (n & 0x7f)) as u8;
-                    size += 1;
-                    n >>= 7;
-                }
-                else {
-                    buf[size] = n as u8;
-                    size += 1;
-                    break;
-                }
-            }
-            serializer.serialize_bytes(&buf[..size])
-        }
+        self.0.serialize(serializer)
     }
 }
 
@@ -89,28 +69,7 @@ impl Serialize for VarUint32 {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where S: Serializer
     {
-        if serializer.is_human_readable() {
-            self.0.serialize(serializer)
-        }
-        else {
-            // FIXME: deprecated?
-            let mut n = self.0;
-            let mut buf = [0u8; 5];
-            let mut size = 0;
-            loop {
-                if n >> 7 != 0 {
-                    buf[size] = (0x80 | (n & 0x7f)) as u8;
-                    size += 1;
-                    n >>= 7;
-                }
-                else {
-                    buf[size] = n as u8;
-                    size += 1;
-                    break;
-                }
-            }
-            serializer.serialize_bytes(&buf[..size])
-        }
+        self.0.serialize(serializer)
     }
 }
 
