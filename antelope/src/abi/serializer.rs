@@ -48,10 +48,10 @@ impl ABI {
         }
     }
 
+
     // -----------------------------------------------------------------------------
     //     Constructors and validation of ABI
     // -----------------------------------------------------------------------------
-
 
     pub fn from_definition(abi: &ABIDefinition) -> Result<Self> {
         let mut result = Self::new();
@@ -228,10 +228,10 @@ impl ABI {
         Ok(())
     }
 
+
     // -----------------------------------------------------------------------------
     //     Encoding of variant -> binary
     // -----------------------------------------------------------------------------
-
 
     pub fn variant_to_binary<'a, T>(&self, typename: T, obj: &JsonValue)
                                     -> Result<Vec<u8>>

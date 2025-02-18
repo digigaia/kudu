@@ -148,25 +148,25 @@ pub struct AccountDelta {
 
 
 
-#[derive(Eq, Hash, PartialEq, Debug, Clone, Default)]
+#[derive(Eq, Hash, PartialEq, Debug, Clone, Default, BinarySerializable, Serialize)]
 pub struct Trace {
-    action_ordinal: VarUint32,
-    creator_action_ordinal: VarUint32,
-    closest_unnotified_ancestor_action_ordinal: VarUint32,
-    receipt: Option<ActionReceipt>,
-    receiver: ActionName,
-    act: Action,
-    context_free: bool, // = false;
-    elapsed: MicroSeconds,
-    console: String,
-    trx_id: TransactionId, /// the transaction that generated this action
-    block_num: u32, // = 0;
-    block_time: BlockTimestamp,
-    producer_block_id: Option<BlockId>,
-    account_ram_deltas: Set<AccountDelta>,
+    pub action_ordinal: VarUint32,
+    pub creator_action_ordinal: VarUint32,
+    pub closest_unnotified_ancestor_action_ordinal: VarUint32,
+    pub receipt: Option<ActionReceipt>,
+    pub receiver: ActionName,
+    pub act: Action,
+    pub context_free: bool, // = false;
+    pub elapsed: MicroSeconds,
+    pub console: String,
+    pub trx_id: TransactionId, /// the transaction that generated this action
+    pub block_num: u32, // = 0;
+    pub block_time: BlockTimestamp,
+    pub producer_block_id: Option<BlockId>,
+    pub account_ram_deltas: Set<AccountDelta>,
       // std::optional<fc::exception>    except;  // TODO / FIXME
-    error_code: Option<u64>,
-    return_value: Bytes,
+    pub error_code: Option<u64>,
+    pub return_value: Bytes,
 }
 
 

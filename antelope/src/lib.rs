@@ -116,7 +116,7 @@ pub mod binaryserializable;
 pub mod bytestream;
 
 pub use bytestream::{ByteStream, StreamError};
-pub use binaryserializable::{BinarySerializable, SerializeError};
+pub use binaryserializable::{BinarySerializable, SerializeError, to_bin, to_hex, from_bin};
 
 /// Add a `location` field to all variants of a `Snafu` error enum
 ///

@@ -28,9 +28,6 @@
 
 - check abieos/test.cpp to ensure we cover also all the error cases with proper error messages
 
-- check tests in <https://github.com/AntelopeIO/spring/blob/main/unittests/abi_tests.cpp>
-  - at the end, there are tests about action results
-
 - check other tests and ideas from: <https://github.com/wharfkit/antelope>, e.g.:
   <https://github.com/wharfkit/antelope/blob/master/test/chain.ts>
 

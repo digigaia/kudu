@@ -24,6 +24,8 @@ mod symbol;
 mod time;
 mod varint;
 
+use std::str::FromStr;
+
 use hex::FromHexError;
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
@@ -160,6 +162,14 @@ macro_rules! impl_checksum {
             type Error = FromHexError;
 
             fn try_from(s: &str) -> Result<Self, Self::Error> {
+                Self::from_hex(s)
+            }
+        }
+
+        impl FromStr for $typ {
+            type Err = FromHexError;
+
+            fn from_str(s: &str) -> Result<Self, Self::Err> {
                 Self::from_hex(s)
             }
         }

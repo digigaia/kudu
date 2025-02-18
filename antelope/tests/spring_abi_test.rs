@@ -30,7 +30,8 @@ use antelope::*;
 //      - abi_to_variant__add_action__good_return_value,
 //        abi_to_variant__add_action__bad_return_value,
 //        abi_to_variant__add_action__no_return_value,
-//        -> 'action_results' not implemented yet
+//        -> we haven't implemented `ABI::abi_to_variant` and it seems to be
+//           pretty involved with internals, we might not need it anyway
 //
 // =============================================================================
 
@@ -844,6 +845,8 @@ fn abi_serialize_json_mismatched_type() -> Result<()> {
 
 #[test]
 fn abi_serialize_json_empty_name() -> Result<()> {
+    init();
+
     let abi = ABI::from_str(r#"
     {
         "version": "eosio::abi/1.0",
@@ -862,12 +865,13 @@ fn abi_serialize_json_empty_name() -> Result<()> {
 
     verify_round_trip(&abi, "s1", &json!({"": 1}), "01")?;
 
-
     Ok(())
 }
 
 #[test]
 fn serialize_optional_struct_type() -> Result<()> {
+    init();
+
     let abi = ABI::from_str(r#"
     {
         "version": "eosio::abi/1.0",
