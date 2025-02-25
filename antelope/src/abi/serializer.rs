@@ -22,8 +22,6 @@ type Result<T, E = ABIError> = core::result::Result<T, E>;
 
 // TODO: make sure that we can (de)serialize an ABI (ABIDefinition?) itself (eg, see: https://github.com/wharfkit/antelope/blob/master/src/chain/abi.ts, which implements ABISerializableObject)
 
-// FIXME: remove all `.0` lying in this file
-
 #[derive(Default, Clone, Debug)]
 pub struct ABI {
     // ABI-related fields
@@ -134,17 +132,17 @@ impl ABI {
 
         // NOTE: this is the C++ Antelope Spring behavior
         // let t = t.fundamental_type();
-        AntelopeValue::VARIANTS.contains(&t.0)
-            || (self.typedefs.contains_key(t.0) &&
-               self.is_type(TypeName(self.typedefs.get(t.0).unwrap())))  // safe unwrap
-            || self.structs.contains_key(t.0)
-            || self.variants.contains_key(t.0)
+        AntelopeValue::VARIANTS.contains(&t)
+            || (self.typedefs.contains_key(t.as_str()) &&
+               self.is_type(TypeName(self.typedefs.get(t.as_str()).unwrap())))  // safe unwrap
+            || self.structs.contains_key(t.as_str())
+            || self.variants.contains_key(t.as_str())
     }
 
     pub fn resolve_type<'a>(&'a self, t: TypeName<'a>) -> TypeName<'a> {
         let mut rtype = t;
         loop {
-            match self.typedefs.get(rtype.0) {
+            match self.typedefs.get(rtype.as_str()) {
                 Some(t) => rtype = TypeName(t),
                 None => return rtype,
             }
@@ -269,11 +267,11 @@ impl ABI {
 
         // use a closure to avoid cloning and copying if no error occurs
         let incompatible_types = || { IncompatibleVariantTypesSnafu {
-            typename: rtype.0.to_owned(),
+            typename: rtype.to_string(),
             value: Box::new(object.clone())
         }.build() };
 
-        if AntelopeValue::VARIANTS.contains(&ftype.0) {
+        if AntelopeValue::VARIANTS.contains(&ftype) {
             // if our fundamental type is a builtin type, we can serialize it directly
             // to the stream
             let inner_type: AntelopeType = ftype.try_into().unwrap();  // safe unwrap
@@ -322,8 +320,8 @@ impl ABI {
                     false => false.to_bin(ds),
                 }
             }
-            else if let Some(variant_def) = self.variants.get(rtype.0) {
-                debug!("serializing type {:?} with variant: {:?}", rtype.0, object);
+            else if let Some(variant_def) = self.variants.get(rtype.as_str()) {
+                debug!("serializing type {:?} with variant: {:?}", rtype, object);
                 ensure!(object.is_array() && object.as_array().unwrap().len() == 2,
                         EncodeSnafu {
                             message: format!("expected input to be an array of 2 elements while processing variant: {}",
@@ -335,7 +333,7 @@ impl ABI {
                                              object[0])
                         });
                 let variant_type = TypeName(object[0].as_str().unwrap());
-                if let Some(vpos) = variant_def.types.iter().position(|v| v == variant_type.0) {
+                if let Some(vpos) = variant_def.types.iter().position(|v| *v == variant_type) {
                     VarUint32::from(vpos).to_bin(ds);
                     self.encode_variant_(ctx, ds, variant_type, &object[1])?;
                 }
@@ -346,7 +344,7 @@ impl ABI {
                     }.fail()?;
                 }
             }
-            else if let Some(struct_def) = self.structs.get(rtype.0) {
+            else if let Some(struct_def) = self.structs.get(rtype.as_str()) {
                 warn!(t=rtype.0, obj=object.to_string());
                 self.encode_struct(ctx, ds, struct_def, object)?;
             }
@@ -465,7 +463,7 @@ impl ABI {
         let rtype = self.resolve_type(typename);
         let ftype = rtype.fundamental_type();
 
-        Ok(if AntelopeValue::VARIANTS.contains(&ftype.0) {
+        Ok(if AntelopeValue::VARIANTS.contains(&ftype) {
             let type_ = ftype.try_into().unwrap();  // safe unwrap
 
             // if our fundamental type is a builtin type, we can deserialize it directly
@@ -516,16 +514,16 @@ impl ABI {
                     false => JsonValue::Null,
                 }
             }
-            else if let Some(variant_def) = self.variants.get(rtype.0) {
+            else if let Some(variant_def) = self.variants.get(rtype.as_str()) {
                 let variant_tag: usize = decode_usize(ds, "variant tag (as varuint32)")?;
                 ensure!(variant_tag < variant_def.types.len(),
                         DecodeSnafu { message: format!("deserialized invalid tag {} for variant {}",
                                                        variant_tag, rtype)
                         });
                 let variant_type = TypeName(&variant_def.types[variant_tag]);
-                json!([variant_type.0, self.decode_variant(ds, variant_type)?])
+                json!([variant_type, self.decode_variant(ds, variant_type)?])
             }
-            else if let Some(struct_def) = self.structs.get(rtype.0) {
+            else if let Some(struct_def) = self.structs.get(rtype.as_str()) {
                 self.decode_struct(ds, struct_def)?
             }
             else {

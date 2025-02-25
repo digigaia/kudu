@@ -1,13 +1,18 @@
 use std::fmt;
+use serde::{Serialize, Deserialize};
 
 use crate::AntelopeType;
 
 /// Newtype wrapper for a `&str` representing a type name that adds a few
 /// convenience methods.
-#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct TypeName<'a>(pub &'a str);
 
 impl<'a> TypeName<'a> {
+    pub fn as_str(&self) -> &'a str {
+        self.0
+    }
+
     pub fn is_array(&self) -> bool {
         self.0.ends_with("[]")
     }
@@ -116,5 +121,29 @@ impl<'a> TryFrom<TypeName<'a>> for AntelopeType {
     fn try_from(value: TypeName<'a>) -> Result<Self, Self::Error> {
         AntelopeType::try_from(value.0)
     }
+}
 
+impl<'a> std::ops::Deref for TypeName<'a> {
+    type Target = &'a str;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl PartialEq<str> for TypeName<'_> {
+    fn eq(&self, other: &str) -> bool {
+        self.0 == other
+    }
+}
+
+impl PartialEq<String> for TypeName<'_> {
+    fn eq(&self, other: &String) -> bool {
+        self.0 == other
+    }
+}
+
+impl<'a> PartialEq<TypeName<'a>> for String {
+    fn eq(&self, other: &TypeName<'a>) -> bool {
+        self == other.0
+    }
 }

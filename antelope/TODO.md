@@ -2,6 +2,9 @@
 
 ## API DESIGN
 
+NOTE: this should be fixed, or at least a resolution for this should be decided and
+      documented in ARCHITECTURE.md before making a 1.0 release
+
 - clean abi.rs
   - check use and handling of binary extension
 
@@ -16,6 +19,10 @@
   - a read-only `ByteStream` needs to be able to be cheaply created from `&[u8]`
   - (maybe?) we introduce a new `Cursor` struct (trait?) that can be created either from
     a `&[u8]` or by a `ByteStream`
+
+- find a way to declare extension fields on native Rust structs. We can easily
+  annotate them using attributes that are recognized by the `derive(BinarySerializable)`
+  macro but what should the implementation be like?
 
 ### Naming
 
