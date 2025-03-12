@@ -1001,3 +1001,42 @@ fn roundtrip_transaction_traces() -> Result<()> {
 
     Ok(())
 }
+
+#[test]
+fn check_type_nesting() -> Result<()> {
+    init();
+
+    let abi = transaction_abi();
+
+    check_error(|| try_encode(abi, "int8?[]", "null"), "invalid array nesting for type int8?[]");
+    check_error(|| try_encode(abi, "int8$?",  "null"), "invalid optional nesting for type int8$?");
+    check_error(|| try_encode(abi, "int8$[]", "null"), "invalid array nesting for type int8$[]");
+    check_error(|| try_encode(abi, "int8$$",  "null"), "invalid extension nesting for type int8$$");
+
+    let s = |s: &str| s.to_string();
+
+    check_cross_conversion(abi, [s("hello"), s("world")], "string[]", r#"["hello","world"]"#, "020568656c6c6f05776f726c64");
+    check_cross_conversion(abi, [vec![s("A")], vec![s("B")], vec![s("C"), s("D")]], "string[][]", r#"[["A"],["B"],["C","D"]]"#, "030101410101420201430144");
+    check_cross_conversion(abi, Some([1u8]), "uint8[]?", "[1]", "010101");
+    check_cross_conversion(abi, [[1u8]], "uint8[][]", "[[1]]", "010101");
+    check_cross_conversion(abi, [[vec![1u8, 2, 3], vec![4, 5, 6]], [vec![7, 8, 9], vec![]]], "uint8[][][]", "[[[1,2,3],[4,5,6]],[[7,8,9],[]]]", "02020301020303040506020307080900");
+
+    check_error(|| try_encode(abi, "fee",  "null"), "unknown ABI type: `fee`");
+
+
+    Ok(())
+}
+
+#[test]
+fn check_invalid_abis() -> Result<()> {
+    init();
+
+    check_error(|| Ok(ABI::from_str(r#"{"version":"eosio::abi/1.1","types":[{"new_type_name":"","type":"int8"}]}"#)?),
+                "integrity error: empty name in typedef");
+    check_error(|| Ok(ABI::from_str(r#"{"version":"eosio::abi/1.1","types":[{"new_type_name":"a","type":"int8$"}]}"#)?),
+                "integrity error: invalid type used in typedef");
+    check_error(|| Ok(ABI::from_str(r#"{"version":"eosio::abi/1.1","types":[{"new_type_name":"a","type":"int8"},{"new_type_name":"a","type":"int8"}]}"#)?),
+                "integrity error: type already exists: `a`");
+
+    Ok(())
+}

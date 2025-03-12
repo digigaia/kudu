@@ -85,7 +85,7 @@ impl Dune {
         if !status.success() {
             let msg = concat!(
                 "You need to have `pyinfra` installed and available, in an activated ",
-                "virtual env or (recommended) through `pipx` to be able to build the EOS image"
+                "virtual env or (recommended) through `uv` or `pipx` to be able to build the EOS image"
              );
             return Err(eyre!(msg));
         }

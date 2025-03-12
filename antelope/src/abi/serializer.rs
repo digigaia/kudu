@@ -88,7 +88,7 @@ impl ABI {
             //       in `validate()` but this also checks that we have no duplicates
             //       between the previously defined structs and the typedefs
             ensure!(!self.is_type(TypeName(&td.new_type_name)),
-                    IntegritySnafu { message: format!("type already exists: {}",
+                    IntegritySnafu { message: format!("type already exists: `{}`",
                                                       td.new_type_name) });
             self.typedefs.insert(td.new_type_name.clone(), td.type_.clone());
         }
@@ -165,12 +165,15 @@ impl ABI {
 
         // check all types used in typedefs are valid types
         for t in &self.typedefs {
+            ensure!(!t.0.is_empty(),
+                    IntegritySnafu { message: "empty name in typedef" });
             ensure!(self.is_type(t.1.into()),
                     IntegritySnafu { message: format!("invalid type used in typedef `{}`", t.1) });
         }
 
         // check there are no circular references in the structs definition
         for s in self.structs.values() {
+            ensure!(!s.name.is_empty(), IntegritySnafu { message: "empty name in struct definition" });
             if !s.base.is_empty() {
                 let mut current = s;
                 let mut types_seen = vec![&current.name];
@@ -195,6 +198,7 @@ impl ABI {
 
         // check all types from a variant are valid types
         for v in self.variants.values() {
+            ensure!(!v.name.is_empty(), IntegritySnafu { message: "empty name in variant definition" });
             for t in &v.types {
                 ensure!(self.is_type(t.into()),
                         IntegritySnafu { message: format!("invalid type `{}` used in variant '{}'",
@@ -264,6 +268,17 @@ impl ABI {
         let ftype = rtype.fundamental_type();
 
         debug!(rtype=rtype.0, ftype=ftype.0);
+        // check that the types are OK, similar to what `abieos` does in `get_type`
+        // see: https://github.com/AntelopeIO/abieos/blob/main/src/abi.cpp#L46
+        if rtype.is_optional() {
+            ensure!(!ftype.is_optional() && !ftype.has_bin_extension(),
+                    IntegritySnafu { message: format!("invalid optional nesting for type {rtype}") }); }
+        if rtype.is_array() {
+            ensure!(!ftype.is_optional() && !ftype.has_bin_extension(),
+                    IntegritySnafu { message: format!("invalid array nesting for type {rtype}") }); }
+        if rtype.has_bin_extension() {
+            ensure!(!ftype.has_bin_extension(),
+                    IntegritySnafu { message: format!("invalid extension nesting for type {rtype}") }); }
 
         // use a closure to avoid cloning and copying if no error occurs
         let incompatible_types = || { IncompatibleVariantTypesSnafu {
@@ -349,7 +364,7 @@ impl ABI {
                 self.encode_struct(ctx, ds, struct_def, object)?;
             }
             else {
-                EncodeSnafu { message: format!("do not know how to serialize type: `{}`", rtype) }.fail()?;
+                EncodeSnafu { message: format!("unknown ABI type: `{}`", rtype) }.fail()?;
             }
         }
 

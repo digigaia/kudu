@@ -108,6 +108,7 @@ So for now, `ByteStream` stays as a normal struct.
   - <https://graphallthethings.com/posts/better-buf-read>
   - `std::io::Cursor`
   - something based on the `bytes` crate?
+    - or this crate maybe: <https://github.com/wyfo/arc-slice> [[reddit](https://www.reddit.com/r/rust/comments/1j7sbwr/arcslice_a_generalized_implementation/)]
   - <https://docs.rs/binary-stream/>
 
 
