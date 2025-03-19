@@ -7,12 +7,12 @@ NOTE: this should be fixed, or at least a resolution for this should be decided 
 
 - clean abi.rs
 
-- the `BinarySerializable` trait or the `ByteStream` struct needs to be revised:
+- the `ABISerializable` trait or the `ByteStream` struct needs to be revised:
   currently, `from_bin()` needs a `ByteStream` however the latter owns its data,
   meaning that if we only have a `&[u8]` we need to make a copy of the whole data
   before deserializing it.
   In other words, the choice is:
-  - `BinarySerializable::from_bin` needs to take `&[u8]` as input
+  - `ABISerializable::from_bin` needs to take `&[u8]` as input
     that would be the most generic, but then we reading from a bytestream would be awkward as
     we can't advance its cursor (is this actually really needed?)
   - a read-only `ByteStream` needs to be able to be cheaply created from `&[u8]`
@@ -20,12 +20,8 @@ NOTE: this should be fixed, or at least a resolution for this should be decided 
     a `&[u8]` or by a `ByteStream`
 
 - find a way to declare extension fields on native Rust structs. We can easily
-  annotate them using attributes that are recognized by the `derive(BinarySerializable)`
+  annotate them using attributes that are recognized by the `derive(ABISerializable)`
   macro but what should the implementation be like?
-
-### Naming
-
-- rename `BinarySerializable` to `ABISerializable`?
 
 
 ## CORRECTNESS / TESTING

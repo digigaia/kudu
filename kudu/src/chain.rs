@@ -11,10 +11,12 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     AccountName, ActionName, BlockId, BlockTimestamp, Digest, Extensions, MicroSeconds,
-    PermissionName, TransactionId, TimePointSec, VarUint32, Name, Asset, BinarySerializable,
-    binaryserializable::to_bin, Bytes, Signature, SerializeEnumPrefixed,
+    PermissionName, TransactionId, TimePointSec, VarUint32, Name, Asset, ABISerializable,
+    abiserializable::to_bin, Bytes, Signature, SerializeEnumPrefixed,
 };
 
+// this is needed to be able to call the `ABISerializable` derive macro, which needs
+// access to the `kudu` crate
 extern crate self as kudu;
 
 // =============================================================================
@@ -42,12 +44,12 @@ pub type Set<T> = BTreeSet<T>;
 
 // from: https://github.com/AntelopeIO/spring/blob/main/libraries/chain/include/eosio/chain/action.hpp
 
-pub trait Contract: BinarySerializable {
+pub trait Contract: ABISerializable {
     fn account() -> AccountName;
     fn name() -> ActionName;
 }
 
-#[derive(Eq, Hash, PartialEq, Debug, Copy, Clone, Default, Deserialize, Serialize, BinarySerializable)]
+#[derive(Eq, Hash, PartialEq, Debug, Copy, Clone, Default, Deserialize, Serialize, ABISerializable)]
 pub struct PermissionLevel {
     pub actor: AccountName,
     pub permission: PermissionName,
@@ -70,7 +72,7 @@ pub struct PermissionLevel {
 /// levels are declared on the action and validated independently of the executing
 /// application code. An application code will check to see if the required
 /// authorization were properly declared when it executes.
-#[derive(Eq, Hash, PartialEq, Debug, Clone, Default, Deserialize, Serialize, BinarySerializable)]
+#[derive(Eq, Hash, PartialEq, Debug, Clone, Default, Deserialize, Serialize, ABISerializable)]
 pub struct Action {
     pub account: AccountName,
     pub name: ActionName,
@@ -113,14 +115,14 @@ impl Action {
 
 // from: https://github.com/AntelopeIO/spring/blob/main/libraries/chain/include/eosio/chain/action_receipt.hpp
 
-#[derive(Eq, Hash, PartialEq, Debug, Clone, Default, Serialize, Deserialize, BinarySerializable)]
+#[derive(Eq, Hash, PartialEq, Debug, Clone, Default, Serialize, Deserialize, ABISerializable)]
 pub struct AccountAuthSequence {
     pub account: Name,
     pub sequence: u64,
 }
 
 /// For each action dispatched this receipt is generated.
-#[derive(Eq, Hash, PartialEq, Debug, Clone, Default, Serialize, Deserialize, BinarySerializable)]
+#[derive(Eq, Hash, PartialEq, Debug, Clone, Default, Serialize, Deserialize, ABISerializable)]
 pub struct ActionReceiptV0 {
     pub receiver: AccountName,
     pub act_digest: Digest,
@@ -133,14 +135,14 @@ pub struct ActionReceiptV0 {
     pub abi_sequence: VarUint32,
 }
 
-#[derive(Eq, Hash, PartialEq, Debug, Clone, SerializeEnumPrefixed, BinarySerializable)]
+#[derive(Eq, Hash, PartialEq, Debug, Clone, SerializeEnumPrefixed, ABISerializable)]
 pub enum ActionReceipt {
     V0(ActionReceiptV0),
 }
 
 // FIXME: check that the `Ord` is correct, as it differs from the C++ one which only compares on "account"
 //        (which is probably an optimization, and we should be fine)
-#[derive(Eq, Hash, PartialEq, Ord, PartialOrd, Debug, Clone, Default, Serialize, Deserialize, BinarySerializable)]
+#[derive(Eq, Hash, PartialEq, Ord, PartialOrd, Debug, Clone, Default, Serialize, Deserialize, ABISerializable)]
 pub struct AccountDelta {
     pub account: AccountName,
     pub delta: i64,
@@ -148,7 +150,7 @@ pub struct AccountDelta {
 
 
 
-#[derive(Eq, Hash, PartialEq, Debug, Clone, Default, BinarySerializable, Serialize)]
+#[derive(Eq, Hash, PartialEq, Debug, Clone, Default, ABISerializable, Serialize)]
 pub struct Trace {
     pub action_ordinal: VarUint32,
     pub creator_action_ordinal: VarUint32,
@@ -170,7 +172,7 @@ pub struct Trace {
 }
 
 
-#[derive(Eq, Hash, PartialEq, Debug, Clone, Default, Serialize, Deserialize, BinarySerializable)]
+#[derive(Eq, Hash, PartialEq, Debug, Clone, Default, Serialize, Deserialize, ABISerializable)]
 pub struct Transaction {
     // -----------------------------------------------------------------------------
     //     TransactionHeader fields
@@ -210,7 +212,7 @@ impl Transaction {
 
 /// not a native Antelope type but normally defined through an ABI
 /// It is provided here for convenience
-#[derive(Clone, Debug, PartialEq, Eq, BinarySerializable, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, ABISerializable, Serialize, Deserialize)]
 pub struct Transfer {
     pub from: Name,
     pub to: Name,
@@ -229,7 +231,7 @@ impl Contract for Transfer {
 }
 
 
-#[derive(Eq, Hash, PartialEq, Debug, Clone, Default, Serialize, Deserialize, BinarySerializable)]
+#[derive(Eq, Hash, PartialEq, Debug, Clone, Default, Serialize, Deserialize, ABISerializable)]
 pub struct PackedTransactionV0 {
     pub signatures: Vec<Signature>,
     pub compression: u8,
@@ -237,13 +239,13 @@ pub struct PackedTransactionV0 {
     pub packed_trx: Transaction,
 }
 
-#[derive(Eq, Hash, PartialEq, Debug, Clone, Default, Serialize, Deserialize, BinarySerializable)]
+#[derive(Eq, Hash, PartialEq, Debug, Clone, Default, Serialize, Deserialize, ABISerializable)]
 pub struct TransactionTraceException {
     pub error_code: i64,
     pub error_message: String,
 }
 
-#[derive(Eq, Hash, PartialEq, Debug, Clone, Default, Serialize, Deserialize, BinarySerializable)]
+#[derive(Eq, Hash, PartialEq, Debug, Clone, Default, Serialize, Deserialize, ABISerializable)]
 pub struct ActionTraceV0 {
     pub action_ordinal: VarUint32,
     pub creator_action_ordinal: VarUint32,
@@ -258,7 +260,7 @@ pub struct ActionTraceV0 {
     pub error_code: Option<u64>,
 }
 
-#[derive(Eq, Hash, PartialEq, Debug, Clone, Default, Serialize, Deserialize, BinarySerializable)]
+#[derive(Eq, Hash, PartialEq, Debug, Clone, Default, Serialize, Deserialize, ABISerializable)]
 pub struct ActionTraceV1 {
     pub action_ordinal: VarUint32,
     pub creator_action_ordinal: VarUint32,
@@ -275,14 +277,14 @@ pub struct ActionTraceV1 {
     pub return_value: Bytes,
 }
 
-#[derive(Eq, Hash, PartialEq, Debug, Clone, SerializeEnumPrefixed, BinarySerializable)]
+#[derive(Eq, Hash, PartialEq, Debug, Clone, SerializeEnumPrefixed, ABISerializable)]
 pub enum ActionTrace {
     V0(ActionTraceV0),
     V1(ActionTraceV1),
 }
 
 // FIXME: defined in spring:libraries/state_history
-#[derive(Eq, Hash, PartialEq, Debug, Clone, Default, Serialize, Deserialize, BinarySerializable)]
+#[derive(Eq, Hash, PartialEq, Debug, Clone, Default, Serialize, Deserialize, ABISerializable)]
 pub struct PartialTransaction {
 
 }
@@ -290,7 +292,7 @@ pub struct PartialTransaction {
 // NOTE: this is the one used in the tests with the ship_abi.json ABI
 //       it seems to be an old one as the one defined in "spring:chain/trace.hpp" differs significantly
 // TODO: we should also define the new one corresponding to the current Antelope version
-#[derive(Eq, Hash, PartialEq, Debug, Clone, Default, Serialize, Deserialize, BinarySerializable)]
+#[derive(Eq, Hash, PartialEq, Debug, Clone, Default, Serialize, Deserialize, ABISerializable)]
 pub struct TransactionTraceV0 {
     pub id: TransactionId,
     pub status: u8,
@@ -307,12 +309,12 @@ pub struct TransactionTraceV0 {
     pub partial: Option<PartialTransaction>,
 }
 
-#[derive(Eq, Hash, PartialEq, Debug, Clone, SerializeEnumPrefixed, BinarySerializable)]
+#[derive(Eq, Hash, PartialEq, Debug, Clone, SerializeEnumPrefixed, ABISerializable)]
 pub enum TransactionTrace {
     V0(TransactionTraceV0),
 }
 
-#[derive(Eq, Hash, PartialEq, Debug, Clone, SerializeEnumPrefixed, BinarySerializable)]
+#[derive(Eq, Hash, PartialEq, Debug, Clone, SerializeEnumPrefixed, ABISerializable)]
 pub enum TransactionTraceMsg {
     #[serde(rename="transaction_trace_exception")]
     Exception(TransactionTraceException),

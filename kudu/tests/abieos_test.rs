@@ -12,7 +12,7 @@ use tracing_subscriber::{
 };
 
 use kudu::{
-    binaryserializable::{to_bin, from_bin, BinarySerializable},
+    abiserializable::{to_bin, from_bin, ABISerializable},
     abi::data::{
         PACKED_TRANSACTION_ABI, TEST_ABI, TOKEN_HEX_ABI, TRANSACTION_ABI
     },
@@ -186,7 +186,7 @@ macro_rules! check_cross_conversion {
 #[track_caller]
 fn check_cross_conversion2<T>(abi: &ABI, value: T, typename: &str, data: &str, hex: &str, expected: &str)
 where
-    T: Serialize + DeserializeOwned + BinarySerializable + PartialEq + Debug
+    T: Serialize + DeserializeOwned + ABISerializable + PartialEq + Debug
 {
     check_cross_conversion!(abi, value, T, typename, data, hex, expected);
 }
@@ -194,7 +194,7 @@ where
 #[track_caller]
 fn check_cross_conversion<T>(abi: &ABI, value: T, typename: &str, data: &str, hex: &str)
 where
-    T: Serialize + DeserializeOwned + BinarySerializable + PartialEq + Debug
+    T: Serialize + DeserializeOwned + ABISerializable + PartialEq + Debug
 {
     check_cross_conversion2(abi, value, typename, data, hex, data)
 }
@@ -209,15 +209,15 @@ impl HasOwned for &str {
     type Owned = String;
 }
 
-impl<T: BinarySerializable> HasOwned for &[T] {
+impl<T: ABISerializable> HasOwned for &[T] {
     type Owned = Vec<T>;
 }
 
 #[track_caller]
 fn check_cross_conversion_borrowed<T>(abi: &ABI, value: T, typename: &str, data: &str, hex: &str)
 where
-    T: Serialize + BinarySerializable + PartialEq + Debug + HasOwned + ToOwned,
-    <T as HasOwned>::Owned: BinarySerializable + Debug + DeserializeOwned + PartialEq<T>,
+    T: Serialize + ABISerializable + PartialEq + Debug + HasOwned + ToOwned,
+    <T as HasOwned>::Owned: ABISerializable + Debug + DeserializeOwned + PartialEq<T>,
 {
     check_cross_conversion!(abi, value, <T as HasOwned>::Owned, typename, data, hex, data);
 }

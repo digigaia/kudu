@@ -11,7 +11,7 @@ use tracing::{debug, warn, instrument};
 
 use crate::{
     AntelopeType, AntelopeValue, Name, VarUint32, TypeName,
-    ABIDefinition, ByteStream, BinarySerializable,
+    ABIDefinition, ByteStream, ABISerializable,
     abi::error::*,
     abi::definition::{
         TypeName as TypeNameOwned, Struct, Variant
@@ -246,7 +246,7 @@ impl ABI {
     }
 
     #[inline]
-    pub fn encode<T: BinarySerializable>(&self, stream: &mut ByteStream, obj: &T) {
+    pub fn encode<T: ABISerializable>(&self, stream: &mut ByteStream, obj: &T) {
         obj.to_bin(stream)
     }
 

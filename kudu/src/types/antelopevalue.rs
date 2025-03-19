@@ -13,7 +13,7 @@ use tracing::instrument;
 use kudu_macros::with_location;
 
 use crate::{
-    json, JsonError, JsonValue, ByteStream, SerializeError, BinarySerializable,
+    json, JsonError, JsonValue, ByteStream, SerializeError, ABISerializable,
     impl_auto_error_conversion,
 };
 

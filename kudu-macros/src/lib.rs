@@ -50,8 +50,8 @@ pub fn contract(attr: TokenStream, annotated_item: TokenStream) -> TokenStream {
 }
 
 // the `kudu` crate re-exports this macro and adds documentation to it
-#[proc_macro_derive(BinarySerializable)]
-pub fn derive_binaryserializable(input: TokenStream) -> TokenStream {
+#[proc_macro_derive(ABISerializable)]
+pub fn derive_abiserializable(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     serde::derive(&input).into()
 }

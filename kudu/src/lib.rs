@@ -43,8 +43,8 @@
 //!    of the [`ABI`] class which has been initialized with a data schema
 //!    ([`ABIDefinition`]).
 //!  - to convert between a Rust native value and a binary stream you need to use the
-//!    [`BinarySerializable`] trait, which you can automatically derive using the
-//!    [`BinarySerializable`](macro@BinarySerializable) derive macro.
+//!    [`ABISerializable`] trait, which you can automatically derive using the
+//!    [`ABISerializable`](macro@ABISerializable) derive macro.
 //!
 //! ## Traits implemented for native types
 //!
@@ -112,11 +112,11 @@ pub use chain::*;
 
 pub use abi::{ABI, ABIError, ABIDefinition, ABIProvider, TypeName};
 
-pub mod binaryserializable;
+pub mod abiserializable;
 pub mod bytestream;
 
 pub use bytestream::{ByteStream, StreamError};
-pub use binaryserializable::{BinarySerializable, SerializeError, to_bin, to_hex, from_bin};
+pub use abiserializable::{ABISerializable, SerializeError, to_bin, to_hex, from_bin};
 
 /// Add a `location` field to all variants of a `Snafu` error enum
 ///
@@ -146,9 +146,9 @@ pub use kudu_macros::with_location;
 /// # Example
 ///
 /// ```
-/// # use kudu::{Name, Asset, BinarySerializable, contract};
+/// # use kudu::{Name, Asset, ABISerializable, contract};
 /// #[contract(account="eosio.token", name="transfer")]
-/// #[derive(BinarySerializable)]
+/// #[derive(ABISerializable)]
 /// pub struct Transfer {
 ///     pub from: Name,
 ///     pub to: Name,
@@ -159,11 +159,11 @@ pub use kudu_macros::with_location;
 
 pub use kudu_macros::contract;
 
-/// Implement the [`BinarySerializable`](trait@BinarySerializable) trait
+/// Implement the [`ABISerializable`](trait@ABISerializable) trait
 ///
-/// This calls [`BinarySerializable::to_bin()`] and [`BinarySerializable::from_bin()`]
+/// This calls [`ABISerializable::to_bin()`] and [`ABISerializable::from_bin()`]
 /// on all members sequentially.
-pub use kudu_macros::BinarySerializable;
+pub use kudu_macros::ABISerializable;
 
 /// Implement the `serde::Serialize` and `serde::Deserialize` trait
 ///

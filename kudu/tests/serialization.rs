@@ -6,7 +6,7 @@ use chrono::{NaiveDate, TimeZone, Utc};
 use serde_json::json;
 
 use kudu::{
-    ABI, ByteStream, BinarySerializable,
+    ABI, ByteStream, ABISerializable,
     AntelopeType, AntelopeValue, Asset, Bytes, BlockTimestamp, ExtendedAsset,
     Name, Symbol, SymbolCode, TimePoint, TimePointSec, VarInt32, VarUint32, PublicKey, PrivateKey, Signature,
     Checksum160, Checksum256, Checksum512,
@@ -32,7 +32,7 @@ use kudu::{
 #[track_caller]
 fn test_encode<T>(obj: T, repr: &str)
 where
-    T: BinarySerializable + Debug + PartialEq,
+    T: ABISerializable + Debug + PartialEq,
 {
     let mut stream = ByteStream::new();
 
@@ -45,7 +45,7 @@ where
 #[track_caller]
 fn test_roundtrip<T>(obj: T, repr: &str)
 where
-    T: BinarySerializable + Debug + PartialEq,
+    T: ABISerializable + Debug + PartialEq,
 {
     let mut stream = ByteStream::new();
 
@@ -77,7 +77,7 @@ fn test_roundtrip_variant(obj: AntelopeValue, repr: &str) {
 #[track_caller]
 fn check_round_trip<T, const N: usize, F>(vals: [(T, &str); N], convert: F)
 where
-    T: BinarySerializable + Debug + Clone + PartialEq,
+    T: ABISerializable + Debug + Clone + PartialEq,
     F: Fn(T) -> AntelopeValue,
 {
     for (val, repr) in vals {
@@ -96,7 +96,7 @@ fn check_round_trip_map_type<T, MT, const N: usize, MF, F>(
     convert: F
 ) where
     MF: Fn(T) -> MT,
-    MT: BinarySerializable + Debug + Clone + PartialEq,
+    MT: ABISerializable + Debug + Clone + PartialEq,
     F: Fn(MT) -> AntelopeValue,
 {
     for (val, repr) in vals {

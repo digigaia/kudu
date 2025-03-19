@@ -1,13 +1,13 @@
-<mxfile host="app.diagrams.net" agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:134.0) Gecko/20100101 Firefox/134.0" version="26.0.6">
+<mxfile host="app.diagrams.net" agent="Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0" version="26.1.1">
   <diagram name="Page-1" id="UXYhOaJXUT2tCapZaOIA">
-    <mxGraphModel dx="1236" dy="842" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
+    <mxGraphModel dx="1177" dy="789" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
         <mxCell id="lSlXTyUihgR4Sofdv2rn-1" value="&lt;font color=&quot;#808080&quot;&gt;serde_json crate&lt;/font&gt;" style="verticalLabelPosition=middle;verticalAlign=top;html=1;shape=mxgraph.basic.patternFillRect;fillStyle=diag;step=5;fillStrokeWidth=0.2;fillStrokeColor=#dddddd;labelPosition=center;align=center;strokeColor=#CCCCCC;" parent="1" vertex="1">
           <mxGeometry x="100" y="100" width="680" height="120" as="geometry" />
         </mxCell>
-        <mxCell id="lSlXTyUihgR4Sofdv2rn-2" value="&lt;font color=&quot;#808080&quot;&gt;antelope crate&lt;/font&gt;" style="verticalLabelPosition=middle;verticalAlign=bottom;html=1;shape=mxgraph.basic.patternFillRect;fillStyle=diag;step=5;fillStrokeWidth=0.2;fillStrokeColor=#dddddd;labelPosition=center;align=center;strokeColor=#CCCCCC;" parent="1" vertex="1">
+        <mxCell id="lSlXTyUihgR4Sofdv2rn-2" value="&lt;font color=&quot;#808080&quot;&gt;kudu crate&lt;/font&gt;" style="verticalLabelPosition=middle;verticalAlign=bottom;html=1;shape=mxgraph.basic.patternFillRect;fillStyle=diag;step=5;fillStrokeWidth=0.2;fillStrokeColor=#dddddd;labelPosition=center;align=center;strokeColor=#CCCCCC;" parent="1" vertex="1">
           <mxGeometry x="100" y="340" width="680" height="120" as="geometry" />
         </mxCell>
         <mxCell id="lSlXTyUihgR4Sofdv2rn-5" value="JSON Value" style="verticalLabelPosition=middle;verticalAlign=middle;html=1;shape=mxgraph.basic.rect;fillColor2=none;strokeWidth=1;size=20;indent=5;labelPosition=center;align=center;" parent="1" vertex="1">
@@ -139,8 +139,8 @@
         </mxCell>
         <mxCell id="lSlXTyUihgR4Sofdv2rn-53" value="" style="endArrow=classic;html=1;rounded=0;shape=flexArrow;verticalAlign=bottom;" parent="1" edge="1">
           <mxGeometry relative="1" as="geometry">
-            <mxPoint x="720" y="580" as="sourcePoint" />
-            <mxPoint x="160" y="580" as="targetPoint" />
+            <mxPoint x="720" y="560" as="sourcePoint" />
+            <mxPoint x="160" y="560" as="targetPoint" />
           </mxGeometry>
         </mxCell>
         <mxCell id="lSlXTyUihgR4Sofdv2rn-54" value="Deserialize" style="edgeLabel;resizable=0;html=1;;align=center;verticalAlign=middle;fontStyle=2;fontSize=14;" parent="lSlXTyUihgR4Sofdv2rn-53" connectable="0" vertex="1">
@@ -148,13 +148,13 @@
             <mxPoint y="20" as="offset" />
           </mxGeometry>
         </mxCell>
-        <mxCell id="vid8edOxGKXZXPGDrz8c-2" value="" style="endArrow=classic;html=1;rounded=0;entryX=-0.006;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;exitX=1;exitY=0.5;exitDx=0;exitDy=0;exitPerimeter=0;startArrow=classic;startFill=1;" edge="1" parent="1" source="lSlXTyUihgR4Sofdv2rn-8" target="lSlXTyUihgR4Sofdv2rn-7">
+        <mxCell id="vid8edOxGKXZXPGDrz8c-2" value="" style="endArrow=classic;html=1;rounded=0;entryX=-0.006;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;exitX=1;exitY=0.5;exitDx=0;exitDy=0;exitPerimeter=0;startArrow=classic;startFill=1;" parent="1" source="lSlXTyUihgR4Sofdv2rn-8" target="lSlXTyUihgR4Sofdv2rn-7" edge="1">
           <mxGeometry relative="1" as="geometry">
             <mxPoint x="290" y="420" as="sourcePoint" />
             <mxPoint x="470" y="430" as="targetPoint" />
           </mxGeometry>
         </mxCell>
-        <mxCell id="vid8edOxGKXZXPGDrz8c-3" value="BinarySerializable trait" style="edgeLabel;resizable=0;html=1;;align=center;verticalAlign=middle;" connectable="0" vertex="1" parent="vid8edOxGKXZXPGDrz8c-2">
+        <mxCell id="vid8edOxGKXZXPGDrz8c-3" value="ABISerializable trait" style="edgeLabel;resizable=0;html=1;;align=center;verticalAlign=middle;" parent="vid8edOxGKXZXPGDrz8c-2" connectable="0" vertex="1">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
       </root>

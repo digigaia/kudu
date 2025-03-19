@@ -57,7 +57,7 @@ using our own trait instead of `serde`:
 On top of that, there were some *hacks* to try to serialize data to a binary stream
 that made the rest of the code work but be sub-optimal.
 
-The conclusion of this is that we use our own `BinarySerializable` trait in
+The conclusion of this is that we use our own `ABISerializable` trait in
 order to serialize structs to a binary stream.
 
 

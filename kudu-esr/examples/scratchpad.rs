@@ -14,7 +14,7 @@ use kudu::{
     convert::{variant_to_int, variant_to_uint}
 };
 
-use kudu::{BinarySerializable, SerializeEnum, contract};
+use kudu::{ABISerializable, SerializeEnum, contract};
 
 
 static TRACING_INIT: Once = Once::new();
@@ -36,7 +36,7 @@ pub enum ChainId {
     ChainId(String), // AntelopeValue::Checksum256 variant assumed
 }
 
-#[derive(Clone, BinarySerializable)]
+#[derive(Clone, ABISerializable)]
 #[contract(account="eosio.token", name="transfer")]
 pub struct Transfer {
     pub from: Name,

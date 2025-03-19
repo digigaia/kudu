@@ -16,14 +16,14 @@ macro_rules! debug {
 
 // =============================================================================
 //
-//     `Binaryserializable`
+//     `ABISerializable`
 //
 // =============================================================================
 
 pub fn derive(input: &DeriveInput) -> TokenStream {
     match try_expand(input) {
         Ok(expanded) => expanded,
-        Err(error) => panic!("Error while using derive(BinarySerializable): {}", error),
+        Err(error) => panic!("Error while using derive(ABISerializable): {}", error),
     }
 }
 
@@ -32,8 +32,8 @@ fn try_expand(input: &DeriveInput) -> Result<TokenStream> {
         Data::Struct(DataStruct {
             fields: Fields::Named(fields),
             ..
-        }) => derive_binaryserializable_struct(input, fields),
-        Data::Enum(enumeration) => derive_binaryserializable_enum(input, enumeration),
+        }) => derive_abiserializable_struct(input, fields),
+        Data::Enum(enumeration) => derive_abiserializable_enum(input, enumeration),
         _ => Err(Error::new(
             Span::call_site(),
             "currently only structs with named fields are supported",
@@ -41,7 +41,7 @@ fn try_expand(input: &DeriveInput) -> Result<TokenStream> {
     }
 }
 
-fn derive_binaryserializable_struct(input: &DeriveInput, fields: &FieldsNamed) -> Result<TokenStream> {
+fn derive_abiserializable_struct(input: &DeriveInput, fields: &FieldsNamed) -> Result<TokenStream> {
     let ident = &input.ident;
 
     let fieldname = &fields.named.iter().map(|f| &f.ident).collect::<Vec<_>>();
@@ -53,7 +53,7 @@ fn derive_binaryserializable_struct(input: &DeriveInput, fields: &FieldsNamed) -
     Ok(quote! {
         #[doc(hidden)]
         const _: () = {
-            impl kudu::BinarySerializable for #ident {
+            impl kudu::ABISerializable for #ident {
                 fn to_bin(&self, s: &mut kudu::ByteStream) {
                     #(
                         self.#fieldname.to_bin(s);
@@ -71,7 +71,7 @@ fn derive_binaryserializable_struct(input: &DeriveInput, fields: &FieldsNamed) -
     })
 }
 
-fn derive_binaryserializable_enum(input: &DeriveInput, enumeration: &DataEnum) -> Result<TokenStream> {
+fn derive_abiserializable_enum(input: &DeriveInput, enumeration: &DataEnum) -> Result<TokenStream> {
     if input.generics.lt_token.is_some() || input.generics.where_clause.is_some() {
         return Err(Error::new(
             Span::call_site(),
@@ -111,7 +111,7 @@ fn derive_binaryserializable_enum(input: &DeriveInput, enumeration: &DataEnum) -
     Ok(quote! {
         #[doc(hidden)]
         const _: () = {
-            impl kudu::BinarySerializable for #ident {
+            impl kudu::ABISerializable for #ident {
                 fn to_bin(&self, s: &mut kudu::ByteStream) {
                     match *self {
                         #(
@@ -127,7 +127,7 @@ fn derive_binaryserializable_enum(input: &DeriveInput, enumeration: &DataEnum) -
                         #(
                             #index => #ident::#var_idents(<#var_type>::from_bin(s)?),
                         )*
-                        t => kudu::binaryserializable::InvalidTagSnafu { tag: t, variant: #ident_str }.fail()?,
+                        t => kudu::abiserializable::InvalidTagSnafu { tag: t, variant: #ident_str }.fail()?,
                     })
                 }
             }

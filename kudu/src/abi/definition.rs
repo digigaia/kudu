@@ -5,7 +5,7 @@ use serde_json::json;
 use snafu::{ensure, ResultExt};
 
 
-use crate::binaryserializable::{BinarySerializable, ABISnafu};
+use crate::abiserializable::{ABISerializable, ABISnafu};
 use crate::{
     ByteStream, SerializeError, JsonValue, ActionName, TableName,
     abi::serializer::ABI,
@@ -225,7 +225,7 @@ impl Default for ABIDefinition {
 }
 
 // FIXME: review this, can't we have a single `to_bin`/`encode` method instead of this duplication?
-impl BinarySerializable for ABIDefinition {
+impl ABISerializable for ABIDefinition {
     fn to_bin(&self, stream: &mut ByteStream) {
         self.encode(stream).unwrap()  // safe unwrap
     }
