@@ -12,7 +12,7 @@ unstable_features = true
 # error_on_unformatted = true
 
 ignore = [
-    "antelope-abi/tests",
+    "kudu-abi/tests",
 ]
 
 group_imports = "StdExternalCrate"

@@ -1,9 +1,9 @@
 [workspace]
 resolver = "2"
 members = [
-    "antelope",
-    "antelope-macros",
-    "antelope-esr",
+    "kudu",
+    "kudu-macros",
+    "kudu-esr",
     "dune",
 ]
 
@@ -16,7 +16,7 @@ rust-version = "1.76"
 # repository = ""
 
 [workspace.dependencies]
-antelope-macros = { path = "antelope-macros" }
+kudu-macros = { path = "kudu-macros" }
 base64 = "0.22.0"
 color-eyre = "0.6.3"
 hex = "0.4.3"

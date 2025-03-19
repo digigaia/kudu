@@ -24,7 +24,7 @@ handles JSON:
 
 To get closer to that behavior, we implemented a JSON [Formatter] to
 properly output values in the format expected by Antelope which is automatically used
-when calling [`antelope::json::to_string()`][crate::json::to_string()]
+when calling [`kudu::json::to_string()`][crate::json::to_string()]
 
 [Formatter]: https://docs.rs/serde_json/latest/serde_json/ser/trait.Formatter.html
 
@@ -130,7 +130,7 @@ We switched to `snafu` for the following reasons:
 - context selectors are very ergonomic (when one understands them!) and they
   allow to have some fields filled in automatically (location, backtrace)
 - there is no automatic conversion from an error to another (easy to implement,
-  though, see: `antelope::impl_auto_error_conversion` macro) and require
+  though, see: `kudu::impl_auto_error_conversion` macro) and require
   to manually add a context every time we want to convert an error. This might
   seem overkill but is actually good practice: we get a full error stacktrace
   for every error, without "skipping" levels

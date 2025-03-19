@@ -1,0 +1,31 @@
+[package]
+name = "kudu-esr"
+version      = { workspace = true }
+edition      = { workspace = true }
+license      = { workspace = true }
+rust-version = { workspace = true }
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+base64             = { workspace = true }
+color-eyre         = { workspace = true }
+hex                = { workspace = true }
+serde              = { workspace = true }
+serde_json         = { workspace = true }
+snafu              = { workspace = true }
+tracing            = { workspace = true }
+tracing-subscriber = { workspace = true }
+
+kudu-macros        = { workspace = true }
+kudu               = { path = "../kudu" }
+flate2 = "1.0"
+flagset = "0.4.5"
+
+[features]
+default = []
+float128 = ["kudu/float128"]
+detailed-error = [
+    "kudu/detailed-error",
+    "kudu-macros/detailed-error",
+]

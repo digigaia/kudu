@@ -97,59 +97,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "antelope"
-version = "0.1.0"
-dependencies = [
- "antelope-macros",
- "bs58",
- "bytemuck",
- "chrono",
- "color-eyre",
- "embed-doc-image",
- "flate2",
- "hex",
- "num",
- "ripemd",
- "serde",
- "serde_json",
- "sha2",
- "snafu",
- "strum",
- "tracing",
- "tracing-subscriber",
- "ureq",
-]
-
-[[package]]
-name = "antelope-esr"
-version = "0.1.0"
-dependencies = [
- "antelope",
- "antelope-macros",
- "base64 0.22.1",
- "color-eyre",
- "flagset",
- "flate2",
- "hex",
- "serde",
- "serde_json",
- "snafu",
- "tracing",
- "tracing-subscriber",
-]
-
-[[package]]
-name = "antelope-macros"
-version = "0.1.0"
-dependencies = [
- "heck",
- "proc-macro2",
- "quote",
- "serde_json",
- "syn 2.0.90",
-]
-
-[[package]]
 name = "autocfg"
 version = "1.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -445,10 +392,10 @@ dependencies = [
 name = "dune"
 version = "0.1.0"
 dependencies = [
- "antelope",
  "clap",
  "color-eyre",
  "duct",
+ "kudu",
  "regex",
  "serde_json",
  "tempfile",
@@ -791,6 +738,59 @@ checksum = "6717b6b5b077764fb5966237269cb3c64edddde4b14ce42647430a78ced9e7b7"
 dependencies = [
  "once_cell",
  "wasm-bindgen",
+]
+
+[[package]]
+name = "kudu"
+version = "0.1.0"
+dependencies = [
+ "bs58",
+ "bytemuck",
+ "chrono",
+ "color-eyre",
+ "embed-doc-image",
+ "flate2",
+ "hex",
+ "kudu-macros",
+ "num",
+ "ripemd",
+ "serde",
+ "serde_json",
+ "sha2",
+ "snafu",
+ "strum",
+ "tracing",
+ "tracing-subscriber",
+ "ureq",
+]
+
+[[package]]
+name = "kudu-esr"
+version = "0.1.0"
+dependencies = [
+ "base64 0.22.1",
+ "color-eyre",
+ "flagset",
+ "flate2",
+ "hex",
+ "kudu",
+ "kudu-macros",
+ "serde",
+ "serde_json",
+ "snafu",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
+name = "kudu-macros"
+version = "0.1.0"
+dependencies = [
+ "heck",
+ "proc-macro2",
+ "quote",
+ "serde_json",
+ "syn 2.0.90",
 ]
 
 [[package]]

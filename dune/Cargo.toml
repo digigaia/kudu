@@ -1,12 +1,12 @@
 [package]
 name = "dune"
-version.workspace = true
-edition.workspace = true
-license.workspace = true
-rust-version.workspace = true
+version      = { workspace = true }
+edition      = { workspace = true }
+license      = { workspace = true }
+rust-version = { workspace = true }
 
 [dependencies]
-antelope = { path="../antelope" }
+kudu = { path = "../kudu" }
 color-eyre         = { workspace = true }
 serde_json         = { workspace = true }
 tracing            = { workspace = true }

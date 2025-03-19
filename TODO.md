@@ -36,9 +36,6 @@ file once they are implemented.
 
 - add license before publishing
 
-- create an `antelope` crate to re-export all useful structs from the other crates and gather
-  documentation in a single place (?)
-
 - include `ARCHITECTURE.md` somewhere in the docs
 
 - investigate rust libs found here: <https://onblock.dev/communicating-with-the-wax-blockchain>
@@ -51,6 +48,3 @@ file once they are implemented.
 - implement `Debug` and `Display` trait for all basic types
 
 - document everything, also use boxes to show structure in source code files (ie: trait impls, etc. see: Symbol.rs as an example)
-
-- check with <https://crates.io/crates/antelope> whether we can get the crate name
-  alternatively, find another name: kudu, impala, tsessebe, etc. see: <https://africafreak.com/fastest-african-antelope> for fast antelopes :)
