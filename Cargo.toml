@@ -19,7 +19,6 @@ keywords = ["blockchain", "antelope", "eos"]
 categories = ["command-line-utilities", "cryptography::cryptocurrencies", "encoding"]
 
 [workspace.dependencies]
-kudu-macros = { path = "kudu-macros" }
 base64 = "0.22.0"
 color-eyre = "0.6.3"
 hex = "0.4.3"
