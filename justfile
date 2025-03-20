@@ -27,4 +27,8 @@ set-version version: && \
 # publish the project crates on crates.io
 publish:
     # DO NOT FORGET TO SET VERSION NUMBER AND GIT TAG
-    echo "TODO!"
+    # investigate `cargo-release` instead, or `cargo-smart-release` or `release-plz`
+    cargo publish -p kudu-macros
+    cargo publish -p kudu
+    cargo publish -p kudu-esr
+    cargo publish -p kudune

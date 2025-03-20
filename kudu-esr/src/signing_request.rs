@@ -1,5 +1,6 @@
 use std::backtrace::Backtrace;
 use std::io::prelude::*;
+use std::sync::OnceLock;
 use std::fmt;
 
 use base64::prelude::*;
@@ -11,9 +12,9 @@ use flate2::read::DeflateDecoder;
 use serde::{Serialize, Serializer, ser::SerializeStruct};
 
 use kudu::{
-    ByteStream, SerializeError, ABIError, Checksum256, JsonValue, Name, SerializeEnum,
-    json, with_location,
-    abi::{get_signing_request_abi, ABIProvider},
+    ByteStream, SerializeError, ABI, ABIDefinition, ABIError, Checksum256, JsonValue, Name,
+    SerializeEnum, json, with_location,
+    abi::ABIProvider,
 };
 
 use tracing::{trace, debug, warn};
@@ -21,6 +22,14 @@ use tracing::{trace, debug, warn};
 pub static SIGNER_NAME: Name = Name::from_u64(1);
 pub static SIGNER_PERMISSION: Name = Name::from_u64(2);
 
+pub static SIGNING_REQUEST_ABI: &str = include_str!("signing_request_abi.json");
+
+pub fn get_signing_request_abi() -> &'static ABI {
+    static SR_ABI: OnceLock<ABI> = OnceLock::new();
+    SR_ABI.get_or_init(|| {
+        ABI::from_definition(&ABIDefinition::from_str(SIGNING_REQUEST_ABI).unwrap()).unwrap()  // safe unwrap
+    })
+}
 
 
 // -----------------------------------------------------------------------------

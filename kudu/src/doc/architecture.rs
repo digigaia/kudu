@@ -1,1 +1,1 @@
-#![doc = include_str!("../../../ARCHITECTURE.md")]
+#![doc = include_str!("../../ARCHITECTURE.md")]

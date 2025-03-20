@@ -9,10 +9,10 @@ use crate::{
 
 type Result<T, E = ConversionError> = std::result::Result<T, E>;
 
-pub use float128::Float128;
+pub use float128_impl::Float128;
 
 #[cfg(not(feature = "float128"))]
-mod float128 {
+mod float128_impl {
     use super::*;
 
     #[derive(Copy, Clone, Debug, PartialEq, Default)]
@@ -65,7 +65,7 @@ mod float128 {
 
 
 #[cfg(feature = "float128")]
-mod float128 {
+mod float128_impl {
     use super::*;
 
     use bytemuck::{cast_ref, pod_read_unaligned};

@@ -1,7 +1,6 @@
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
-use std::sync::OnceLock;
 
 use serde_json::json;
 
@@ -11,18 +10,6 @@ use crate::{ABI, ABIDefinition, ABIError, APIClient};
 //
 // see tests and more: https://github.com/wharfkit/abicache/blob/master/test/tests/abi.ts
 //
-
-// FIXME: this is not proper... (the include ../..)
-pub static SIGNING_REQUEST_ABI: &str = include_str!("../../../kudu-esr/src/signing_request_abi.json");
-
-// FIXME: move this and line above inside the `kudu-esr` crate, there is no need to have it here
-// if we want we can use an `OverrideProvider`, see note at the end of the file
-pub fn get_signing_request_abi() -> &'static ABI {
-    static SR_ABI: OnceLock<ABI> = OnceLock::new();
-    SR_ABI.get_or_init(|| {
-        ABI::from_definition(&ABIDefinition::from_str(SIGNING_REQUEST_ABI).unwrap()).unwrap()  // safe unwrap
-    })
-}
 
 pub enum ABIProvider {
     API(APIClient),
@@ -54,7 +41,10 @@ impl ABIProvider {
 
     pub fn get_abi_definition(&self, abi_name: &str) -> Result<String, ABIError> {
         if abi_name == "signing_request" {
-            Ok(SIGNING_REQUEST_ABI.to_owned())
+            todo!();
+            // Ok(SIGNING_REQUEST_ABI.to_owned())
+            // FIXME: SIGNING_REQUEST_ABI is now inside the `kudu-esr` crate
+            // if we want we can use an `OverrideProvider`, see note at the end of the file
         }
         else {
             match self {
@@ -119,4 +109,4 @@ static EOSIO_TOKEN_ABI: &str  = r#"{
 
 // // FIXME: implement CachedProvider that takes an ABIProvider upon construction and wraps it
 // // implement OverrideProvider that creates a new ABIProvider where some ABIs have been overriden, e.g.
-// //    OverrrideProvider::new(APICallABiprovider, "signing_request" => get_signing_request_abi)
+// //    OverrideProvider::new(APICallABiprovider, "signing_request" => get_signing_request_abi)
