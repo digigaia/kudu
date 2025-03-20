@@ -11,7 +11,7 @@
 - check some use cases from here: <https://docs.eosnetwork.com/docs/latest/node-operation/api-node/>
   can we fulfill them?
 
-- embed deploy_eos_image.py in the binary so we can run "dune build-image" from anywhere
+- embed deploy_eos_image.py in the binary so we can run "kudune build-image" from anywhere
 
 - use IndexMap and the indexmap feature on configparser to ensure we do not mess up the config file order
   also ensure we're keeping comments from the config file
@@ -23,7 +23,7 @@
 
 # README
 
-Here is a list of workflows that should be enabled by the `dune` utility
+Here is a list of workflows that should be enabled by the `kudune` utility
 and how they can be performed. This should serve both as design document
 and end-to-end testing of the binary to assess its usefulness / ease-of-use
 
@@ -32,23 +32,23 @@ By default, we run nodeos in a docker container with the name `eos_container`
 ## build a base image to be used for creating containers with all the tools installed
 
 ```sh
-dune build-image                # use a default Ubuntu base image
-dune build-image wackou:devbox  # use a provided image
+kudune build-image                # use a default Ubuntu base image
+kudune build-image wackou:devbox  # use a provided image
 ```
 
 
 ## build a new container from scratch
 
 ```sh
-dune destroy    # ensure that we don't have a lingering docker container
-dune start-node
+kudune destroy    # ensure that we don't have a lingering docker container
+kudune start-node
 ```
 
 ## build a new container with a given config file
 
 ```sh
-dune destroy    # ensure that we don't have a lingering docker container
-dune start-node --config <CONFIG_FILE.INI>
+kudune destroy    # ensure that we don't have a lingering docker container
+kudune start-node --config <CONFIG_FILE.INI>
 ```
 
 ## set our own default config instead of nodeos default
@@ -56,10 +56,10 @@ dune start-node --config <CONFIG_FILE.INI>
 in particular, we want to expose the http port to all listeners, not only localhost
 
 ```sh
-dune set-config default
+kudune set-config default
 ```
 
 you can set specific values like so:
 ```sh
-dune set-config http-server-address=0.0.0.0:8888 chain-state-db-size-mb=65536 contracts-console=true
+kudune set-config http-server-address=0.0.0.0:8888 chain-state-db-size-mb=65536 contracts-console=true
 ```

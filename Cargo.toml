@@ -4,16 +4,19 @@ members = [
     "kudu",
     "kudu-macros",
     "kudu-esr",
-    "dune",
+    "kudune",
 ]
 
 [workspace.package]
-version = "0.1.0"
+version = "0.1.0-alpha"
 edition = "2021"
-license = "MIT"
+license = "MIT OR Apache-2.0"
 rust-version = "1.76"
-# homepage = ""
-# repository = ""
+authors = ["Nicolas Wack <wackou@digitalgaia.net>"]
+homepage = "https://github.com/digitaia/kudu"
+repository = "https://github.com/digigaia/kudu"
+keywords = ["blockchain", "antelope", "eos"]
+categories = ["command-line-utilities", "cryptography::cryptocurrencies", "encoding"]
 
 [workspace.dependencies]
 kudu-macros = { path = "kudu-macros" }

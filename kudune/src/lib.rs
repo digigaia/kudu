@@ -1,5 +1,5 @@
 //!
-//! This crate provides a `dune` executable that replicates the functionality of the
+//! This crate provides a `kudune` executable that replicates the functionality of the
 //! original [DUNES](https://github.com/AntelopeIO/DUNES) which has been deprecated.
 //!
 

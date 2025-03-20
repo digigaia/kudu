@@ -5,7 +5,7 @@ use color_eyre::eyre::Result;
 use tracing::{error, info, trace, warn, Level};
 use tracing_subscriber::{EnvFilter, filter::LevelFilter};
 
-use dune::{Docker, Dune, NodeConfig};
+use kudune::{Docker, Dune, NodeConfig};
 
 const CONTAINER_NAME: &str = "eos_container";
 const IMAGE_NAME: &str = "eos:latest";
@@ -13,7 +13,7 @@ const IMAGE_NAME: &str = "eos:latest";
 
 #[derive(Parser, Debug)]
 #[command(version, about, arg_required_else_help(true))]
-#[command(about = "Dune: Docker Utilities for Node Execution")]
+#[command(about = "Kudune: Kudu Docker Utilities for Node Execution")]
 struct Cli {
     /// Turn verbose level
     #[arg(short, long, action = clap::ArgAction::Count)]

@@ -69,7 +69,7 @@ analyzer = "nextest"
 [jobs.doc]
 command = [
     "cargo", "doc", "--color", "always", "--no-deps",
-    "-p", "kudu*", "-p", "dune", "-p", "syn@2", "-p", "ureq", "-p", "serde", "-p", "serde_json",
+    "-p", "kudu*", "-p", "syn@2", "-p", "ureq", "-p", "serde", "-p", "serde_json",
     "-p", "snafu", "-p", "strum", "-p", "tracing", "-p", "chrono"
 ]
 need_stdout = false
@@ -79,7 +79,7 @@ need_stdout = false
 [jobs.doc-open]
 command = [
     "cargo", "doc", "--color", "always", "--no-deps", "--open",
-    "-p", "kudu*", "-p", "dune", "-p", "syn@2", "-p", "ureq", "-p", "serde", "-p", "serde_json",
+    "-p", "kudu*", "-p", "syn@2", "-p", "ureq", "-p", "serde", "-p", "serde_json",
     "-p", "snafu", "-p", "strum", "-p", "tracing", "-p", "chrono"
 ]
 need_stdout = false

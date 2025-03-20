@@ -1,9 +1,15 @@
 [package]
-name = "dune"
+name         = "kudune"
+description  = "Utility to setup Antelope nodes in Docker"
 version      = { workspace = true }
 edition      = { workspace = true }
 license      = { workspace = true }
 rust-version = { workspace = true }
+authors      = { workspace = true }
+homepage     = { workspace = true }
+repository   = { workspace = true }
+keywords     = { workspace = true }
+categories   = { workspace = true }
 
 [dependencies]
 kudu = { path = "../kudu" }
