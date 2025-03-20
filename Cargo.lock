@@ -727,7 +727,7 @@ dependencies = [
 
 [[package]]
 name = "kudu"
-version = "0.1.0"
+version = "0.1.0-alpha"
 dependencies = [
  "bs58",
  "bytemuck",
@@ -751,7 +751,7 @@ dependencies = [
 
 [[package]]
 name = "kudu-esr"
-version = "0.1.0"
+version = "0.1.0-alpha"
 dependencies = [
  "base64 0.22.1",
  "color-eyre",
@@ -769,7 +769,7 @@ dependencies = [
 
 [[package]]
 name = "kudu-macros"
-version = "0.1.0"
+version = "0.1.0-alpha"
 dependencies = [
  "heck",
  "proc-macro2",
@@ -780,7 +780,7 @@ dependencies = [
 
 [[package]]
 name = "kudune"
-version = "0.1.0"
+version = "0.1.0-alpha"
 dependencies = [
  "clap",
  "color-eyre",

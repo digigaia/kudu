@@ -23,7 +23,7 @@ strum              = { workspace = true }
 tracing            = { workspace = true }
 tracing-subscriber = { workspace = true }
 
-kudu-macros        = { path = "../kudu-macros" }
+kudu-macros        = { path = "../kudu-macros", version = "0.1.0-alpha" }
 bytemuck = "1"
 chrono = { version = "0.4", features = ["serde"] }
 flate2 = "1.0"

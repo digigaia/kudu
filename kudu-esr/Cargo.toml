@@ -23,8 +23,8 @@ snafu              = { workspace = true }
 tracing            = { workspace = true }
 tracing-subscriber = { workspace = true }
 
-kudu               = { path = "../kudu" }
-kudu-macros        = { path = "../kudu-macros" }
+kudu               = { path = "../kudu", version = "0.1.0-alpha" }
+kudu-macros        = { path = "../kudu-macros", version = "0.1.0-alpha" }
 flate2 = "1.0"
 flagset = "0.4.5"
 
