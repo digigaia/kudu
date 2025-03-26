@@ -59,8 +59,8 @@
 //!
 //! ## Warnings / pitfalls
 //!
-//!  - when defining your own types, make sure to use the [`Bytes`] type instead of `Vec<u8>`
-//!    otherwise the JSON serialization will not be correct.
+//!  - when defining your own types, if you have a bytes field make sure to use the [`Bytes`]
+//!    type instead of `Vec<u8>` otherwise the JSON serialization will not be correct.
 //!  - when defining a variant type using a Rust enum, you need to use the [`SerializeEnum`]
 //!    derive macro instead of `serde::Serialize` and `serde::Deserialize`. This is because
 //!    the discriminant needs to be encoded in a specific way which cannot be achieved with

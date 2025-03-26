@@ -41,10 +41,13 @@ NOTE: this should be fixed, or at least a resolution for this should be decided 
 
 - try using smallvec/tinyvec for the same reasons as small string, esp. on vectors that are
   empty most of the time, eg: extensions, etc. or only contain 1 or 2 elements,
-  eg: `Action::authorization`, etc.
+  eg: `Action::authorization`, etc. (`ecow` seems like a good choice but investigate further)
 
 - try using a `BTreeMap` or some other map that has better cache locality, or a faster hash,
   like: <https://github.com/rust-lang/rustc-hash> or ahash
+
+- investigate `fastrace` to replace `tokio-rs/tracing`:
+  <https://www.reddit.com/r/rust/comments/1jh2fzg/fastrace_a_modern_approach_to_distributed_tracing/>
 
 - use the Rust playground to check code: <https://play.rust-lang.org/>
 
@@ -55,6 +58,7 @@ NOTE: this should be fixed, or at least a resolution for this should be decided 
 
 - investigate `darling` crate to help with derive macros, here's a
   [small example](https://github.com/imbolc/rust-derive-macro-guide)
+  maybe even better: `pastey`, `crabtime`
 
 - clean/properly order imports in all file (maybe wait for Rust 2024 edition and use rustfmt
   as it seems to correspond better to the style we like)

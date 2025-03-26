@@ -70,7 +70,7 @@ analyzer = "nextest"
 command = [
     "cargo", "doc", "--color", "always", "--no-deps",
     "-p", "kudu*", "-p", "syn@2", "-p", "ureq", "-p", "serde", "-p", "serde_json",
-    "-p", "snafu", "-p", "strum", "-p", "tracing", "-p", "chrono"
+    "-p", "snafu", "-p", "strum", "-p", "tracing",
 ]
 need_stdout = false
 
@@ -80,7 +80,7 @@ need_stdout = false
 command = [
     "cargo", "doc", "--color", "always", "--no-deps", "--open",
     "-p", "kudu*", "-p", "syn@2", "-p", "ureq", "-p", "serde", "-p", "serde_json",
-    "-p", "snafu", "-p", "strum", "-p", "tracing", "-p", "chrono"
+    "-p", "snafu", "-p", "strum", "-p", "tracing",
 ]
 need_stdout = false
 on_success = "back" # so that we don't open the browser at each change

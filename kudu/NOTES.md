@@ -9,6 +9,7 @@ Tests are sourced from the following locations:
 - <https://github.com/AntelopeIO/abieos/test/>
 
 - <https://github.com/FACINGS/pyntelope/blob/main/tests/unit/types_test.py>
+- <https://github.com/FACINGS/pyntelope/blob/main/tests/unit/transaction_test.py>
 
 - <https://github.com/wharfkit/antelope/blob/master/test/chain.ts>
 
@@ -42,3 +43,8 @@ the latter one seems more strict, for instance for the tests here:
 Spec is at: <https://github.com/eosio-eps/EEPs/blob/master/EEPS/eep-7.md>
 
 <https://github.com/wharfkit/signing-request>
+
+
+## Related/similar projects
+
+- <https://github.com/uuosio/rscdk>

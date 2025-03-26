@@ -22,7 +22,8 @@ handles JSON:
  - `int64` and `int128` types are always quoted
  - `float32` and `float64` never use scientific notation
 
-To get closer to that behavior, we implemented a JSON [Formatter] to
+To get closer to that behavior, we implemented a JSON [Formatter]
+-- [`kudu::json::EOSFormatter`][crate::json::EOSFormatter] -- to
 properly output values in the format expected by Antelope which is automatically used
 when calling [`kudu::json::to_string()`][crate::json::to_string()]
 
@@ -181,9 +182,8 @@ TODO: write why
 ## Error and logging messages style
 
 - error and logging messages should be lower-case (ie: not be capitalized)
-- TODO: decide whether we want to quote values and types using single-quotes, double-quotes or backticks
 
-### Proposal (to be finalized)
+### Usage of single-quotes, double-quotes or backticks
 
 - single quotes (`'`) for identifiers
 - double quotes (`"`) for strings
@@ -193,6 +193,7 @@ TODO: write why
 
 - `` "expected type `int8` for field 'quantity' on struct 's1'" ``
 - `` r#"value for 'obj.name' is "obj1" and its type is `str`"# ``
+
 
 ## Nomenclature
 
@@ -220,8 +221,7 @@ if (v.len() > 0 &&
 
 That also means that we should use `hex::encode()` instead of `hex::encode_upper()`
 
-Antelope C++ code uses UPPER_CASE
-Wharfkit TS code uses lower_case
+Antelope C++ code uses UPPER_CASE, while Wharfkit TS code uses lower_case.
 
 It seems that lower case encoding is more readable as lower case letters have a
 lower height than digits, whereas upper case letters and digits all have the same

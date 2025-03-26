@@ -1,4 +1,4 @@
-//! This module contains macros to be used in the `kudu` crates.
+//! This module contains macros to be used in the [`kudu`](https://docs.rs/kudu) crates.
 //!
 //! ## Feature flags
 //!
