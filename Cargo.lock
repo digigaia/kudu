@@ -732,6 +732,7 @@ dependencies = [
  "bs58",
  "bytemuck",
  "chrono",
+ "clap",
  "color-eyre",
  "embed-doc-image",
  "flate2",

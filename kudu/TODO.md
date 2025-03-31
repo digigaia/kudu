@@ -23,6 +23,8 @@ NOTE: this should be fixed, or at least a resolution for this should be decided 
   annotate them using attributes that are recognized by the `derive(ABISerializable)`
   macro but what should the implementation be like?
 
+- add `impl Debug`/`impl Display` for the `contract` derive macro
+
 
 ## CORRECTNESS / TESTING
 
@@ -49,12 +51,12 @@ NOTE: this should be fixed, or at least a resolution for this should be decided 
 - investigate `fastrace` to replace `tokio-rs/tracing`:
   <https://www.reddit.com/r/rust/comments/1jh2fzg/fastrace_a_modern_approach_to_distributed_tracing/>
 
+- check compilation options for kudu binaries: <https://github.com/johnthagen/min-sized-rust>
+
 - use the Rust playground to check code: <https://play.rust-lang.org/>
 
 
 ## MISC
-
-- investigate <https://github.com/eosrio/rs-abieos>
 
 - investigate `darling` crate to help with derive macros, here's a
   [small example](https://github.com/imbolc/rust-derive-macro-guide)

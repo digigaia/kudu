@@ -33,9 +33,19 @@ sha2 = "0.10"
 num = "0.4"
 ureq = { version = "3.0.2", features = ["json"] }
 embed-doc-image = "0.1.4"
+clap = { version = "4", features = ["derive"], optional = true }
 
 [features]
 default = []
+cli = ["clap"]
 detailed-error = ["kudu-macros/detailed-error"]
 float128 = ["bytemuck/nightly_float"]
 hardened = []
+
+[[bin]]
+name = "kudu_json_to_hex"
+required-features = ["cli"]
+
+[[bin]]
+name = "kudu_hex_to_json"
+required-features = ["cli"]

@@ -69,6 +69,10 @@ impl ByteStream {
         }
     }
 
+    pub fn from_hex<T: AsRef<[u8]>>(data: T) -> Result<Self, hex::FromHexError> {
+        Ok(ByteStream::from(Bytes::from_hex(data)?))
+    }
+
     pub fn data(&self) -> &[u8] {
         self.data.as_slice()
     }

@@ -4,6 +4,10 @@ export RUST_BACKTRACE := "1"
 default:
     just --list
 
+# build the library and CLI tools in release mode
+build-release:
+    cargo build --features cli --release
+
 # run tests using nextest
 test:
     cargo nextest run
@@ -32,3 +36,27 @@ publish:
     cargo publish -p kudu
     cargo publish -p kudu-esr
     cargo publish -p kudune
+
+
+hyperfine_opts := "--shell=none --warmup 10"
+abieos_path := "../abieos/build/tools"
+
+abi := "kudu/src/abi/data/transaction_abi.json"
+# bench_type := "bool"
+# bench_hex := "01"
+# bench_json := "true"
+bench_type := "transaction"
+bench_hex := "b2f4335b0bb10e87af9c000000000100a6823403ea3055000000572d3ccdcd01608c31c6187315d600000000a8ed323221608c31c6187315d6708c31c6187315d6010000000000000004535953000000000000"
+bench_json := '{"expiration": "2018-06-27T20:33:54.000", "ref_block_num": 45323, "ref_block_prefix": 2628749070, "max_net_usage_words": 0, "max_cpu_usage_ms": 0, "delay_sec": 0, "context_free_actions": [], "actions": [{"account": "eosio.token", "name": "transfer", "authorization": [{"actor": "useraaaaaaaa", "permission": "active"}], "data": "608C31C6187315D6708C31C6187315D60100000000000000045359530000000000"}], "transaction_extensions": []}'
+
+# perform some benchmarks
+benchmark: build-release
+    @echo "\n----==== Benchmarking hex -> JSON ====----\n"
+    hyperfine {{hyperfine_opts}} \
+        '{{abieos_path}}/generate_json_from_hex -f {{abi}} -x {{bench_type}} -h {{bench_hex}}' \
+        'target/release/kudu_hex_to_json --abi {{abi}} -t {{bench_type}} -x {{bench_hex}}'
+
+    @echo "\n----==== Benchmarking JSON -> hex ====----\n"
+    hyperfine {{hyperfine_opts}} \
+        '{{abieos_path}}/generate_hex_from_json -f {{abi}} -x {{bench_type}} -j '"'"'{{bench_json}}'"'" \
+        'target/release/kudu_json_to_hex --abi {{abi}} -t {{bench_type}} -j '"'"'{{bench_json}}'"'"

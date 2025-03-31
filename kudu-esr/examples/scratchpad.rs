@@ -9,7 +9,7 @@ use tracing_subscriber::{
 };
 
 use kudu::{
-    ABIDefinition, TimePoint, TimePointSec, Name, Contract,
+    ABIDefinition, Asset, TimePoint, TimePointSec, Name, Contract,
     abi::abi_schema,
     convert::{variant_to_int, variant_to_uint}
 };
@@ -41,6 +41,7 @@ pub enum ChainId {
 pub struct Transfer {
     pub from: Name,
     pub to: Name,
+    pub quantity: Asset,
     pub memo: String,
 }
 
