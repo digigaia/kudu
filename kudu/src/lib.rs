@@ -157,7 +157,6 @@ pub use kudu_macros::with_location;
 ///     pub memo: String,
 /// }
 /// ```
-
 pub use kudu_macros::contract;
 
 /// Implement the [`ABISerializable`](trait@ABISerializable) trait

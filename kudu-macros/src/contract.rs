@@ -21,6 +21,7 @@ fn parse_contract_args(attrs: KVPairs) -> (String, String) {
             if account.is_some() {
                 panic!("'account' provided more than once");
             }
+            // TODO: use an if-let chain when they are stabilized
             let Expr::Lit(lit) = kv.value else { panic!("'account' value should be a string"); };
             if let Lit::Str(v) = lit.lit {
                 account = Some(v);
