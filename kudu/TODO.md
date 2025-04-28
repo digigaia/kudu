@@ -58,9 +58,12 @@ NOTE: this should be fixed, or at least a resolution for this should be decided 
 
 ## MISC
 
+- document `hex_to_json`/`json_to_hex` tools
+
 - investigate `darling` crate to help with derive macros, here's a
   [small example](https://github.com/imbolc/rust-derive-macro-guide)
   maybe even better: `pastey`, `crabtime`
+  other choice: [`attrs`](https://www.reddit.com/r/rust/comments/1joffd5/announcing_attrs_a_parsercombinator_library_for/)
 
 - clean/properly order imports in all file (maybe wait for Rust 2024 edition and use rustfmt
   as it seems to correspond better to the style we like)

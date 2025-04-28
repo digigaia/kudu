@@ -13,7 +13,7 @@ use serde::{Serialize, Serializer, ser::SerializeStruct};
 
 use kudu::{
     ByteStream, SerializeError, ABI, ABIDefinition, ABIError, Checksum256, JsonValue, Name,
-    SerializeEnum, json, with_location,
+    SerializeEnum, json, with_location, Action,
     abi::ABIProvider,
 };
 
@@ -44,24 +44,6 @@ pub enum ChainId {
     Id(Box<Checksum256>),
 }
 
-// impl Serialize for ChainId {
-//     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-//     where S: Serializer
-//     {
-//         let mut tup = serializer.serialize_tuple(2)?;
-//         match self {
-//             ChainId::Alias(alias) => {
-//                 tup.serialize_element("chain_alias")?;
-//                 tup.serialize_element(&alias)?;
-//             },
-//             ChainId::Id(id) => {
-//                 tup.serialize_element("chain_id")?;
-//                 tup.serialize_element(&hex::encode(**id))?;
-//             },
-//         }
-//         tup.end()
-//     }
-// }
 
 // -----------------------------------------------------------------------------
 //     Request data enum - contains the data in the request
@@ -69,36 +51,13 @@ pub enum ChainId {
 
 #[derive(Clone, Debug, SerializeEnum)]
 pub enum Request {
-    Action(JsonValue),
+    Action(Action),
     #[serde(rename="action[]")]
     Actions(Vec<JsonValue>),
     Transaction(JsonValue),
     Identity,
 }
 
-// impl Serialize for Request {
-//     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-//     where S: Serializer
-//     {
-//         let mut tup = serializer.serialize_tuple(2)?;
-//         match self {
-//             Request::Action(action) => {
-//                 tup.serialize_element("action")?;
-//                 tup.serialize_element(&action)?;
-//             },
-//             Request::Actions(actions) => {
-//                 tup.serialize_element("action[]")?;
-//                 tup.serialize_element(&actions)?;
-//             },
-//             Request::Transaction(tx) => {
-//                 tup.serialize_element("transaction")?;
-//                 tup.serialize_element(tx)?;
-//             },
-//             Request::Identity => todo!(),
-//         }
-//         tup.end()
-//     }
-// }
 
 // -----------------------------------------------------------------------------
 //     Request flags definition
@@ -110,6 +69,7 @@ flags! {
         Background,
     }
 }
+
 
 // =============================================================================
 //
@@ -182,11 +142,12 @@ impl SigningRequest {
     //       the only argument (it seems) in favor of owned value is that the API is nicer
     //       as we can construct the args with the `json!` macro without prepending it with `&`
 
-     pub fn from_action(action: JsonValue) -> Self {
+    pub fn from_action_json(abi_provider: ABIProvider, action: JsonValue) -> Self {
         SigningRequest {
-            request: Request::Action(action),
+            request: Request::Action(Action::from_json(Some(&abi_provider), &action).unwrap()),
             ..Default::default()
         }
+        .with_abi_provider(abi_provider)
     }
 
     pub fn from_actions(actions: JsonValue) -> Self {
@@ -228,6 +189,7 @@ impl SigningRequest {
         let dec = BASE64_URL_SAFE_NO_PAD.decode(esr).context(Base64DecodeSnafu { content: content.clone() })?;
         ensure!(!dec.is_empty(), InvalidSnafu { msg: format!("base64-decoded payload {content} is empty") });
 
+        // extract flags from payload
         let compression = (dec[0] >> 7) == 1u8;
         let version = dec[0] & ((1 << 7) - 1);
 
@@ -235,6 +197,7 @@ impl SigningRequest {
 
         debug!(version, compression, "decoding payload");
 
+        // if payload was compressed, decompress it now
         let mut dec2;
         if compression {
             let mut deflater = DeflateDecoder::new(&dec[1..]);
@@ -245,14 +208,11 @@ impl SigningRequest {
         else {
             dec2 = dec;
         }
-
-        trace!("uncompressed payload = {}", hex::encode(&dec2));
+        trace!("decompressed payload = {}", hex::encode(&dec2));
 
 
         let abi = get_signing_request_abi();
-
         let mut ds = ByteStream::from(dec2);
-
         abi.decode_variant(&mut ds, "signing_request").context(ABISnafu)
     }
 
@@ -261,7 +221,7 @@ impl SigningRequest {
         T: AsRef<[u8]>
     {
         let payload = Self::decode_payload(esr)?;
-        let mut result: Result<Self, SigningRequestError> = payload.try_into();
+        let mut result: Result<Self, SigningRequestError> = Self::try_from_json(abi_provider.as_ref(), payload);
         if let Ok(ref mut request) = result {
             if abi_provider.is_some() {
                 request.set_abi_provider(abi_provider);
@@ -273,6 +233,7 @@ impl SigningRequest {
 
     pub fn set_abi_provider(&mut self, abi_provider: Option<ABIProvider>) {
         self.abi_provider = abi_provider;
+        self.encode_actions();  // FIXME: added during refactor, should this stay here?
     }
 
     pub fn with_abi_provider(self, abi_provider: ABIProvider) -> Self {
@@ -305,10 +266,10 @@ impl SigningRequest {
         const ERROR_MSG: &str = "No ABIProvider has been set for the signing request, cannot encode actions";
 
         match self.request {
-            Request::Action(ref mut action) => {
-                if !Self::is_action_encoded(action) {
-                    Self::encode_action(action, abi_provider.expect(ERROR_MSG)).unwrap();
-                }
+            Request::Action(ref mut _action) => {
+                // if !Self::is_action_encoded(action) {
+                //     Self::encode_action(action, abi_provider.expect(ERROR_MSG)).unwrap();
+                // }
             },
             Request::Actions(ref mut actions) => {
                 for action in &mut actions[..] {
@@ -338,8 +299,8 @@ impl SigningRequest {
                     Self::decode_action(action, abi_provider.expect(ERROR_MSG)).unwrap();
                 }
             },
-            Request::Action(ref mut action) => {
-                Self::decode_action(action, abi_provider.expect(ERROR_MSG)).unwrap();
+            Request::Action(ref mut _action) => {
+                // Self::decode_action(action, abi_provider.expect(ERROR_MSG)).unwrap();
             },
             _ => todo!(),
         }
@@ -379,8 +340,7 @@ impl SigningRequest {
         let abi = get_signing_request_abi();
 
         self.encode_actions();
-        let cid = json!(self.chain_id);
-        warn!("chain id = {:?}", cid);
+        warn!("chain id = {:?}", json!(self.chain_id));
 
         let sr = json!(self);
         abi.encode_variant(&mut ds, "signing_request", &sr).unwrap(); // FIXME: remove this `unwrap`
@@ -404,11 +364,11 @@ impl Serialize for SigningRequest {
 }
 
 
-// FIXME: this would be better as `serde::Deserialize`, right?
-impl TryFrom<JsonValue> for SigningRequest {
-    type Error = SigningRequestError;
+impl SigningRequest {
+    // type Error = SigningRequestError;
 
-    fn try_from(payload: JsonValue) -> Result<Self, Self::Error> {
+    fn try_from_json(abi_provider: Option<&ABIProvider>, payload: JsonValue) -> Result<Self, SigningRequestError> {
+        // FIXME: this would be better as `serde::Deserialize`, right?
         let mut result = SigningRequest::default();
 
         let chain_id = &payload["chain_id"];
@@ -431,7 +391,7 @@ impl TryFrom<JsonValue> for SigningRequest {
         let req_data = &payload["req"][1];
 
         result.request = match req_type {
-            "action" => Request::Action(req_data.clone()),
+            "action" => Request::Action(Action::from_json(abi_provider, req_data).unwrap()),
             "action[]" => {
                 let actions = req_data.as_array().unwrap();
                 Request::Actions(actions.to_vec())

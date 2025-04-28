@@ -7,12 +7,16 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
+use hex::FromHexError;
 use serde::{Deserialize, Serialize};
+use snafu::{Snafu, OptionExt};
 
 use crate::{
     AccountName, ActionName, BlockId, BlockTimestamp, Digest, Extensions, MicroSeconds,
     PermissionName, TransactionId, TimePointSec, VarUint32, Name, Asset, ABISerializable,
-    abiserializable::to_bin, Bytes, Signature, SerializeEnumPrefixed,
+    abiserializable::to_bin, Bytes, Signature, SerializeEnumPrefixed, JsonValue,
+    ByteStream, ABIProvider, ABIError, InvalidName,
+    with_location, impl_auto_error_conversion,
 };
 
 // this is needed to be able to call the `ABISerializable` derive macro, which needs
@@ -55,6 +59,54 @@ pub struct PermissionLevel {
     pub permission: PermissionName,
 }
 
+pub trait IntoPermissionVec {
+    fn into_permission_vec(self) -> Vec<PermissionLevel>;
+}
+
+impl IntoPermissionVec for Vec<PermissionLevel> {
+    fn into_permission_vec(self) -> Vec<PermissionLevel> {
+        self
+    }
+}
+
+impl IntoPermissionVec for PermissionLevel {
+    fn into_permission_vec(self) -> Vec<PermissionLevel> {
+        vec![self]
+    }
+}
+
+impl IntoPermissionVec for (&str, &str) {
+    fn into_permission_vec(self) -> Vec<PermissionLevel> {
+        vec![PermissionLevel { actor: AccountName::constant(self.0), permission: PermissionName::constant(self.1) }]
+    }
+}
+
+
+
+#[with_location]
+#[derive(Debug, Snafu)]
+// TODO: rename to `InvalidAction` for consistency?
+pub enum ActionError {
+    #[snafu(display("Cannot convert action['{field_name}'] to str, actual type: {value:?}"))]
+    FieldType {
+        field_name: String,
+        value: JsonValue,
+    },
+
+    #[snafu(display("Invalid name"))]
+    Name { source: InvalidName },
+
+    #[snafu(display("invalid hex representation"))]
+    FromHex { source: FromHexError },
+
+    #[snafu(display("ABI error"))]
+    ABI { source: ABIError },
+}
+
+impl_auto_error_conversion!(InvalidName, ActionError, NameSnafu);
+impl_auto_error_conversion!(FromHexError, ActionError, FromHexSnafu);
+impl_auto_error_conversion!(ABIError, ActionError, ABISnafu);
+
 /// An action is performed by an actor, aka an account. It may
 /// be created explicitly and authorized by signatures or might be
 /// generated implicitly by executing application code.
@@ -80,28 +132,6 @@ pub struct Action {
     pub data: Bytes,
 }
 
-pub trait IntoPermissionVec {
-    fn into_permission_vec(self) -> Vec<PermissionLevel>;
-}
-
-impl IntoPermissionVec for Vec<PermissionLevel> {
-    fn into_permission_vec(self) -> Vec<PermissionLevel> {
-        self
-    }
-}
-
-impl IntoPermissionVec for PermissionLevel {
-    fn into_permission_vec(self) -> Vec<PermissionLevel> {
-        vec![self]
-    }
-}
-
-impl IntoPermissionVec for (&str, &str) {
-    fn into_permission_vec(self) -> Vec<PermissionLevel> {
-        vec![PermissionLevel { actor: AccountName::constant(self.0), permission: PermissionName::constant(self.1) }]
-    }
-}
-
 impl Action {
     pub fn new<T: Contract>(authorization: impl IntoPermissionVec, contract: T) -> Action {
         Action {
@@ -110,6 +140,47 @@ impl Action {
             authorization: authorization.into_permission_vec(),
             data: to_bin(&contract)
         }
+    }
+
+    pub fn conv_action_field_str<'a>(
+        action: &'a JsonValue,
+        field: &str
+    ) -> Result<&'a str, ActionError> {
+        action[field].as_str().with_context(|| FieldTypeSnafu {
+            field_name: field,
+            value: action[field].clone(),
+        })
+    }
+
+    pub fn from_json(abi_provider: Option<&ABIProvider>, action: &JsonValue) -> Result<Action, ActionError> {
+        // FIXME: too many unwraps
+        let account = Action::conv_action_field_str(action, "account")?;
+        let action_name = Action::conv_action_field_str(action, "name")?;
+
+        // FIXME: refactor this!
+        let mut auth = vec![];
+        for a in action["authorization"].as_array().unwrap() {
+            auth.push(serde_json::from_str(&a.to_string()).unwrap());
+        }
+
+        let data: Bytes = if action["data"].is_string() {
+            Bytes::from_hex(action["data"].as_str().unwrap())?
+        }
+        else {
+            let data = &action["data"];
+            let mut ds = ByteStream::new();
+            let abi = abi_provider.unwrap().get_abi(account)?;
+            abi.encode_variant(&mut ds, action_name, data).unwrap();
+            // action["data"] = JsonValue::String(ds.hex_data());
+            ds.into()
+        };
+
+        Ok(Action {
+            account: Name::new(account)?,
+            name: Name::new(action_name)?,
+            authorization: auth,
+            data,
+        })
     }
 }
 
