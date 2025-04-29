@@ -39,6 +39,10 @@
 
 - look at <https://github.com/wharfkit/signing-request/blob/master/src/abi.ts>
 
+- check for more tests in:
+  - <https://github.com/wharfkit/signing-request/>
+  - <https://github.com/wharfkit/protocol-esr/
+
 ## MISC
 
 - report bug for wharfkit.request creation: duplicate context_free_actions, missing context_free_data

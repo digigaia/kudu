@@ -4,7 +4,7 @@ use std::num::{ParseFloatError, ParseIntError, TryFromIntError};
 
 use hex::FromHexError;
 use num::{Integer, Signed, Unsigned, Float};
-use serde_json::Value as JsonValue;
+use serde_json::{Map, Value as JsonValue};
 use snafu::prelude::*;
 
 use kudu_macros::with_location;
@@ -95,8 +95,15 @@ impl_negative_hex!(i128, u128);
 
 
 // -----------------------------------------------------------------------------
-//     Utility functions to convert numeric types
+//     Utility functions to convert variants to inner types
 // -----------------------------------------------------------------------------
+
+pub fn variant_to_object(v: &JsonValue) -> Result<&Map<String, JsonValue>> {
+    v.as_object().with_context(|| IncompatibleVariantTypesSnafu {
+        typename: "object",
+        value: v.clone(),
+    })
+}
 
 pub fn variant_to_str(v: &JsonValue) -> Result<&str> {
     v.as_str().with_context(|| IncompatibleVariantTypesSnafu {

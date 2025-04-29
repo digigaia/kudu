@@ -142,7 +142,7 @@ fn create_from_action() -> Result<()> {
         cache: Default::default(),
     };
 
-    let mut req = SigningRequest::from_action_json(
+    let req = SigningRequest::from_action_json(
         provider,
         json!({
             "account": "eosio.token",
@@ -170,7 +170,7 @@ fn create_from_action() -> Result<()> {
 
     // req.encode_actions();
     // req.decode_actions();
-    req.encode_actions();
+    // req.encode_actions();
 
     assert_eq!(json!(req), json!({
         "chain_id": ["chain_alias", 1],
@@ -254,7 +254,7 @@ fn create_from_transaction() -> Result<()> {
 
     let timestamp = "2018-02-15T00:00:00.000";
 
-    let mut req = SigningRequest::from_transaction_json(
+    let req = SigningRequest::from_transaction_json(
         None,
         json!({
             "delay_sec": 123,
@@ -275,7 +275,7 @@ fn create_from_transaction() -> Result<()> {
 
     // we should be able to call `SigningRequest::encode_actions()` without
     // having to provide an ABIProvider as the action is already encoded
-    req.encode_actions();
+    // req.encode_actions();
 
     assert_eq!(json!(req), json!({
         "chain_id": ["chain_alias", 1],

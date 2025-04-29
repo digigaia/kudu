@@ -1,6 +1,6 @@
 use hex::FromHexError;
 use serde::{Deserialize, Serialize};
-use snafu::{Snafu, OptionExt};
+use snafu::{Snafu, OptionExt, ensure};
 
 use crate::{
     AccountName, ActionName, Contract,
@@ -40,6 +40,7 @@ impl IntoPermissionVec for PermissionLevel {
     }
 }
 
+// NOTE: this panics if the `&str` are not valid `Name`s
 impl IntoPermissionVec for (&str, &str) {
     fn into_permission_vec(self) -> Vec<PermissionLevel> {
         vec![PermissionLevel {
@@ -48,7 +49,6 @@ impl IntoPermissionVec for (&str, &str) {
         }]
     }
 }
-
 
 
 #[with_location]
@@ -67,6 +67,12 @@ pub enum ActionError {
     #[snafu(display("invalid hex representation"))]
     FromHex { source: FromHexError },
 
+    #[snafu(display("missing ABIProvider, required to encode action data"))]
+    MissingABIProvider,
+
+    #[snafu(display("could not match JSON object to transaction"))]
+    FromJson { source: serde_json::Error },
+
     #[snafu(display("ABI error"))]
     ABI { source: ABIError },
 }
@@ -74,6 +80,8 @@ pub enum ActionError {
 impl_auto_error_conversion!(InvalidName, ActionError, NameSnafu);
 impl_auto_error_conversion!(FromHexError, ActionError, FromHexSnafu);
 impl_auto_error_conversion!(ABIError, ActionError, ABISnafu);
+impl_auto_error_conversion!(serde_json::Error, ActionError, FromJsonSnafu);
+
 
 /// An action is performed by an actor, aka an account. It may
 /// be created explicitly and authorized by signatures or might be
@@ -125,28 +133,27 @@ impl Action {
         let account = Action::conv_action_field_str(action, "account")?;
         let action_name = Action::conv_action_field_str(action, "name")?;
 
-        // FIXME: refactor this!
-        let mut auth = vec![];
-        for a in action["authorization"].as_array().unwrap() {
-            auth.push(serde_json::from_str(&a.to_string()).unwrap());
-        }
+        // TODO: can we make this more efficient?
+        let authorization: Vec<PermissionLevel> = serde_json::from_str(&action["authorization"].to_string())?;
 
         let data: Bytes = if action["data"].is_string() {
-            Bytes::from_hex(action["data"].as_str().unwrap())?
+            // if `data` is already provided as binary data, read it as is
+            Bytes::from_hex(action["data"].as_str().unwrap())?  // safe unwrap
         }
         else {
+            // otherwise, we need an ABI to encode the data into a binary string
             let data = &action["data"];
             let mut ds = ByteStream::new();
-            let abi = abi_provider.unwrap().get_abi(account)?;
-            abi.encode_variant(&mut ds, action_name, data).unwrap();
-            // action["data"] = JsonValue::String(ds.hex_data());
+            ensure!(abi_provider.is_some(), MissingABIProviderSnafu);
+            let abi = abi_provider.unwrap().get_abi(account)?;  // safe unwrap
+            abi.encode_variant(&mut ds, action_name, data)?;
             ds.into()
         };
 
         Ok(Action {
             account: Name::new(account)?,
             name: Name::new(action_name)?,
-            authorization: auth,
+            authorization,
             data,
         })
     }
@@ -160,10 +167,8 @@ impl Action {
             .collect())
     }
 
-
     pub fn decode_data(&self, abi_provider: &ABIProvider) -> JsonValue {
         // FIXME: this .clone() is unnecessary once we fix deserializing from bytestream
-        // FIXME: abi_provider should be able to get ABI by `Name`, not only by `String`
         let mut ds = ByteStream::from(self.data.clone());
         let abi = abi_provider.get_abi(&self.account.to_string()).unwrap();
         abi.decode_variant(&mut ds, &self.name.to_string()).unwrap()

@@ -1,9 +1,12 @@
 use std::fmt::Debug;
 use std::str::FromStr;
+use std::sync::Once;
 
 use color_eyre::eyre::Result;
 use chrono::{NaiveDate, TimeZone, Utc};
+use serde::{Serialize, Deserialize};
 use serde_json::json;
+use tracing_subscriber::EnvFilter;
 
 use kudu::{
     ABI, ByteStream, ABISerializable,
@@ -23,6 +26,19 @@ use kudu::{
 //      - check more tests at: https://github.com/wharfkit/antelope/blob/master/test/serializer.ts
 //
 // =============================================================================
+
+
+static TRACING_INIT: Once = Once::new();
+
+fn init() {
+    TRACING_INIT.call_once(|| {
+        tracing_subscriber::fmt()
+            .with_env_filter(EnvFilter::from_default_env())
+            // .with_span_events(FmtSpan::ACTIVE)
+            // .pretty()
+            .init();
+    });
+}
 
 
 // -----------------------------------------------------------------------------
@@ -688,5 +704,30 @@ fn test_extended_asset() -> Result<()> {
     check_round_trip_map_type(vals,
                               |s| ExtendedAsset { quantity: s.0, contract: s.1 },
                               |ea| AntelopeValue::ExtendedAsset(Box::new(ea)));
+    Ok(())
+}
+
+#[ignore]
+#[test]
+fn test_serde_timepoint() -> Result<()> {
+    init();
+
+    // NOTE: this test fails due to the implementation of `Deserialize` for `TimePoint` expecting
+    //       a `&str` instead of a `String`
+    // we should find a way to make this work without having to allocate in the good case
+    // see: https://github.com/serde-rs/serde/issues/2065
+    // see: https://github.com/serde-rs/serde/issues/1009
+
+    #[derive(Debug, Eq, PartialEq, Serialize, Deserialize)]
+    struct TestTimePoint {
+        amount: u32,
+        expiration: TimePoint,
+    }
+
+    let t1: TestTimePoint = serde_json::from_str(r#"{"amount": 42, "expiration":"1970-01-01T00:00:00.000"}"#)?;
+    let t2: TestTimePoint = serde_json::from_value(json!({"amount": 42, "expiration": "1970-01-01T00:00:00.000"}))?;
+
+    assert_eq!(t1, t2);
+
     Ok(())
 }

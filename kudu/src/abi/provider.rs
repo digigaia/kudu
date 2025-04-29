@@ -20,6 +20,7 @@ pub enum ABIProvider {
     },
 }
 
+// FIXME: abi_provider should be able to get ABI by `Name`, not only by `String`
 impl ABIProvider {
     pub fn get_abi(&self, abi_name: &str) -> Result<Rc<ABI>, ABIError> {
         match self {

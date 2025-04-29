@@ -1,10 +1,12 @@
+use chrono::ParseError as ChronoParseError;
 use serde::{Deserialize, Serialize};
-use snafu::{Snafu, ResultExt};
+use snafu::Snafu;
 
 use crate::{
-    Action, ABIProvider, Extensions, JsonValue,
+    ABIProvider, Action, ActionError, Extensions, JsonValue,
     TransactionId, TimePointSec, VarUint32, ABISerializable,
-    json, with_location,
+    convert::{variant_to_object, variant_to_str, variant_to_uint, ConversionError},
+    impl_auto_error_conversion, with_location,
 };
 
 // this is needed to be able to call the `ABISerializable` derive macro, which needs
@@ -15,26 +17,26 @@ extern crate self as kudu;
 #[derive(Debug, Snafu)]
 // TODO: rename to `InvalidAction` for consistency?
 pub enum TransactionError {
-    // #[snafu(display("Cannot convert action['{field_name}'] to str, actual type: {value:?}"))]
-    // FieldType {
-    //     field_name: String,
-    //     value: JsonValue,
-    // },
+    #[snafu(display("unknown field: '{field}'"))]
+    UnknownField { field: String },
 
-    // #[snafu(display("Invalid name"))]
-    // Name { source: InvalidName },
+    #[snafu(display("cannot convert field to required target type"))]
+    Conversion { source: ConversionError },
 
-    // #[snafu(display("invalid hex representation"))]
-    // FromHex { source: FromHexError },
+    #[snafu(display("cannot parse date/time"))]
+    DateTimeParse { source: ChronoParseError },
 
-    // #[snafu(display("ABI error"))]
-    // ABI { source: ABIError },
+    #[snafu(display("invalid action"))]
+    InvalidAction { source: ActionError },
 
     #[snafu(display("could not match JSON object to transaction"))]
     FromJson { source: serde_json::Error },
 }
 
-// impl_auto_error_conversion!(serde_json::Error, TransactionError, FromJsonSnafu);
+impl_auto_error_conversion!(ChronoParseError, TransactionError, DateTimeParseSnafu);
+impl_auto_error_conversion!(ConversionError, TransactionError, ConversionSnafu);
+impl_auto_error_conversion!(ActionError, TransactionError, InvalidActionSnafu);
+impl_auto_error_conversion!(serde_json::Error, TransactionError, FromJsonSnafu);
 
 
 #[derive(Eq, Hash, PartialEq, Debug, Clone, Default, Serialize, Deserialize, ABISerializable)]
@@ -61,11 +63,9 @@ pub struct Transaction {
     // -----------------------------------------------------------------------------
 
     pub context_free_actions: Vec<Action>,
-    #[serde(default)]
     pub actions: Vec<Action>,
     pub transaction_extensions: Extensions,
 }
-
 
 
 impl Transaction {
@@ -73,33 +73,28 @@ impl Transaction {
         todo!();  // sha256 hash of the serialized trx
     }
 
+    /// Create a new `Transaction` from a JSON value containing the non-default fields.
+    /// You should pass an `ABIProvider` if the data fields for the `Actions` are not
+    /// encoded yet, it is unnecessary otherwise.
     pub fn from_json(
         abi_provider: Option<&ABIProvider>,
         tx: &JsonValue
     ) -> Result<Transaction, TransactionError> {
-        // set default values if missing
-        let mut tx = tx.as_object().unwrap().clone();
-        tx.entry("expiration")            .or_insert("1970-01-01T00:00:00.000".into());
-        tx.entry("ref_block_num")         .or_insert(json!(0));
-        tx.entry("ref_block_prefix")      .or_insert(json!(0));
-        tx.entry("max_cpu_usage_ms")      .or_insert(json!(0));
-        tx.entry("max_net_usage_words")   .or_insert(json!(0));
-        tx.entry("delay_sec")             .or_insert(json!(0));
-        tx.entry("context_free_actions")  .or_insert(json!([]));
-        // tx.entry("actions")               .or_insert(json!([]));
-        tx.entry("transaction_extensions").or_insert(json!([]));
-        tx.entry("context_free_data")     .or_insert(json!([]));  // FIXME: needed? wanted?
-
-        // FIXME: we should do this properly
-        // see: https://github.com/serde-rs/serde/issues/2065
-        // let expiration = tx.remove("expiration")
-        //     .unwrap_or(JsonValue::String("1970-01-01T00:00:00.000".to_owned()));
-
-        let actions = tx.remove("actions").unwrap_or(JsonValue::Array(vec![]));
-
-        let mut result: Transaction = serde_json::from_value(json!(tx)).context(FromJsonSnafu)?;
-        result.actions = Action::from_json_array(abi_provider, &actions).unwrap();
+        let mut result = Transaction::default();
+        for (field, value) in variant_to_object(tx)?.iter() {
+            match field.as_str() {
+                "expiration"           => result.expiration           = variant_to_str(value)?.parse()?,
+                "ref_block_num"        => result.ref_block_num        = variant_to_uint(value)?,
+                "ref_block_prefix"     => result.ref_block_prefix     = variant_to_uint(value)?,
+                "max_cpu_usage_ms"     => result.max_cpu_usage_ms     = variant_to_uint(value)?,
+                "max_net_usage_words"  => result.max_net_usage_words  = variant_to_uint::<u32>(value)?.into(),
+                "delay_sec"            => result.delay_sec            = variant_to_uint::<u32>(value)?.into(),
+                "context_free_actions" => result.context_free_actions = Action::from_json_array(abi_provider, value)?,
+                "actions"              => result.actions              = Action::from_json_array(abi_provider, value)?,
+                "transaction_extensions" => result.transaction_extensions = serde_json::from_value(value.clone())?,
+                other => UnknownFieldSnafu { field: other }.fail()?,
+            }
+        }
         Ok(result)
     }
-
 }
