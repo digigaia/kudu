@@ -247,6 +247,18 @@ impl<'de> Deserialize<'de> for Name {
 }
 
 
+// -----------------------------------------------------------------------------
+//     Convenience traits implementation
+// -----------------------------------------------------------------------------
+
+// TODO: this is not optimized!!
+impl PartialEq<&str> for Name {
+    fn eq(&self, other: &&str) -> bool {
+        self.to_string() == *other
+    }
+}
+
+
 // =============================================================================
 //
 //     Unittests

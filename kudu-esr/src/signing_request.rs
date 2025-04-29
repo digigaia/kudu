@@ -53,7 +53,7 @@ pub enum ChainId {
 pub enum Request {
     Action(Action),
     #[serde(rename="action[]")]
-    Actions(Vec<JsonValue>),
+    Actions(Vec<Action>),
     Transaction(JsonValue),
     Identity,
 }
@@ -150,11 +150,15 @@ impl SigningRequest {
         .with_abi_provider(abi_provider)
     }
 
-    pub fn from_actions(actions: JsonValue) -> Self {
+    pub fn from_actions_json(abi_provider: ABIProvider, actions: JsonValue) -> Self {
+        let actions: Vec<_> = actions.as_array().unwrap().iter()
+            .map(|v| Action::from_json(Some(&abi_provider), v).unwrap())
+            .collect();
         SigningRequest {
-            request: Request::Actions(actions.as_array().unwrap().to_vec()),
+            request: Request::Actions(actions),
             ..Default::default()
         }
+        .with_abi_provider(abi_provider)
     }
 
     pub fn from_transaction(tx: JsonValue) -> Self {
@@ -273,9 +277,9 @@ impl SigningRequest {
             },
             Request::Actions(ref mut actions) => {
                 for action in &mut actions[..] {
-                    if !Self::is_action_encoded(action) {
-                        Self::encode_action(action, abi_provider.expect(ERROR_MSG)).unwrap();
-                    }
+                    // if !Self::is_action_encoded(action) {
+                    //     Self::encode_action(action, abi_provider.expect(ERROR_MSG)).unwrap();
+                    // }
                 }
             },
             Request::Transaction(ref mut tx) => {
@@ -295,9 +299,9 @@ impl SigningRequest {
 
         match self.request {
             Request::Actions(ref mut actions) => {
-                for action in &mut actions[..] {
-                    Self::decode_action(action, abi_provider.expect(ERROR_MSG)).unwrap();
-                }
+                // for action in &mut actions[..] {
+                //     Self::decode_action(action, abi_provider.expect(ERROR_MSG)).unwrap();
+                // }
             },
             Request::Action(ref mut _action) => {
                 // Self::decode_action(action, abi_provider.expect(ERROR_MSG)).unwrap();
@@ -394,7 +398,7 @@ impl SigningRequest {
             "action" => Request::Action(Action::from_json(abi_provider, req_data).unwrap()),
             "action[]" => {
                 let actions = req_data.as_array().unwrap();
-                Request::Actions(actions.to_vec())
+                Request::Actions(actions.iter().map(|v| Action::from_json(abi_provider, v).unwrap()).collect())
             },
             _ => unimplemented!(),
         };

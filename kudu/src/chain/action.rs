@@ -150,4 +150,12 @@ impl Action {
             data,
         })
     }
+
+    pub fn decode_data(&self, abi_provider: &ABIProvider) -> JsonValue {
+        // FIXME: this .clone() is unnecessary once we fix deserializing from bytestream
+        // FIXME: abi_provider should be able to get ABI by `Name`, not only by `String`
+        let mut ds = ByteStream::from(self.data.clone());
+        let abi = abi_provider.get_abi(&self.account.to_string()).unwrap();
+        abi.decode_variant(&mut ds, &self.name.to_string()).unwrap()
+    }
 }

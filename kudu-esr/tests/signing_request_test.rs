@@ -58,8 +58,7 @@ fn encode() {
     // let opts = EncodeOptions::default();
     // let opts = EncodeOptions::with_abi_provider("test");
     // let req = SigningRequest::new(json!({ "actions": actions }), opts);
-    let mut req = SigningRequest::from_actions(actions)
-        .with_abi_provider(ABIProvider::Test);
+    let mut req = SigningRequest::from_actions_json(ABIProvider::Test, actions);
     warn!("{:?}", req);
     // assert!(false);
     let enc = req.encode();
@@ -79,6 +78,8 @@ fn decode() {
     //       we don't want to use this or support it
     // let esr = "gmNgZGRkAIFXBqEFopc6760yugsVYWCA0YIwxgKjuxLSL6-mgmQA";
 
+    let abi_provider = ABIProvider::Test;
+
     let esr = "gmNgZGRkAIFXBqEFopc6760yugsVYWBggtKCMIEFRnclpF9eTWUACgAA";
 
     let r = SigningRequest::decode(esr, Some(ABIProvider::Test)).unwrap();
@@ -91,12 +92,12 @@ fn decode() {
 
     assert_eq!(actions.len(), 1);
     let a = &actions[0];
-    assert_eq!(a["account"], "eosio");
-    assert_eq!(a["name"], "voteproducer");
-    let auth = &a["authorization"][0];
-    assert_eq!(auth["actor"], SIGNER_NAME.to_string());
-    assert_eq!(auth["permission"], SIGNER_PERMISSION.to_string());
-    let data = &a["data"];
+    assert_eq!(a.account, "eosio");
+    assert_eq!(a.name, "voteproducer");
+    let auth = &a.authorization[0];
+    assert_eq!(auth.actor, SIGNER_NAME);
+    assert_eq!(auth.permission, SIGNER_PERMISSION);
+    let data = a.decode_data(&abi_provider);
     assert!(data.is_object());
     assert_eq!(data["voter"], SIGNER_NAME.to_string());
     assert_eq!(data["proxy"], "greymassvote");
@@ -197,7 +198,8 @@ fn create_from_actions() -> Result<()> {
 
     let provider = ABIProvider::Test;
 
-    let req = SigningRequest::from_actions(
+    let req = SigningRequest::from_actions_json(
+        provider,
         json!([
             {
                 "account": "eosio.token",
@@ -212,8 +214,7 @@ fn create_from_actions() -> Result<()> {
                 "data": {"from": "baz", "to": "bar", "quantity": "1.000 EOS", "memo": "hello there"},
             }
         ]))
-        .with_callback("https://example.com/?tx={{tx}}", true)
-        .with_abi_provider(provider);
+        .with_callback("https://example.com/?tx={{tx}}", true);
 
     // req.encode_actions();
 
