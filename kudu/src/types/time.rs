@@ -50,6 +50,9 @@ macro_rules! impl_serialize {
             where
                 D: Deserializer<'de>,
             {
+                // FIXME: can we not keep &str here?
+                // see: https://github.com/serde-rs/serde/issues/2065
+                // see: https://github.com/serde-rs/serde/issues/1009
                 // let s: &str = <&str>::deserialize(deserializer)?;
                 // Self::from_str(s).map_err(|e| de::Error::custom(e.to_string()))
                 let s: String = String::deserialize(deserializer)?;
