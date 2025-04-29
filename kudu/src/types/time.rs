@@ -50,8 +50,10 @@ macro_rules! impl_serialize {
             where
                 D: Deserializer<'de>,
             {
-                let s: &str = <&str>::deserialize(deserializer)?;
-                Self::from_str(s).map_err(|e| de::Error::custom(e.to_string()))
+                // let s: &str = <&str>::deserialize(deserializer)?;
+                // Self::from_str(s).map_err(|e| de::Error::custom(e.to_string()))
+                let s: String = String::deserialize(deserializer)?;
+                Self::from_str(&s).map_err(|e| de::Error::custom(e.to_string()))
             }
         }
     }

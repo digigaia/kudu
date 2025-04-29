@@ -151,6 +151,16 @@ impl Action {
         })
     }
 
+    pub fn from_json_array(
+        abi_provider: Option<&ABIProvider>,
+        actions: &JsonValue
+    ) -> Result<Vec<Action>, ActionError> {
+        Ok(actions.as_array().unwrap().iter()
+            .map(|v| Action::from_json(abi_provider, v).unwrap())
+            .collect())
+    }
+
+
     pub fn decode_data(&self, abi_provider: &ABIProvider) -> JsonValue {
         // FIXME: this .clone() is unnecessary once we fix deserializing from bytestream
         // FIXME: abi_provider should be able to get ABI by `Name`, not only by `String`

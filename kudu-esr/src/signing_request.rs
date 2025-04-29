@@ -12,9 +12,9 @@ use flate2::read::DeflateDecoder;
 use serde::{Serialize, Serializer, ser::SerializeStruct};
 
 use kudu::{
-    ByteStream, SerializeError, ABI, ABIDefinition, ABIError, Checksum256, JsonValue, Name,
-    SerializeEnum, json, with_location, Action,
-    abi::ABIProvider,
+    ABIDefinition, ABIError, Action, ByteStream, Checksum256, JsonValue, Name,
+    SerializeEnum, SerializeError, Transaction, ABI,
+    abi::ABIProvider, json, with_location,
 };
 
 use tracing::{trace, debug, warn};
@@ -54,7 +54,7 @@ pub enum Request {
     Action(Action),
     #[serde(rename="action[]")]
     Actions(Vec<Action>),
-    Transaction(JsonValue),
+    Transaction(Transaction),
     Identity,
 }
 
@@ -151,32 +151,32 @@ impl SigningRequest {
     }
 
     pub fn from_actions_json(abi_provider: ABIProvider, actions: JsonValue) -> Self {
-        let actions: Vec<_> = actions.as_array().unwrap().iter()
-            .map(|v| Action::from_json(Some(&abi_provider), v).unwrap())
-            .collect();
+        // let actions: Vec<_> = actions.as_array().unwrap().iter()
+        //     .map(|v| Action::from_json(Some(&abi_provider), v).unwrap())
+        //     .collect();
         SigningRequest {
-            request: Request::Actions(actions),
+            request: Request::Actions(Action::from_json_array(Some(&abi_provider), &actions).unwrap()),
             ..Default::default()
         }
         .with_abi_provider(abi_provider)
     }
 
-    pub fn from_transaction(tx: JsonValue) -> Self {
-        // set default values if missing
-        let mut tx = tx.as_object().unwrap().clone();
-        tx.entry("expiration")            .or_insert("1970-01-01T00:00:00.000".into());
-        tx.entry("ref_block_num")         .or_insert(json!(0));
-        tx.entry("ref_block_prefix")      .or_insert(json!(0));
-        tx.entry("max_cpu_usage_ms")      .or_insert(json!(0));
-        tx.entry("max_net_usage_words")   .or_insert(json!(0));
-        tx.entry("delay_sec")             .or_insert(json!(0));
-        tx.entry("context_free_actions")  .or_insert(json!([]));
-        tx.entry("actions")               .or_insert(json!([]));
-        tx.entry("transaction_extensions").or_insert(json!([]));
-        tx.entry("context_free_data")     .or_insert(json!([]));  // FIXME: needed? wanted?
+    pub fn from_transaction_json(abi_provider: Option<&ABIProvider>, tx: JsonValue) -> Self {
+        // // set default values if missing
+        // let mut tx = tx.as_object().unwrap().clone();
+        // tx.entry("expiration")            .or_insert("1970-01-01T00:00:00.000".into());
+        // tx.entry("ref_block_num")         .or_insert(json!(0));
+        // tx.entry("ref_block_prefix")      .or_insert(json!(0));
+        // tx.entry("max_cpu_usage_ms")      .or_insert(json!(0));
+        // tx.entry("max_net_usage_words")   .or_insert(json!(0));
+        // tx.entry("delay_sec")             .or_insert(json!(0));
+        // tx.entry("context_free_actions")  .or_insert(json!([]));
+        // tx.entry("actions")               .or_insert(json!([]));
+        // tx.entry("transaction_extensions").or_insert(json!([]));
+        // tx.entry("context_free_data")     .or_insert(json!([]));  // FIXME: needed? wanted?
 
         SigningRequest {
-            request: Request::Transaction(JsonValue::Object(tx)),
+            request: Request::Transaction(Transaction::from_json(abi_provider, &tx).unwrap()),
             ..Default::default()
         }
     }
@@ -229,7 +229,7 @@ impl SigningRequest {
         if let Ok(ref mut request) = result {
             if abi_provider.is_some() {
                 request.set_abi_provider(abi_provider);
-                request.decode_actions();
+                // request.decode_actions();
             }
         }
         result
@@ -275,40 +275,40 @@ impl SigningRequest {
                 //     Self::encode_action(action, abi_provider.expect(ERROR_MSG)).unwrap();
                 // }
             },
-            Request::Actions(ref mut actions) => {
-                for action in &mut actions[..] {
-                    // if !Self::is_action_encoded(action) {
-                    //     Self::encode_action(action, abi_provider.expect(ERROR_MSG)).unwrap();
-                    // }
-                }
-            },
-            Request::Transaction(ref mut tx) => {
-                for action in tx["actions"].as_array_mut().unwrap() {
-                    if !Self::is_action_encoded(action) {
-                        Self::encode_action(action, abi_provider.expect(ERROR_MSG)).unwrap();
-                    }
-                }
-            },
-            _ => todo!(),
-        }
-    }
-
-    pub fn decode_actions(&mut self) {
-        let abi_provider = self.abi_provider.as_ref();
-        const ERROR_MSG: &str = "No ABIProvider has been set for the signing request, cannot decode actions";
-
-        match self.request {
-            Request::Actions(ref mut actions) => {
+            Request::Actions(ref mut _actions) => {
                 // for action in &mut actions[..] {
-                //     Self::decode_action(action, abi_provider.expect(ERROR_MSG)).unwrap();
+                //     if !Self::is_action_encoded(action) {
+                //         Self::encode_action(action, abi_provider.expect(ERROR_MSG)).unwrap();
+                //     }
                 // }
             },
-            Request::Action(ref mut _action) => {
-                // Self::decode_action(action, abi_provider.expect(ERROR_MSG)).unwrap();
+            Request::Transaction(ref mut tx) => {
+                // for action in tx["actions"].as_array_mut().unwrap() {
+                //     if !Self::is_action_encoded(action) {
+                //         Self::encode_action(action, abi_provider.expect(ERROR_MSG)).unwrap();
+                //     }
+                // }
             },
             _ => todo!(),
         }
     }
+
+    // pub fn decode_actions(&mut self) {
+    //     let abi_provider = self.abi_provider.as_ref();
+    //     const ERROR_MSG: &str = "No ABIProvider has been set for the signing request, cannot decode actions";
+
+    //     match self.request {
+    //         Request::Actions(ref mut actions) => {
+    //             // for action in &mut actions[..] {
+    //             //     Self::decode_action(action, abi_provider.expect(ERROR_MSG)).unwrap();
+    //             // }
+    //         },
+    //         Request::Action(ref mut _action) => {
+    //             // Self::decode_action(action, abi_provider.expect(ERROR_MSG)).unwrap();
+    //         },
+    //         _ => todo!(),
+    //     }
+    // }
 
     fn is_action_encoded(action: &JsonValue) -> bool {
         action["data"].is_string()
@@ -327,17 +327,17 @@ impl SigningRequest {
         Ok(())
     }
 
-    fn decode_action(action: &mut JsonValue, abi_provider: &ABIProvider) -> Result<(), SigningRequestError> {
-        if !Self::is_action_encoded(action) { return Ok(()); }
+    // fn decode_action(action: &mut JsonValue, abi_provider: &ABIProvider) -> Result<(), SigningRequestError> {
+    //     if !Self::is_action_encoded(action) { return Ok(()); }
 
-        let account     = conv_action_field_str(action, "account")?;
-        let action_name = conv_action_field_str(action, "name")?;
-        let data        = conv_action_field_str(action, "data")?;
-        let mut ds = ByteStream::from(hex::decode(data).unwrap());
-        let abi = abi_provider.get_abi(account).context(ABISnafu)?;
-        action["data"] = abi.decode_variant(&mut ds, action_name).unwrap();
-        Ok(())
-    }
+    //     let account     = conv_action_field_str(action, "account")?;
+    //     let action_name = conv_action_field_str(action, "name")?;
+    //     let data        = conv_action_field_str(action, "data")?;
+    //     let mut ds = ByteStream::from(hex::decode(data).unwrap());
+    //     let abi = abi_provider.get_abi(account).context(ABISnafu)?;
+    //     action["data"] = abi.decode_variant(&mut ds, action_name).unwrap();
+    //     Ok(())
+    // }
 
     pub fn encode(&mut self) -> Vec<u8> {
         let mut ds = ByteStream::new();

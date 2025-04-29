@@ -168,8 +168,8 @@ fn create_from_action() -> Result<()> {
     //     "info": [],
     // }));
 
-    req.encode_actions();
-    req.decode_actions();
+    // req.encode_actions();
+    // req.decode_actions();
     req.encode_actions();
 
     assert_eq!(json!(req), json!({
@@ -252,9 +252,10 @@ fn create_from_actions() -> Result<()> {
 fn create_from_transaction() -> Result<()> {
     init();
 
-    let timestamp = "2018-02-15T00:00:00";
+    let timestamp = "2018-02-15T00:00:00.000";
 
-    let mut req = SigningRequest::from_transaction(
+    let mut req = SigningRequest::from_transaction_json(
+        None,
         json!({
             "delay_sec": 123,
             "expiration": timestamp,
@@ -290,7 +291,8 @@ fn create_from_transaction() -> Result<()> {
                     },
                 ],
                 "context_free_actions": [],
-                "context_free_data": [],
+                // "context_free_data": [],  // FIXME: this is in wharfkit test, but should only appear in a signed transaction
+                // see: https://github.com/AntelopeIO/spring/blob/main/libraries/chain/include/eosio/chain/transaction.hpp#L121
                 "delay_sec": 123,
                 "expiration": timestamp,
                 "max_cpu_usage_ms": 99,

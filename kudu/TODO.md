@@ -29,11 +29,19 @@ NOTE: this should be fixed, or at least a resolution for this should be decided 
 ## CORRECTNESS / TESTING
 
 - have some tests for `APIClient`, think how to do this smartly to not pound the API server
+  use an http mocking library: `httpmock`, `wiremock`, `mockito`. `httpmock` has both async/sync
+  API, `mockito` seems not so maintained? See comparison:
+  <https://github.com/LukeMathWalker/wiremock-rs?tab=readme-ov-file#prior-art>
+  alternatively, use a crate like `mockall` to mock directly the `APIClient` object
+  also, see this about mocking: <https://borretti.me/article/two-years-of-rust> / <https://www.reddit.com/r/rust/comments/1jzwer2/two_years_of_rust/>
 
 - check abieos/test.cpp to ensure we cover also all the error cases with proper error messages
 
 - check other tests and ideas from: <https://github.com/wharfkit/antelope>, e.g.:
   <https://github.com/wharfkit/antelope/blob/master/test/chain.ts>
+
+- check [Pitfalls of safe Rust](https://corrode.dev/blog/pitfalls-of-safe-rust/)
+  [[reddit](https://www.reddit.com/r/rust/comments/1jqqzxb/pitfalls_of_safe_rust/)]
 
 
 ## PERFORMANCE
