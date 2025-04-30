@@ -5,9 +5,9 @@ use tracing_subscriber::{
     EnvFilter,
     // fmt::format::FmtSpan,
 };
-use color_eyre::Result;
+use color_eyre::{Result, eyre::bail};
 
-use kudu::{json, Name};
+use kudu::{Action, Name, json};
 use kudu::ABIProvider;
 use kudu_esr::signing_request::*;
 
@@ -37,7 +37,7 @@ fn placeholder_value() {
 }
 
 #[test]
-fn encode() {
+fn encode() -> Result<()> {
     init();
 
     // TODO: check whether we need a specific type for this or if we want to just use JSON
@@ -55,22 +55,33 @@ fn encode() {
         }
     }]);
 
-    // let opts = EncodeOptions::default();
-    // let opts = EncodeOptions::with_abi_provider("test");
-    // let req = SigningRequest::new(json!({ "actions": actions }), opts);
-    let mut req = SigningRequest::from_actions_json(ABIProvider::Test, actions);
-    warn!("{:?}", req);
-    // assert!(false);
-    let enc = req.encode();
+    let abi = ABIProvider::Test.get_abi("eosio")?;
+    let actions2 = vec![Action {
+        account: Name::constant("eosio"),
+        name: Name::constant("voteproducer"),
+        authorization: vec![SIGNER_AUTH],
+        data: abi.variant_to_binary("voteproducer", &json!({
+            "voter": SIGNER_NAME,
+            "proxy": "greymassvote",
+            "producers": [],
+        }))?,
+    }];
 
-    assert_eq!(hex::encode(enc),
-               concat!("000101010000000000ea30557015d289deaa32dd",
-                       "0101000000000000000200000000000000110100",
-                       "000000000000a032dd181be9d56500010000"));
+    let expected = concat!("000101010000000000ea30557015d289deaa32dd",
+                           "0101000000000000000200000000000000110100",
+                           "000000000000a032dd181be9d56500010000");
+
+    let req = SigningRequest::from_actions_json(ABIProvider::Test, &actions);
+    assert_eq!(req.encode().to_hex(), expected);
+
+    let req = SigningRequest::from_actions(actions2);
+    assert_eq!(req.encode().to_hex(), expected);
+
+    Ok(())
 }
 
 #[test]
-fn decode() {
+fn decode() -> Result<()> {
     init();
 
     // NOTE: this is an old example from the v1 spec where SIGNER_PERMISSION and
@@ -87,16 +98,18 @@ fn decode() {
     assert_eq!(r.chain_id, ChainId::Alias(1));
 
     let Request::Actions(actions) = r.request else {
-        panic!("invalid request type, should be `actions[]`");
+        bail!("invalid request type, should be `actions[]`");
     };
-
     assert_eq!(actions.len(), 1);
+
     let a = &actions[0];
     assert_eq!(a.account, "eosio");
     assert_eq!(a.name, "voteproducer");
+
     let auth = &a.authorization[0];
     assert_eq!(auth.actor, SIGNER_NAME);
     assert_eq!(auth.permission, SIGNER_PERMISSION);
+
     let data = a.decode_data(&abi_provider);
     assert!(data.is_object());
     assert_eq!(data["voter"], SIGNER_NAME.to_string());
@@ -107,7 +120,7 @@ fn decode() {
     assert_eq!(r.callback, None);
     assert!(r.info.is_empty());
 
-    // assert!(false);
+    Ok(())
 }
 
 #[test]
@@ -144,33 +157,12 @@ fn create_from_action() -> Result<()> {
 
     let req = SigningRequest::from_action_json(
         provider,
-        json!({
+        &json!({
             "account": "eosio.token",
             "name": "transfer",
             "authorization": [{"actor": "foo", "permission": "active"}],
             "data": {"from": "foo", "to": "bar", "quantity": "1.000 EOS", "memo": "hello there"},
         }));
-
-
-    // assert_eq!(json!(req), json!({
-    //     "chain_id": ["chain_alias", 1],
-    //     "req": [
-    //         "action",
-    //         {
-    //             "account": "eosio.token",
-    //             "name": "transfer",
-    //             "authorization": [{"actor": "foo", "permission": "active"}],
-    //             "data": {"from": "foo", "to": "bar", "quantity": "1.000 EOS", "memo": "hello there"},
-    //         },
-    //     ],
-    //     "callback": "",
-    //     "flags": 1,
-    //     "info": [],
-    // }));
-
-    // req.encode_actions();
-    // req.decode_actions();
-    // req.encode_actions();
 
     assert_eq!(json!(req), json!({
         "chain_id": ["chain_alias", 1],
@@ -181,6 +173,22 @@ fn create_from_action() -> Result<()> {
                 "name": "transfer",
                 "authorization": [{"actor": "foo", "permission": "active"}],
                 "data": "000000000000285d000000000000ae39e80300000000000003454f53000000000b68656c6c6f207468657265",
+            },
+        ],
+        "callback": "",
+        "flags": 1,
+        "info": [],
+    }));
+
+    assert_eq!(req.to_json(), json!({
+        "chain_id": ["chain_alias", 1],
+        "req": [
+            "action",
+            {
+                "account": "eosio.token",
+                "name": "transfer",
+                "authorization": [{"actor": "foo", "permission": "active"}],
+                "data": {"from": "foo", "to": "bar", "quantity": "1.000 EOS", "memo": "hello there"},
             },
         ],
         "callback": "",
@@ -200,7 +208,7 @@ fn create_from_actions() -> Result<()> {
 
     let req = SigningRequest::from_actions_json(
         provider,
-        json!([
+        &json!([
             {
                 "account": "eosio.token",
                 "name": "transfer",
@@ -215,9 +223,6 @@ fn create_from_actions() -> Result<()> {
             }
         ]))
         .with_callback("https://example.com/?tx={{tx}}", true);
-
-    // req.encode_actions();
-
 
     assert_eq!(json!(req), json!({
         "chain_id": ["chain_alias", 1],
@@ -243,6 +248,29 @@ fn create_from_actions() -> Result<()> {
         "info": [],
     }));
 
+    assert_eq!(req.to_json(), json!({
+        "chain_id": ["chain_alias", 1],
+        "req": [
+            "action[]",
+            [
+                {
+                    "account": "eosio.token",
+                    "name": "transfer",
+                    "authorization": [{"actor": "foo", "permission": "active"}],
+                    "data": {"from": "foo", "to": "bar", "quantity": "1.000 EOS", "memo": "hello there"}
+                },
+                {
+                    "account": "eosio.token",
+                    "name": "transfer",
+                    "authorization": [{"actor": "baz", "permission": "active"}],
+                    "data": {"from": "baz", "to": "bar", "quantity": "1.000 EOS", "memo": "hello there"}
+                }
+            ]
+        ],
+        "callback": "https://example.com/?tx={{tx}}",
+        "flags": 3,
+        "info": [],
+    }));
 
     Ok(())
 }
@@ -271,11 +299,6 @@ fn create_from_transaction() -> Result<()> {
         }))
         .with_broadcast(false)
         .with_callback("https://example.com/?tx={{tx}}", false);
-
-
-    // we should be able to call `SigningRequest::encode_actions()` without
-    // having to provide an ABIProvider as the action is already encoded
-    // req.encode_actions();
 
     assert_eq!(json!(req), json!({
         "chain_id": ["chain_alias", 1],

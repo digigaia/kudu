@@ -10,7 +10,7 @@ use strum::VariantNames;
 use tracing::{debug, warn, instrument};
 
 use crate::{
-    AntelopeType, AntelopeValue, Name, VarUint32, TypeName,
+    AntelopeType, AntelopeValue, Bytes, Name, VarUint32, TypeName,
     ABIDefinition, ByteStream, ABISerializable,
     abi::error::*,
     abi::definition::{
@@ -236,13 +236,13 @@ impl ABI {
     // -----------------------------------------------------------------------------
 
     pub fn variant_to_binary<'a, T>(&self, typename: T, obj: &JsonValue)
-                                    -> Result<Vec<u8>>
+                                    -> Result<Bytes>
     where
         T: Into<TypeName<'a>>
     {
         let mut ds = ByteStream::new();
         self.encode_variant(&mut ds, typename.into(), obj)?;
-        Ok(ds.into_bytes())
+        Ok(ds.into())
     }
 
     #[inline]
@@ -455,7 +455,7 @@ impl ABI {
     //     Decoding of binary data -> variant
     // -----------------------------------------------------------------------------
 
-    pub fn binary_to_variant<'a, T>(&self, typename: T, bytes: Vec<u8>)
+    pub fn binary_to_variant<'a, T>(&self, typename: T, bytes: Bytes)
                                     -> Result<JsonValue>
     where
         T: Into<TypeName<'a>>

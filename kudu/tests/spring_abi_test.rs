@@ -490,7 +490,7 @@ fn abi_large_array() -> Result<()> {
 
     let data = b"\xff\xff\xff\xff\x08";
 
-    let result = abi.binary_to_variant("hi[]", data.to_vec());
+    let result = abi.binary_to_variant("hi[]", Bytes(data.to_vec()));
     check_error!(result, ABIError::DecodeError { .. }, "stream ended unexpectedly; unable to unpack field 'a' of struct 'hi'");
 
     Ok(())

@@ -35,13 +35,26 @@
   const result = await jungle4.v1.chain.compute_transaction(transaction)
   ```
 
-- also check here: <https://github.com/greymass/eosio-signing-request-demo/blob/master/examples/resolve.js>
+- do we want `ABIProvider` to be a member of `SigningRequest`, or should we just pass it every time
+  we need it?
+  - having it as member would allow us to have de/serialization to a JSON value with decoded data
+
+
+## CORRECTNESS / TESTING
 
 - look at <https://github.com/wharfkit/signing-request/blob/master/src/abi.ts>
 
 - check for more tests in:
   - <https://github.com/wharfkit/signing-request/>
   - <https://github.com/wharfkit/protocol-esr/
+
+- also check here: <https://github.com/greymass/eosio-signing-request-demo/blob/master/examples/resolve.js>
+
+
+## MISSING FEATURES
+
+- need to implement the `identity` signing request type
+
 
 ## MISC
 

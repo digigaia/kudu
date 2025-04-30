@@ -1,5 +1,6 @@
 use hex::FromHexError;
 use serde::{Deserialize, Serialize};
+use serde_json::json;
 use snafu::{Snafu, OptionExt, ensure};
 
 use crate::{
@@ -109,12 +110,12 @@ pub struct Action {
 }
 
 impl Action {
-    pub fn new<T: Contract>(authorization: impl IntoPermissionVec, contract: T) -> Action {
+    pub fn new<T: Contract>(authorization: impl IntoPermissionVec, contract: &T) -> Action {
         Action {
             account: T::account(),
             name: T::name(),
             authorization: authorization.into_permission_vec(),
-            data: to_bin(&contract)
+            data: to_bin(contract)
         }
     }
 
@@ -172,5 +173,22 @@ impl Action {
         let mut ds = ByteStream::from(self.data.clone());
         let abi = abi_provider.get_abi(&self.account.to_string()).unwrap();
         abi.decode_variant(&mut ds, &self.name.to_string()).unwrap()
+    }
+
+    pub fn with_data(mut self, abi_provider: &ABIProvider, value: &JsonValue) -> Self {
+        let mut ds = ByteStream::new();
+        let abi = abi_provider.get_abi(&self.account.to_string()).unwrap();
+        abi.encode_variant(&mut ds, &self.name.to_string(), value).unwrap();
+        self.data = ds.into();
+        self
+    }
+
+    pub fn to_json(&self, abi_provider: &ABIProvider) -> JsonValue {
+        json!({
+            "account": self.account.to_string(),
+            "name": self.name.to_string(),
+            "authorization": serde_json::to_value(&self.authorization).unwrap(),
+            "data": self.decode_data(abi_provider),
+        })
     }
 }

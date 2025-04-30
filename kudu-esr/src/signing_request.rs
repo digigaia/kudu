@@ -12,8 +12,8 @@ use flate2::read::DeflateDecoder;
 use serde::{Serialize, Serializer, ser::SerializeStruct};
 
 use kudu::{
-    ABIDefinition, ABIError, Action, ByteStream, Checksum256, JsonValue, Name,
-    SerializeEnum, SerializeError, Transaction, ABI,
+    ABIDefinition, ABIError, Action, Bytes, ByteStream, Checksum256, JsonValue, Name,
+    SerializeEnum, SerializeError, Transaction, ABI, PermissionLevel,
     abi::ABIProvider, json, with_location,
 };
 
@@ -21,6 +21,10 @@ use tracing::{trace, debug, warn};
 
 pub static SIGNER_NAME: Name = Name::from_u64(1);
 pub static SIGNER_PERMISSION: Name = Name::from_u64(2);
+pub static SIGNER_AUTH: PermissionLevel = PermissionLevel {
+    actor: SIGNER_NAME,
+    permission: SIGNER_PERMISSION
+};
 
 pub static SIGNING_REQUEST_ABI: &str = include_str!("signing_request_abi.json");
 
@@ -136,26 +140,28 @@ impl Default for EncodeOptions {
 
 
 impl SigningRequest {
-    // TODO: is there any case where we would want a & instead of an owned value?
-    //       however we can't move stuff out of if because of shared references, so we
-    //       don't really gain anything here as we're gonna have to make a copy anyway
-    //       the only argument (it seems) in favor of owned value is that the API is nicer
-    //       as we can construct the args with the `json!` macro without prepending it with `&`
-
-    pub fn from_action_json(abi_provider: ABIProvider, action: JsonValue) -> Self {
+    pub fn from_action(action: Action) -> Self {
         SigningRequest {
-            request: Request::Action(Action::from_json(Some(&abi_provider), &action).unwrap()),
+            request: Request::Action(action),
             ..Default::default()
         }
-        .with_abi_provider(abi_provider)
     }
 
-    pub fn from_actions_json(abi_provider: ABIProvider, actions: JsonValue) -> Self {
+    pub fn from_action_json(abi_provider: ABIProvider, action: &JsonValue) -> Self {
+        let action = Action::from_json(Some(&abi_provider), action).unwrap();
+        SigningRequest::from_action(action).with_abi_provider(abi_provider)
+    }
+
+    pub fn from_actions(actions: Vec<Action>) -> Self {
         SigningRequest {
-            request: Request::Actions(Action::from_json_array(Some(&abi_provider), &actions).unwrap()),
+            request: Request::Actions(actions),
             ..Default::default()
         }
-        .with_abi_provider(abi_provider)
+    }
+
+    pub fn from_actions_json(abi_provider: ABIProvider, actions: &JsonValue) -> Self {
+        let actions = Action::from_json_array(Some(&abi_provider), actions).unwrap();
+        SigningRequest::from_actions(actions).with_abi_provider(abi_provider)
     }
 
     pub fn from_transaction_json(abi_provider: Option<&ABIProvider>, tx: JsonValue) -> Self {
@@ -249,7 +255,7 @@ impl SigningRequest {
 
     // TODO: `SigningRequest` should be `ABISerializable` instead of having to go through
     //       its JSON representation first
-    pub fn encode(&mut self) -> Vec<u8> {
+    pub fn encode(&self) -> Bytes {
         let mut ds = ByteStream::new();
         let abi = get_signing_request_abi();
 
@@ -279,6 +285,25 @@ impl Serialize for SigningRequest {
 
 
 impl SigningRequest {
+    pub fn to_json(&self) -> JsonValue {
+        let abi_provider = self.abi_provider.as_ref()
+            .expect("Did not set an ABI provider, required for decoding action data");
+        let mut result = json!(self);
+        match &self.request {
+            Request::Action(action) => {
+                result["req"][1]["data"] = action.decode_data(abi_provider);
+            },
+            Request::Actions(actions) => {
+                for (i, action) in actions.iter().enumerate() {
+                    result["req"][1][i]["data"] = action.decode_data(abi_provider);
+                }
+            },
+            Request::Transaction(_) => todo!(),
+            Request::Identity => todo!(),
+        }
+        result
+    }
+
     fn try_from_json(abi_provider: Option<&ABIProvider>, payload: JsonValue) -> Result<Self, SigningRequestError> {
         // FIXME: this would be better as `serde::Deserialize`, right?
         let mut result = SigningRequest::default();
@@ -321,6 +346,7 @@ impl SigningRequest {
 
         Ok(result)
     }
+
 }
 
 

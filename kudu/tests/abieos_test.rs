@@ -839,11 +839,11 @@ fn roundtrip_transaction() -> Result<()> {
 
 
     let tx = Transaction {
-        expiration: TimePointSec::from_str("2009-02-13T23:31:31.000")?,
+        expiration: "2009-02-13T23:31:31.000".parse()?,
         ref_block_num: 1234,
         ref_block_prefix: 5678,
         actions: vec![
-            Action::new(("useraaaaaaaa", "active"), transfer.clone()),
+            Action::new(("useraaaaaaaa", "active"), &transfer),
         ],
         ..Default::default()
     };
@@ -869,7 +869,7 @@ fn roundtrip_transaction() -> Result<()> {
             expiration: "2009-02-13T23:31:31.000".try_into()?,
             ref_block_num: 1234,
             ref_block_prefix: 5678,
-            actions: vec![Action::new(("useraaaaaaaa", "active"), transfer)],
+            actions: vec![Action::new(("useraaaaaaaa", "active"), &transfer)],
             ..Default::default()
         }
     };
