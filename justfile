@@ -1,5 +1,8 @@
 export RUST_BACKTRACE := "1"
 
+doc_modules := "-p 'kudu*' -p syn@2 -p ureq -p serde -p serde_json -p snafu -p strum -p tracing"
+open := if os() == "macos" { "open" } else { "xdg-open" }
+
 # list recipes
 default:
     just --list
@@ -11,6 +14,14 @@ build-release:
 # run tests using nextest
 test:
     cargo nextest run
+
+# generate documentation
+doc:
+    cargo doc --color always --no-deps {{doc_modules}}
+
+# generate documentation and open it
+doc-open: doc
+    {{open}} target/doc/kudu/index.html
 
 @_set_version file version:
     echo "Setting version to: {{version}} in {{file}}"

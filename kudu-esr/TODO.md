@@ -46,7 +46,7 @@
 
 - check for more tests in:
   - <https://github.com/wharfkit/signing-request/>
-  - <https://github.com/wharfkit/protocol-esr/
+  - <https://github.com/wharfkit/protocol-esr/>
 
 - also check here: <https://github.com/greymass/eosio-signing-request-demo/blob/master/examples/resolve.js>
 

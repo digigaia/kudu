@@ -5,10 +5,11 @@
 //! The basic types can be found in the [`types`] module, and the variant type used to represent
 //! values handled by Antelope blockchains is [`AntelopeValue`].
 //!
-//! There is a to-do list of items needing to be completed before a first release here:
-//! [To-Do list](doc::todo), and a list of notes and resources here: [Notes](doc::notes)
+//! On top of each module documentation, the following pages might be of interest:
 //!
-//! You can also read an overview of the [architecture and design decisions](doc::architecture).
+//! - [To-Do list](doc::todo): to-do list of items needing to be completed before a first release
+//! - [Notes](doc::notes): list of notes and resources
+//! - [Architecture](doc::architecture): overview of the architecture and design decisions
 //!
 //! # Feature flags
 //!

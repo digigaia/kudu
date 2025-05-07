@@ -67,21 +67,13 @@ env.RUST_LOG = "trace"
 analyzer = "nextest"
 
 [jobs.doc]
-command = [
-    "cargo", "doc", "--color", "always", "--no-deps",
-    "-p", "kudu*", "-p", "syn@2", "-p", "ureq", "-p", "serde", "-p", "serde_json",
-    "-p", "snafu", "-p", "strum", "-p", "tracing",
-]
+command = ["just", "doc"]
 need_stdout = false
 
 # If the doc compiles, then it opens in your browser and bacon switches
 # to the previous job
 [jobs.doc-open]
-command = [
-    "cargo", "doc", "--color", "always", "--no-deps", "--open",
-    "-p", "kudu*", "-p", "syn@2", "-p", "ureq", "-p", "serde", "-p", "serde_json",
-    "-p", "snafu", "-p", "strum", "-p", "tracing",
-]
+command = ["just", "doc-open"]
 need_stdout = false
 on_success = "back" # so that we don't open the browser at each change
 
