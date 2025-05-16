@@ -32,6 +32,8 @@ pub fn main() -> Result<()> {
     // perform the hex->json conversion
     let v = abi.decode_variant(&mut bin, &opts.typename)?;
 
+    // FIXME: error if data stream is not empty
+
     println!("{}", v);
 
     Ok(())

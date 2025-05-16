@@ -18,7 +18,7 @@ tracing            = { workspace = true }
 tracing-subscriber = { workspace = true }
 
 kudu = { path = "../kudu", version = "0.1.0-alpha" }
-clap = { version = "4.4.18", features = ["derive"] }
-duct = "0.13.7"
-regex = "1.11.0"
+clap = { version = "4.4", features = ["derive"] }
+duct = "1"
+regex = "1"
 tempfile = "3.13.0"

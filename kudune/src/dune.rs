@@ -342,43 +342,43 @@ impl Dune {
     //
     // =============================================================================
 
-    pub fn bootstrap_system(&self, full: bool) {
+    // TODO: check tests/eosio.system_tester.hpp in system-contracts
+    // TODO: check https://github.com/AntelopeIO/spring/blob/main/tutorials/bios-boot-tutorial/bios-boot-tutorial.py
+    pub fn bootstrap_system(&self) {
         let currency = "SYS";
         let max_value     = "10000000000.0000";
         let initial_value =  "1000000000.0000";
 
-        self.preactivate_features();
-
-        if full {
-            // create account for multisig contract
-            self.create_account("eosio.msig", Some("eosio"));
-            // create account for token contract
-            self.create_account("eosio.token", Some("eosio"));
-            // create accounts needed by core contract
-            self.create_account("eosio.bpay", Some("eosio"));
-            self.create_account("eosio.names", Some("eosio"));
-            self.create_account("eosio.ram", Some("eosio"));
-            self.create_account("eosio.ramfee", Some("eosio"));
-            self.create_account("eosio.saving", Some("eosio"));
-            self.create_account("eosio.stake", Some("eosio"));
-            self.create_account("eosio.vpay", Some("eosio"));
-            self.create_account("eosio.rex", Some("eosio"));
-        }
+        self.preactivate_features(); // required for boot contract
 
         info!("Deploying boot contract");
-        self.deploy_contract("/app/reference_contracts/build/contracts/eosio.boot", "eosio");
+        self.deploy_contract("/app/system_contracts/build/contracts/eosio.boot", "eosio");
 
+        info!("Activating features");
         self.activate_features();
 
-        if full {
-            info!("Deploying system contracts");
-            self.deploy_contract("/app/reference_contracts/build/contracts/eosio.msig", "eosio.msig");
-            self.deploy_contract("/app/reference_contracts/build/contracts/eosio.token", "eosio.token");
-            self.deploy_contract("/app/reference_contracts/build/contracts/eosio.system", "eosio");
+        info!("Creating accounts needed for system contracts");
+        self.create_account("eosio.msig", Some("eosio"));
+        self.create_account("eosio.token", Some("eosio"));
+        self.create_account("eosio.bpay", Some("eosio"));
+        self.create_account("eosio.names", Some("eosio"));
+        self.create_account("eosio.ram", Some("eosio"));
+        self.create_account("eosio.ramfee", Some("eosio"));
+        self.create_account("eosio.saving", Some("eosio"));
+        self.create_account("eosio.stake", Some("eosio"));
+        self.create_account("eosio.vpay", Some("eosio"));
+        self.create_account("eosio.rex", Some("eosio"));
+        self.create_account("eosio.fees", Some("eosio"));  // added in system-contracts v3.4.0
+        self.create_account("eosio.powup", Some("eosio")); // added in system-contracts v3.4.0
 
-            info!("Setting up `{currency}` token");
-            self.setup_token(currency, max_value, initial_value);
-        }
+        info!("Deploying system contracts");
+        self.deploy_contract("/app/system_contracts/build/contracts/eosio.msig", "eosio.msig");
+        self.deploy_contract("/app/system_contracts/build/contracts/eosio.token", "eosio.token");
+        self.deploy_contract("/app/system_contracts/build/contracts/eosio.system", "eosio");
+        self.deploy_contract("/app/eosio.fees", "eosio.fees");
+
+        info!("Setting up `{currency}` token");
+        self.setup_token(currency, max_value, initial_value);
     }
 
     fn setup_token(&self, currency: &str, max_value: &str, initial_value: &str) {
@@ -466,6 +466,7 @@ impl Dune {
 
         self.cleos_cmd(&[
             "system", "newaccount",
+            "--transfer",
             "--stake-net", "1.0000 SYS",
             "--stake-cpu", "1.0000 SYS",
             "--buy-ram-kbytes", "512",

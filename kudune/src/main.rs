@@ -108,11 +108,7 @@ enum Commands {
 
 
     /// Bootstrap a running system by installing the system contracts etc. FIXME desc
-    Bootstrap {
-        /// full also deploys [...] FIXME desc!
-        #[arg(short, long, default_value_t=false)]
-        full: bool
-    },
+    Bootstrap,
 
     /// Create a new account on the blockchain with initial resources
     #[command(name="system-newaccount")]
@@ -248,8 +244,8 @@ fn main() -> Result<()> {
                 Commands::StopNode => {
                     dune.stop_node();
                 },
-                Commands::Bootstrap { full } => {
-                    dune.bootstrap_system(full);
+                Commands::Bootstrap => {
+                    dune.bootstrap_system();
                 },
                 Commands::SystemNewAccount { account, creator } => {
                     dune.system_newaccount(&account, creator.as_deref()

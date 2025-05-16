@@ -88,6 +88,9 @@ NOTE: this should be fixed, or at least a resolution for this should be decided 
 - implement action_result in abi and abi_parser
   see: <https://github.com/AntelopeIO/spring/commit/7da37b6bc41a63a9eaef5e79ff7aaf2aea854826#diff-a7893952d8a2b33ddc5b3c89250729ea6961784c8b9300a39f187a7357cc3149R165>
 
+- implement new ABI types: `bitset` and fixed-size arrays
+  see: <https://github.com/AntelopeIO/spring/wiki>
+
 
 ## SECURITY CONSIDERATIONS
 
