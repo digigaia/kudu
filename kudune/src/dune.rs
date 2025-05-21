@@ -254,7 +254,7 @@ impl Dune {
                 debug!("Waiting for node to shutdown, PID: {pid} (max wait: {max_wait_time_seconds}s)");
 
                 loop {
-                    thread::sleep(time::Duration::from_secs(1));
+                    thread::sleep(Duration::from_secs(1));
                     if !self.is_node_running() { break; }
 
                     waited += 1;
@@ -350,6 +350,9 @@ impl Dune {
         let initial_value =  "1000000000.0000";
 
         self.preactivate_features(); // required for boot contract
+
+        // wait a little bit for feature to be activated (one block should be enough?)
+        thread::sleep(Duration::from_millis(500));
 
         info!("Deploying boot contract");
         self.deploy_contract("/app/system_contracts/build/contracts/eosio.boot", "eosio");
