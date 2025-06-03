@@ -1,7 +1,7 @@
 use std::fs::{DirBuilder, write as write_file};
 use std::path::Path;
 use std::time::Duration;
-use std::{process, thread, time};
+use std::{process, thread};
 
 use color_eyre::eyre::{eyre, Result};
 use regex::Regex;

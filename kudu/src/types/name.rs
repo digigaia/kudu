@@ -122,9 +122,17 @@ const fn string_to_u64(s: &[u8]) -> u64 {
 
 const CHARMAP: &[u8] = b".12345abcdefghijklmnopqrstuvwxyz";
 
+
 fn u64_to_bytes(n: u64) -> Vec<u8> {
-    let mut n = n;
     let mut s: Vec<u8> = vec![b'.'; 13];
+    let end_pos = u64_to_buf(n, (&mut s[..]).try_into().unwrap());
+    // truncate string with unused trailing symbols
+    s.truncate(end_pos);
+    s
+}
+
+fn u64_to_buf(n: u64, s: &mut [u8; 13]) -> usize {
+    let mut n = n;
     for i in 0..=12 {
         let c: u8 = CHARMAP[n as usize & match i { 0 => 0x0F, _ => 0x1F }];
         s[12-i] = c;
@@ -140,8 +148,7 @@ fn u64_to_bytes(n: u64) -> Vec<u8> {
         }
         end_pos -= 1
     }
-    s.truncate(end_pos);
-    s
+    end_pos
 }
 
 const fn is_normalized(s: &[u8], encoded: u64) -> bool {
@@ -254,7 +261,9 @@ impl<'de> Deserialize<'de> for Name {
 // TODO: this is not optimized!!
 impl PartialEq<&str> for Name {
     fn eq(&self, other: &&str) -> bool {
-        self.to_string() == *other
+        let mut s = [0u8; 13];
+        let end_pos = u64_to_buf(self.as_u64(), &mut s);
+        s[..end_pos] == *other.as_bytes()
     }
 }
 
