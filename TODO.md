@@ -42,6 +42,8 @@ file once they are implemented.
 
 - add license before publishing
 
+- setup CI using GitHub actions before publishing
+
 - include `ARCHITECTURE.md` somewhere in the docs
 
 - investigate rust libs found here: <https://onblock.dev/communicating-with-the-wax-blockchain>
