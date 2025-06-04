@@ -135,6 +135,8 @@ impl Docker {
             .find(|c| c["Names"].as_str().unwrap() == name)
     }
 
+    /// Given a path to a file or dir on the host, return the equivalent path as
+    /// seen from within the container.
     pub fn host_to_container_path(&self, path: &str) -> Result<String> {
         let path = fs::canonicalize(path).wrap_err_with(|| {
             format!("Could not get canonical path for: {}", path)

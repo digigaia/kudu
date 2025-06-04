@@ -29,10 +29,17 @@ fn unpack_scripts(scripts: &Path) -> Result<()> {
     Ok(())
 }
 
-/// A `Dune` instance manages a Docker container in which we can run a `nodeos` instance
-/// that will run an EOS blockchain.
+/// A `Dune` instance manages a Docker container in which a `nodeos` instance is
+/// running a Vaulta blockchain.
 ///
-/// This is nice for contract development. TODO: write more doc here!
+/// It provides convenience methods that allow you to:
+///  - build and run Docker images with a given version of Spring/CDT/System contracts
+///  - start/stop a `nodeos` instance
+///  - manage a wallet that contains private keys (WARNING: not secure!)
+///  - create new accounts, create and issue tokens
+///
+/// All in all, this is very nice for contract development, in order to have a local
+/// environment that you can easily scrap and rebuild.
 pub struct Dune {
     docker: Docker,
 
@@ -46,7 +53,7 @@ impl Dune {
     /// In contrast, the Docker constructor is barebones and doesn't perform additional actions
     pub fn new(container: String, image: String, host_mount: String) -> Result<Dune> {
         // make sure we have a docker image ready in case we need one to build
-        // a new container off of it
+        // a new container off of it2
         let eos_image = duct::cmd!("docker", "images", "-q", &image).read().unwrap();
         if eos_image.is_empty() {
             info!("No appropriate image found, building one before starting container");
@@ -62,18 +69,24 @@ impl Dune {
         Ok(result)
     }
 
+    /// Return a list of running Docker containers on this machine
     pub fn list_running_containers(&self) -> Vec<Value> {
         Docker::list_running_containers()
     }
 
+    /// Return a list of all Docker containers (running and stopped) on this machine.
     pub fn list_all_containers(&self) -> Vec<Value> {
         Docker::list_all_containers()
     }
 
+    /// Given a path to a file or dir on the host, return the equivalent path as
+    /// seen from within the container.
     pub fn host_to_container_path(&self, path: &str) -> Result<String> {
         self.docker.host_to_container_path(path)
     }
 
+    /// Build a Docker image starting from `base_image` that has Spring, the CDT and
+    /// system contracts installed. It will be saved as `name`.
     pub fn build_image(name: &str, base_image: &str) -> Result<()> {
         // first make sure we are able to run pyinfra
         let status = duct::cmd!("which", "pyinfra")
@@ -208,10 +221,17 @@ impl Dune {
     //
     // =============================================================================
 
+    /// Return whether `nodeos` is running inside the container.
     pub fn is_node_running(&self) -> bool {
         self.docker.find_pid("nodeos").is_some()
     }
 
+    /// Start `nodeos` inside the container.
+    ///
+    /// If `replay_blockchain == true`, replay the blockchain when starting
+    /// (useful after some crashes).
+    ///
+    /// If `clean == true`, delete the data dir and restart with a fresh one
     pub fn start_node(&mut self, replay_blockchain: bool, clean: bool) {
         if self.is_node_running() {
             info!("Node is already running");
@@ -243,6 +263,7 @@ impl Dune {
         }
     }
 
+    /// Stop `nodeos` inside the container.
     pub fn stop_node(&self) {
         let max_wait_time_seconds = 30;
         let mut waited = 0;
@@ -269,6 +290,7 @@ impl Dune {
         }
     }
 
+    /// Wait until `nodeos` is fully started and ready to accept connections.
     fn wait_blockchain_ready(&self) {
         let url = format!("{}/v1/chain/get_info", self.http_addr);
         let max_wait_time_seconds = 10;
@@ -311,11 +333,13 @@ impl Dune {
         self.cleos_cmd(&["wallet", "import", "--private-key", privkey]);
     }
 
+    /// Retrieve the wallet password.
     pub fn get_wallet_password(&self) -> String {
         let output = self.docker.command(&["cat", "/app/.wallet.pw"]).run();
         String::from_utf8(output.stdout).unwrap()
     }
 
+    /// Unlock the wallet.
     pub fn unlock_wallet(&self) {
         let command = self.docker.command(&[
             "cleos", "wallet", "unlock", "--password", &self.get_wallet_password()
@@ -342,9 +366,18 @@ impl Dune {
     //
     // =============================================================================
 
-    // TODO: check tests/eosio.system_tester.hpp in system-contracts
-    // TODO: check https://github.com/AntelopeIO/spring/blob/main/tutorials/bios-boot-tutorial/bios-boot-tutorial.py
+
+    /// Bootstrap a running Vaulta system by executing the following steps:
+    ///  - deploy boot contract
+    ///  - pre-activate features
+    ///  - create system accounts
+    ///  - deploy system contracts
+    ///  - create system token
+    ///
+    /// See reference at:
+    /// <https://github.com/AntelopeIO/spring/blob/main/tutorials/bios-boot-tutorial/bios-boot-tutorial.py>
     pub fn bootstrap_system(&self) {
+        // TODO: check tests/eosio.system_tester.hpp in system-contracts
         let currency = "SYS";
         let max_value     = "10000000000.0000";
         let initial_value =  "1000000000.0000";
@@ -352,6 +385,7 @@ impl Dune {
         self.preactivate_features(); // required for boot contract
 
         // wait a little bit for feature to be activated (one block should be enough?)
+        // FIXME: use a retry wrapper instead of actively waiting
         thread::sleep(Duration::from_millis(500));
 
         info!("Deploying boot contract");
@@ -447,12 +481,15 @@ impl Dune {
         self.cleos_cmd(&["push", "action", account, action, data, "-p", permission]);
     }
 
+    /// Deploy a (previously compiled) contract located in `container_dir` to
+    /// the given `account`.
     pub fn deploy_contract(&self, container_dir: &str, account: &str) {
         debug!("Deploying `{account}` contract (from: {container_dir})");
         self.cleos_cmd(&["set", "account", "permission", account, "active", "--add-code"]);
         self.cleos_cmd(&["set", "contract", account, container_dir]);
     }
 
+    /// Build a smart contract located in `container_dir`.
     pub fn cmake_build(&self, container_dir: &str) {
         debug!("Building cmake project in: {container_dir}");
         let build_dir = format!("{container_dir}/build");
@@ -463,6 +500,7 @@ impl Dune {
         self.color_command(&["cmake", "--build", &build_dir]).run();
     }
 
+    /// Create a new account with a given creator.
     pub fn system_newaccount(&self, account: &str, creator: &str) {
         let (private, public) = self.create_key();
         self.import_key(&private);
