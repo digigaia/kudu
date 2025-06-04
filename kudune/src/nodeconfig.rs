@@ -14,7 +14,7 @@ const DEFAULT_PARAMS: &[(&str, &str)] = &[
     ("p2p-listen-endpoint", "0.0.0.0:9876"),
     ("state-history-endpoint", "0.0.0.0:8080"),
     ("verbose-http-errors", "true"),
-    ("agent-name", "EOS Test Node"),
+    ("agent-name", "Vaulta Test Node"),
     ("net-threads", "2"),
     ("max-transaction-time", "100"),
     ("producer-name", "eosio"),

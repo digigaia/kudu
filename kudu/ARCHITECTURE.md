@@ -23,7 +23,7 @@ handles JSON:
  - `float32` and `float64` never use scientific notation
 
 To get closer to that behavior, we implemented a JSON [Formatter]
--- [`kudu::json::EOSFormatter`][crate::json::EOSFormatter] -- to
+-- [`kudu::json::VaultaFormatter`][crate::json::VaultaFormatter] -- to
 properly output values in the format expected by Antelope which is automatically used
 when calling [`kudu::json::to_string()`][crate::json::to_string()]
 

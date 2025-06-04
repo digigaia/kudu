@@ -1,7 +1,7 @@
 pub const BLOCK_INTERVAL_MS: u16 = 500;
 pub const BLOCK_TIMESTAMP_EPOCH: u64 = 946_684_800_000; // epoch in ms, corresponds to 2000-01-01
 
-pub const EOS_FEATURES: &[(&str, &str)] = &[
+pub const VAULTA_FEATURES: &[(&str, &str)] = &[
     ("GET_CODE_HASH",                    "bcd2a26394b36614fd4894241d3c451ab0f6fd110958c3423073621a70826e99"),
     ("CRYPTO_PRIMITIVES",                "6bcb40a24e49c26d0a60513b6aeb8551d264e4717f306b81a37a5afb3b47cedc"),
     ("GET_BLOCK_NUM",                    "35c2186cc36f7bb4aeaf4487b36e57039ccf45a9136aa856a5d569ecca55ef2b"),

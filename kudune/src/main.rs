@@ -7,8 +7,8 @@ use tracing_subscriber::{EnvFilter, filter::LevelFilter};
 
 use kudune::{Docker, Dune, NodeConfig};
 
-const CONTAINER_NAME: &str = "eos_container";
-const IMAGE_NAME: &str = "eos:latest";
+const CONTAINER_NAME: &str = "vaulta_container";
+const IMAGE_NAME: &str = "vaulta:latest";
 
 
 #[derive(Parser, Debug)]
@@ -43,7 +43,7 @@ enum Commands {
     /// List all the Docker containers
     ListContainers,
 
-    /// Build an EOS image starting from the given base image (default: ubuntu:22.04)
+    /// Build a Vaulta image starting from the given base image (default: ubuntu:22.04)
     BuildImage {
         #[arg(default_value = "ubuntu:22.04")]
         base: String
@@ -96,7 +96,7 @@ enum Commands {
     /// Stop nodeos in the current container
     StopNode,
 
-    /// Destroy the current EOS container
+    /// Destroy the current Vaulta container
     Destroy {
         #[arg(default_value=CONTAINER_NAME)]
         container_name: Option<String>,
@@ -180,7 +180,7 @@ fn main() -> Result<()> {
             }
         },
         Commands::BuildImage { base } => {
-            info!("Building EOS image from base image: {}", base);
+            info!("Building Vaulta image from base image: {}", base);
             Dune::build_image(IMAGE_NAME, &base)?;
         },
         Commands::Destroy { container_name } => {

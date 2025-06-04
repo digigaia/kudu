@@ -21,7 +21,7 @@ logger.warning(f"Installing on: {host.get_fact(LinuxDistribution)['release_meta'
 
 ################################################################################
 ##                                                                            ##
-##   Various deploys to install the parts of a running EOS system             ##
+##   Various deploys to install the parts of a running Vaulta system          ##
 ##                                                                            ##
 ################################################################################
 
@@ -114,7 +114,7 @@ def create_default_wallet():
     server.shell(commands=['cleos wallet create --file .wallet.pw',
                            # no need, wallet is already unlocked upon creation
                            # 'cat .wallet.pw | cleos wallet unlock --password',
-                           # import main EOSIO account private key
+                           # import main Vaulta account private key
                            f'cleos wallet import --private-key {privkey}'],
                  _chdir='/app')
 

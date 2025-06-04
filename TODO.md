@@ -34,6 +34,12 @@ file once they are implemented.
 
 ## MISC
 
+- Transition from EOS -> Vaulta
+  - rename project name EOS -> Vaulta
+  - check that system contracts properly use the Vaulta ones
+  - verify accounts used (ie: eosio -> core.vaulta?)
+  - check token name is `A` now instead of `EOS` (or `SYS`)
+
 - add license before publishing
 
 - include `ARCHITECTURE.md` somewhere in the docs

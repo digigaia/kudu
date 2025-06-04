@@ -43,7 +43,7 @@ impl APIClient {
         APIClient::new("https://jungle4.greymass.com")
     }
 
-    pub fn eos() -> Self {
-        APIClient::new("https://eos.greymass.com")
+    pub fn vaulta() -> Self {
+        APIClient::new("https://vaulta.greymass.com")
     }
 }

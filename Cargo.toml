@@ -15,7 +15,7 @@ rust-version = "1.85"
 authors = ["Nicolas Wack <wackou@digitalgaia.net>"]
 homepage = "https://github.com/digigaia/kudu"
 repository = "https://github.com/digigaia/kudu"
-keywords = ["blockchain", "antelope", "eos"]
+keywords = ["blockchain", "antelope", "eos", "vaulta"]
 categories = ["command-line-utilities", "cryptography::cryptocurrencies", "encoding"]
 
 [workspace.dependencies]

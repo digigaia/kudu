@@ -8,7 +8,7 @@ use regex::Regex;
 use tracing::{debug, info, warn, trace};
 use serde_json::Value;
 
-use kudu::config::EOS_FEATURES;
+use kudu::config::VAULTA_FEATURES;
 use crate::docker::{Docker, DockerCommand};
 use crate::nodeconfig::NodeConfig;
 use crate::util::eyre_from_output;
@@ -24,7 +24,7 @@ fn unpack_scripts(scripts: &Path) -> Result<()> {
     DirBuilder::new().recursive(true).create(scripts)?;  // make sure dir exists
 
     write_file(scripts.join("launch_bg.sh"), include_str!("../scripts/launch_bg.sh"))?;
-    write_file(scripts.join("build_eos_image.py"), include_str!("../scripts/build_eos_image.py"))?;
+    write_file(scripts.join("build_vaulta_image.py"), include_str!("../scripts/build_vaulta_image.py"))?;
     write_file(scripts.join("my_init"), include_str!("../scripts/my_init"))?;
     Ok(())
 }
@@ -54,8 +54,8 @@ impl Dune {
     pub fn new(container: String, image: String, host_mount: String) -> Result<Dune> {
         // make sure we have a docker image ready in case we need one to build
         // a new container off of it2
-        let eos_image = duct::cmd!("docker", "images", "-q", &image).read().unwrap();
-        if eos_image.is_empty() {
+        let vaulta_image = duct::cmd!("docker", "images", "-q", &image).read().unwrap();
+        if vaulta_image.is_empty() {
             info!("No appropriate image found, building one before starting container");
             Self::build_image(&image, DEFAULT_BASE_IMAGE)?;
         }
@@ -98,7 +98,7 @@ impl Dune {
         if !status.success() {
             let msg = concat!(
                 "You need to have `pyinfra` installed and available, in an activated ",
-                "virtual env or (recommended) through `uv` or `pipx` to be able to build the EOS image"
+                "virtual env or (recommended) through `uv` or `pipx` to be able to build the Vaulta image"
              );
             return Err(eyre!(msg));
         }
@@ -107,12 +107,12 @@ impl Dune {
         unpack_scripts(&Path::new(TEMP_FOLDER).join("scripts"))?;
 
         // build image using pyinfra
-        debug!("Building EOS image with a {base_image} base");
+        debug!("Building Vaulta image with a {base_image} base");
         const CAPTURE_OUTPUT: bool = false;
 
         let command = duct::cmd!("pyinfra", "-y",
                                  format!("@docker/{base_image}"),
-                                 "scripts/build_eos_image.py");
+                                 "scripts/build_vaulta_image.py");
 
         let command = if CAPTURE_OUTPUT {
             command.stdout_capture().stderr_capture()
@@ -470,7 +470,7 @@ impl Dune {
     }
 
     fn activate_features(&self) {
-        for (feature, addr) in EOS_FEATURES.iter() {
+        for (feature, addr) in VAULTA_FEATURES.iter() {
             debug!("Activating blockchain feature: {feature}");
             let features = format!(r#"["{addr}"]"#);
             self.send_action("activate", "eosio", &features, "eosio@active");

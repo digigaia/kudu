@@ -27,11 +27,11 @@
 
 Here is a list of workflows that should be enabled by the `kudune` utility
 and how they can be performed. This should serve both as design document
-and end-to-end testing of the binary to assess its usefulness / ease-of-use
+and end-to-end testing of the binary to assess its usefulness / ease-of-use.
 
-By default, we run nodeos in a docker container with the name `eos_container`
+By default, we run nodeos in a docker container with the name `vaulta_container`.
 
-## build a base image to be used for creating containers with all the tools installed
+## Build a base image to be used for creating containers with all the tools installed
 
 ```sh
 kudune build-image                # use a default Ubuntu base image
@@ -39,21 +39,21 @@ kudune build-image wackou:devbox  # use a provided image
 ```
 
 
-## build a new container from scratch
+## Build a new container from scratch
 
 ```sh
 kudune destroy    # ensure that we don't have a lingering docker container
 kudune start-node
 ```
 
-## build a new container with a given config file
+## Build a new container with a given config file
 
 ```sh
 kudune destroy    # ensure that we don't have a lingering docker container
 kudune start-node --config <CONFIG_FILE.INI>
 ```
 
-## set our own default config instead of nodeos default
+## Set our own default config instead of nodeos default
 
 in particular, we want to expose the http port to all listeners, not only localhost
 

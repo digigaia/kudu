@@ -17,17 +17,17 @@ use serde_json::ser::{Formatter, CompactFormatter, Serializer};
 ///    smaller sized types such as `i8`, `i16`, etc.)
 ///  - `f32` and `f64` never use scientific notation, and floats that have a fractional
 ///    part do not have a trailing ".0" (contrary to Antelope types)
-pub struct EOSFormatter {
+pub struct VaultaFormatter {
     base: CompactFormatter,
 }
 
-impl EOSFormatter {
+impl VaultaFormatter {
     fn new() -> Self {
-        EOSFormatter { base: CompactFormatter {} }
+        VaultaFormatter { base: CompactFormatter {} }
     }
 }
 
-impl Formatter for EOSFormatter {
+impl Formatter for VaultaFormatter {
     // #[inline]
     // fn write_u64<W>(&mut self, writer: &mut W, value: u64) -> io::Result<()>
     // where
@@ -96,7 +96,7 @@ pub fn to_string<T>(value: &T) -> Result<String>
 where
     T: ?Sized + Serialize,
 {
-    let fmt = EOSFormatter::new();
+    let fmt = VaultaFormatter::new();
     let mut vec = Vec::with_capacity(128);
     let mut ser = Serializer::with_formatter(&mut vec, fmt);
     value.serialize(&mut ser)?;
