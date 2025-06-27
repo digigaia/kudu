@@ -74,7 +74,7 @@ NOTE: this should be fixed, or at least a resolution for this should be decided 
 
 - investigate `darling` crate to help with derive macros, here's a
   [small example](https://github.com/imbolc/rust-derive-macro-guide)
-  maybe even better: `pastey`, `crabtime`
+  maybe even better: `pastey`, `crabtime` (crabtime does look good!)
   other choice: [`attrs`](https://www.reddit.com/r/rust/comments/1joffd5/announcing_attrs_a_parsercombinator_library_for/)
 
 - clean/properly order imports in all file (maybe wait for Rust 2024 edition and use rustfmt

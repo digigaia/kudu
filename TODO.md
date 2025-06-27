@@ -39,6 +39,10 @@ file once they are implemented.
   - check that system contracts properly use the Vaulta ones
   - verify accounts used (ie: eosio -> core.vaulta?)
   - check token name is `A` now instead of `EOS` (or `SYS`)
+  - check following links:
+    - https://github.com/AntelopeIO/spring/pull/1536
+    - https://github.com/AntelopeIO/spring/blob/main/tutorials/bios-boot-tutorial/bios-boot-tutorial.py
+    - https://github.com/VaultaFoundation/system-contracts/pull/206
 
 - add license before publishing
 

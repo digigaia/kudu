@@ -2,6 +2,9 @@
 
 ## API DESIGN
 
+- use typestates to encode the different possible states of a transaction
+  see: https://cliffle.com/blog/rust-typestate/
+
 - check this for example of API:
 
   ```typescript
