@@ -98,19 +98,19 @@ impl fmt::Display for TypeName<'_> {
 }
 
 impl<'a> From<&'a String> for TypeName<'a> {
-    fn from(t: &String) -> TypeName {
+    fn from(t: &String) -> TypeName<'_> {
         TypeName(t.as_str())
     }
 }
 
 impl<'a> From<&'a str> for TypeName<'a> {
-    fn from(t: &str) -> TypeName {
+    fn from(t: &str) -> TypeName<'_> {
         TypeName(t)
     }
 }
 
 impl<'a> From<TypeName<'a>> for &'a str {
-    fn from(t: TypeName) -> &str {
+    fn from(t: TypeName<'_>) -> &str {
         t.0
     }
 }
