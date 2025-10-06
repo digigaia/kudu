@@ -4,10 +4,10 @@ use std::path::Path;
 use std::process::Command;
 
 fn get_git_version() -> Result<String, String> {
-    let stdout = Command::new("git").args(["describe", "--tags"])
-        .output().map_err(|err| format!("failed to execute `git` process: {err}"))?
-        .stdout;
-    String::from_utf8(stdout).map_err(|_err| "process returned non-utf8 output".to_string())
+    let output = Command::new("git").args(["describe", "--tags"])
+        .output().map_err(|err| format!("failed to execute `git` process: {err}"))?;
+    if !output.status.success() { return Err("process returnend with a non-zero exit code".to_string()); }
+    String::from_utf8(output.stdout).map_err(|_err| "process returned non-utf8 output".to_string())
 }
 
 fn get_version() -> String {
