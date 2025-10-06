@@ -37,8 +37,8 @@ pub struct AddLocationField;
 impl VisitMut for AddLocationField {
     fn visit_variant_mut(&mut self, node: &mut Variant) {
         match &mut node.fields {
-            Fields::Named(ref mut fields) => {
-                if fields.named.iter().any(|f| f.ident.as_ref().unwrap().to_string() == "location") {
+            Fields::Named(fields) => {
+                if fields.named.iter().any(|f| f.ident.as_ref().unwrap() == "location") {
                     panic!("variant '{}' already defines a `location` field, please remove it so it can be added automatically",
                            &node.ident);
                 }
@@ -105,7 +105,7 @@ fn visit_snafu_attr(node: &mut Attribute) {
     debug!("found snafu attr on: \"{node_str}\"");
     // debug!("NODE: {:#?}", node);
 
-    let Meta::List(ref mut snafu_attrs) = &mut node.meta else {
+    let Meta::List(snafu_attrs) = &mut node.meta else {
         panic!("expected a Meta::List instance for the snafu attribute");
     };
 
@@ -123,7 +123,7 @@ fn visit_snafu_attr(node: &mut Attribute) {
             Some(token_tree) => {
                 match token_tree {
                     // found the `display` token
-                    TokenTree::Ident(ref i) if i.to_string() == "display" => {
+                    TokenTree::Ident(ref i) if i == "display" => {
                         // copy it to the output
                         out.push(token_tree);
 
@@ -135,7 +135,7 @@ fn visit_snafu_attr(node: &mut Attribute) {
                     },
 
                     // found the `display` token
-                    TokenTree::Ident(ref i) if i.to_string() == "whatever" => {
+                    TokenTree::Ident(ref i) if i == "whatever" => {
                         panic!(concat!(r#"found `whatever` attribute on "{}" which is "#,
                                        r#"incompatible with adding a `location` field"#),
                                node_str);
@@ -149,7 +149,7 @@ fn visit_snafu_attr(node: &mut Attribute) {
         }
     }
 
-    let new_tokens = TokenStream::from_iter(out.into_iter());
+    let new_tokens = TokenStream::from_iter(out);
     debug!("NEW: {}", quote! { #new_tokens }.to_string());
     snafu_attrs.tokens = new_tokens;
 }
@@ -165,5 +165,5 @@ pub fn add_location_to_error_enum(mut error_enum: ItemEnum) -> TokenStream {
     AddLocationField.visit_item_enum_mut(&mut error_enum);
     AddLocationToDisplay.visit_item_enum_mut(&mut error_enum);
 
-    quote! { #error_enum }.into()
+    quote! { #error_enum }
 }
