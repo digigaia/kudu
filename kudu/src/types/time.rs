@@ -8,7 +8,8 @@ use serde_json::{json, Value as JsonValue};
 use crate::config;
 
 
-const DATE_FORMAT: &str = "%Y-%m-%dT%H:%M:%S%.3f";
+const DATE_FORMAT: &str = "%Y-%m-%dT%H:%M:%S%.f";      // accept any number of digits for millis/micros
+const DATE_FORMAT_MS: &str = "%Y-%m-%dT%H:%M:%S%.3f";  // fixed 3 digits for millis
 const DATE_FORMAT_NO_SECS: &str = "%Y-%m-%dT%H:%M";
 
 /// return a date in microseconds, timezone is UTC by default
@@ -29,7 +30,7 @@ macro_rules! impl_time_display {
     ($typ:ty) => {
         impl fmt::Display for $typ {
             fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-                write!(f, "{}", self.to_datetime().format(DATE_FORMAT))
+                write!(f, "{}", self.to_datetime().format(DATE_FORMAT_MS))
             }
         }
     }
@@ -149,7 +150,7 @@ impl TimePointSec {
         Utc.timestamp_millis_opt(self.0 as i64 * 1000).unwrap()  // safe unwrap
     }
     pub fn to_json(&self) -> JsonValue {
-        json!(format!("{}", self.to_datetime().format(DATE_FORMAT)))
+        json!(format!("{}", self.to_datetime().format(DATE_FORMAT_MS)))
     }
 }
 
@@ -189,7 +190,7 @@ impl BlockTimestamp {
         ).unwrap()  // safe unwrap
     }
     pub fn to_json(&self) -> JsonValue {
-        json!(format!("{}", self.to_datetime().format(DATE_FORMAT)))
+        json!(format!("{}", self.to_datetime().format(DATE_FORMAT_MS)))
     }
 }
 
