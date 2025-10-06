@@ -161,11 +161,11 @@ using a custom variant that takes ownership of a struct implementing a new
 ABIProviderTrait or something similar.
 
 
-## Voluntarily unsupported features
+## Unsupported features
 
 ## `WebAuthn` signatures
 
-TODO: write why
+TODO: not yet implemented
 
 
 # STYLE GUIDE
@@ -221,7 +221,7 @@ if (v.len() > 0 &&
 
 That also means that we should use `hex::encode()` instead of `hex::encode_upper()`
 
-Antelope C++ code uses UPPER_CASE, while Wharfkit TS code uses lower_case.
+Antelope C++ code uses UPPER_CASE, while Wharfkit TypeScript code uses lower_case.
 
 It seems that lower case encoding is more readable as lower case letters have a
 lower height than digits, whereas upper case letters and digits all have the same
