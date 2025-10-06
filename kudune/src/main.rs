@@ -63,6 +63,9 @@ enum Commands {
     /// all the values that the nodeos `config.ini` file will take.
     ///
     /// A special value of "default" will reset the entire config to its default.
+    ///
+    /// Example:
+    /// `kudune set-config http-server-address=0.0.0.0:8888 chain-state-db-size-mb=65536 contracts-console=true`
     SetConfig {
         args: Vec<String>,
     },
