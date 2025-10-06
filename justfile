@@ -41,12 +41,18 @@ set-version version: && \
 
 # publish the project crates on crates.io
 publish:
-    # DO NOT FORGET TO SET VERSION NUMBER AND GIT TAG
+    #!/usr/bin/env bash
+    set -euo pipefail
     # investigate `cargo-release` instead, or `cargo-smart-release` or `release-plz`
-    cargo publish -p kudu-macros
-    cargo publish -p kudu
-    cargo publish -p kudu-esr
-    cargo publish -p kudune
+    echo "Make sure that you properly set the version number and do not forget to `git tag` the release"
+    read -p "Are you sure you want to proceed? (y/N) " confirm
+    if [[ $confirm =~ ^[yY]$ ]]; then
+        echo "Publishing crates..."
+        cargo publish -p kudu-macros
+        cargo publish -p kudu
+        cargo publish -p kudu-esr
+        cargo publish -p kudune
+    fi
 
 
 hyperfine_opts := "--shell=none --warmup 10"
