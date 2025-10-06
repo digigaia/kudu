@@ -44,7 +44,7 @@ publish:
     #!/usr/bin/env bash
     set -euo pipefail
     # investigate `cargo-release` instead, or `cargo-smart-release` or `release-plz`
-    echo "Make sure that you properly set the version number and do not forget to `git tag` the release"
+    echo "Make sure that you properly set the version number and do not forget to tag the release in git"
     read -p "Are you sure you want to proceed? (y/N) " confirm
     if [[ $confirm =~ ^[yY]$ ]]; then
         echo "Publishing crates..."

@@ -7,6 +7,12 @@ use serde_json::Value;
 use kudu::{ABI, ByteStream};
 
 #[derive(Parser)]
+#[command(
+    name="kudu_json_to_hex",
+    version=kudu::config::VERSION,
+    about="Utility to encode a JSON type into hex according to an ABI",
+    arg_required_else_help(true),
+)]
 struct Opts {
     #[arg(short, long)]
     abi: String,

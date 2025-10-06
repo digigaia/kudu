@@ -12,8 +12,12 @@ const IMAGE_NAME: &str = "vaulta:latest";
 
 
 #[derive(Parser, Debug)]
-#[command(version, about, arg_required_else_help(true))]
-#[command(about = "Kudune: Kudu Docker Utilities for Node Execution")]
+#[command(
+    version=kudu::config::VERSION,
+    about="Kudune: Kudu Docker Utilities for Node Execution",
+    arg_required_else_help(true),
+)]
+#[command()]
 struct Cli {
     /// Turn verbose level
     #[arg(short, long, action = clap::ArgAction::Count)]

@@ -6,6 +6,12 @@ use color_eyre::Result;
 use kudu::{ABI, ByteStream};
 
 #[derive(Parser)]
+#[command(
+    name="kudu_hex_to_json",
+    version=kudu::config::VERSION,
+    about="Utility to decode hex data into a corresponding JSON type according to an ABI",
+    arg_required_else_help(true),
+)]
 struct Opts {
     #[arg(short, long)]
     abi: String,
