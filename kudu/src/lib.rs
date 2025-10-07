@@ -70,6 +70,18 @@
 //!
 //! </div>
 //!
+//! # `kuduconv` CLI tool
+//!
+//! The `kuduconv` tool provides JSON <> hex conversion functionality, similar to what the
+//! `abieos` tools `generate_hex_from_json` and `generate_json_from_hex` do.
+//!
+//! Example:
+//! ```sh
+//! $ kuduconv -h  # always nice to read the help to know what a program can do!
+//!
+//! $ kuduconv to-hex --abi token.abi transfer {"from": "useraaaaaaaa", "to": "useraaaaaaab", "quantity": "0.0001 SYS", "memo": ""}
+//! ```
+//!
 //! # Differences between this library and the Antelope C++ library
 //!
 //!  - hex numbers here are lowercase whereas C++ outputs hex data in upper case

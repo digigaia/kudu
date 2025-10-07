@@ -43,13 +43,5 @@ float128 = ["bytemuck/nightly_float"]
 hardened = []
 
 [[bin]]
-name = "kudu_json_to_hex"
-required-features = ["cli"]
-
-[[bin]]
-name = "kudu_hex_to_json"
-required-features = ["cli"]
-
-[[bin]]
 name = "kuduconv"
 required-features = ["cli"]

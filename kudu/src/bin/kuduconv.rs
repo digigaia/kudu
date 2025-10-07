@@ -1,7 +1,7 @@
 use std::fs;
 
 use clap::{Parser, Subcommand};
-use color_eyre::{Result, eyre::{OptionExt, WrapErr}};
+use color_eyre::{Result, eyre::{eyre, OptionExt, WrapErr}};
 use serde_json::Value;
 
 use kudu::{ABI, ByteStream};
@@ -14,14 +14,6 @@ use kudu::{ABI, ByteStream};
     arg_required_else_help(true),
 )]
 struct Cli {
-    // #[arg(short, long)]
-    // abi: String,
-
-    // #[arg(short, long)]
-    // typename: String,
-
-    // #[arg(short='x', long)]
-    // hex: String,
 
     #[command(subcommand)]
     command: Option<Commands>,
@@ -52,12 +44,18 @@ enum Commands {
     },
 }
 
+/// Return an `ABI` object given its name or filename
 fn get_abi(abi_name: Option<String>) -> Result<ABI> {
-    // if abi_name is not specified, try to find the corresponding typename in our preloaded ABIs
-    // if abi_name is one of the preloaded abi names, use this
+    // TODO: if abi_name is not specified, try to find the corresponding typename in our preloaded ABIs
+    //       we will need to pass in the typename also to be able to do this
+    // TODO: if abi_name is one of the preloaded abi names, use this
     // otherwise, try to open a file with the given name
 
-    let abi = abi_name.unwrap_or("".to_string());
+    if abi_name.is_none() {
+        return Err(eyre!("Did not specify an ABI. You need to specify one to be able to perform the conversion"))
+    }
+    let abi = abi_name.unwrap();  // safe unwrap
+
     // read ABI from file
     let abi_str = fs::read_to_string(&abi)
         .wrap_err_with(|| format!("Could not read file '{}'", &abi))?;
@@ -95,7 +93,10 @@ pub fn main() -> Result<()> {
             // perform the hex->json conversion
             let v = abi.decode_variant(&mut bin, &typename)?;
 
-            // FIXME: error if data stream is not empty
+            if !bin.leftover().is_empty() {
+                return Err(eyre!("Trailing input, {} bytes haven't been consumed. Decoded object: {:?}",
+                                 bin.leftover().len(), &v));
+            }
 
             println!("{}", v);
         }

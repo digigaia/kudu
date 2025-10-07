@@ -13,6 +13,12 @@
 Kudu is a library that provides data types and functions to interact with
 [Antelope](https://antelope.io) blockchains.
 
+It is subdivided into 3 main crates for now:
+- [`kudu`](https://docs.rs/kudu): contains the core types and ABI functionality. It also provides the `kuduconv` CLI tool.
+- [`kudu-esr`](https://docs.rs/kudu-esr): provides ESR (Eosio Signing Requests) utils.
+- [`kudune`](https://docs.rs/kudune): is a CLI tools that helps you manage and run nodeos instances in Docker.
+  It aims at replacing the deprecated [DUNES](https://github.com/AntelopeIO/DUNES) utility
+
 ## Architecture
 
 See [ARCHITECTURE.md](./kudu/ARCHITECTURE.md) for details.

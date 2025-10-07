@@ -70,8 +70,6 @@ NOTE: this should be fixed, or at least a resolution for this should be decided 
 
 ## MISC
 
-- document `hex_to_json`/`json_to_hex` tools
-
 - investigate `darling` crate to help with derive macros, here's a
   [small example](https://github.com/imbolc/rust-derive-macro-guide)
   maybe even better: `pastey`, `crabtime` (crabtime does look good!)
@@ -85,11 +83,14 @@ NOTE: this should be fixed, or at least a resolution for this should be decided 
 
 - crypto primitives do not implement WebAuthn key and signatures yet
 
-- implement action_result in abi and abi_parser
+- ensure action_result is properly implemented in abi and abi_parser
   see: <https://github.com/AntelopeIO/spring/commit/7da37b6bc41a63a9eaef5e79ff7aaf2aea854826#diff-a7893952d8a2b33ddc5b3c89250729ea6961784c8b9300a39f187a7357cc3149R165>
+  see: <https://github.com/wharfkit/antelope/commit/bfd07762f329cda02e8470ce6c18eb4543a74253>
 
 - implement new ABI types: `bitset` and fixed-size arrays
   see: <https://github.com/AntelopeIO/spring/wiki>
+
+- add preloaded ABIs into `kuduconv`, also have it auto-detect the abi from the preloaded ones if none specified
 
 
 ## SECURITY CONSIDERATIONS
