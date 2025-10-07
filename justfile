@@ -71,9 +71,9 @@ benchmark: build-release
     @echo "\n----==== Benchmarking hex -> JSON ====----\n"
     hyperfine {{hyperfine_opts}} \
         '{{abieos_path}}/generate_json_from_hex -f {{abi}} -x {{bench_type}} -h {{bench_hex}}' \
-        'target/release/kudu_hex_to_json --abi {{abi}} -t {{bench_type}} -x {{bench_hex}}'
+        'target/release/kuduconv from-hex --abi {{abi}} {{bench_type}} {{bench_hex}}'
 
     @echo "\n----==== Benchmarking JSON -> hex ====----\n"
     hyperfine {{hyperfine_opts}} \
         '{{abieos_path}}/generate_hex_from_json -f {{abi}} -x {{bench_type}} -j '"'"'{{bench_json}}'"'" \
-        'target/release/kudu_json_to_hex --abi {{abi}} -t {{bench_type}} -j '"'"'{{bench_json}}'"'"
+        'target/release/kuduconv to-hex --abi {{abi}} {{bench_type}} '"'"'{{bench_json}}'"'"
