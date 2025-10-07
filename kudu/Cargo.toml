@@ -36,7 +36,7 @@ embed-doc-image = "0.1.4"
 clap = { version = "4", features = ["derive"], optional = true }
 
 [features]
-default = []
+default = ["cli"]
 cli = ["clap"]
 detailed-error = ["kudu-macros/detailed-error"]
 float128 = ["bytemuck/nightly_float"]
