@@ -87,6 +87,9 @@ NOTE: this should be fixed, or at least a resolution for this should be decided 
   see: <https://github.com/AntelopeIO/spring/commit/7da37b6bc41a63a9eaef5e79ff7aaf2aea854826#diff-a7893952d8a2b33ddc5b3c89250729ea6961784c8b9300a39f187a7357cc3149R165>
   see: <https://github.com/wharfkit/antelope/commit/bfd07762f329cda02e8470ce6c18eb4543a74253>
 
+- add support to ABI for the `calls` field in 1.3
+  see: <https://github.com/wharfkit/antelope/pull/120/commits/966fbde30242fbb288572896c27e601496529c83>
+
 - implement new ABI types: `bitset` and fixed-size arrays
   see: <https://github.com/AntelopeIO/spring/wiki>
 
