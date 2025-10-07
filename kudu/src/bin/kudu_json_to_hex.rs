@@ -1,10 +1,14 @@
 use std::fs;
 
 use clap::Parser;
-use color_eyre::Result;
+use color_eyre::{Result, eyre::WrapErr};
 use serde_json::Value;
 
 use kudu::{ABI, ByteStream};
+
+// TODO: rethink clap args: abi can be optional (and then we try to be smart), can also
+//       have a few preloaded ones (so we don't have to specify a file)
+//       typename and json are both required args (instead of options)
 
 #[derive(Parser)]
 #[command(
@@ -26,11 +30,14 @@ struct Opts {
 
 
 pub fn main() -> Result<()> {
+    color_eyre::install()?;
+
     let opts = Opts::parse();
 
     // read ABI from file
     let abi_str = fs::read_to_string(&opts.abi)
-        .unwrap_or_else(|_| panic!("{}", &format!("File {} does not exist", opts.abi)));
+        .wrap_err_with(|| format!("Could not read file '{}'", &opts.abi))?;
+
     let abi = ABI::from_str(&abi_str)?;
 
     // create a byte stream for storing the bin representation

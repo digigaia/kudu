@@ -1,7 +1,7 @@
 use std::fs;
 
 use clap::Parser;
-use color_eyre::Result;
+use color_eyre::{Result, eyre::WrapErr};
 
 use kudu::{ABI, ByteStream};
 
@@ -23,13 +23,15 @@ struct Opts {
     hex: String,
 }
 
-
 pub fn main() -> Result<()> {
+    color_eyre::install()?;
+
     let opts = Opts::parse();
 
     // read ABI from file
     let abi_str = fs::read_to_string(&opts.abi)
-        .unwrap_or_else(|_| panic!("{}", &format!("File {} does not exist", opts.abi)));
+        .wrap_err_with(|| format!("Could not read file '{}'", &opts.abi))?;
+
     let abi = ABI::from_str(&abi_str)?;
 
     // create a byte stream from the given hex representation
