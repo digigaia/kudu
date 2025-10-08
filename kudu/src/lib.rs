@@ -14,6 +14,7 @@
 //! # Feature flags
 //!
 //! - `cli`: whether to compile the command-line tools alongside the library.
+//!          This feature is enabled by default and currently installs the `kuduconv` tool.
 //! - `detailed-error`: activate this to enable the [`macro@with_location`] macro. If
 //!                     not enabled, the [`macro@with_location`] macro will be a no-op.
 //! - `hardened`: implement safeguards to check for execution time and recursion depth
