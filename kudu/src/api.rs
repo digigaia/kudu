@@ -8,7 +8,7 @@ use kudu_macros::with_location;
 
 #[derive(Clone)]
 pub struct APIClient {
-    endpoint: String,
+    pub endpoint: String,
 }
 
 #[with_location]
