@@ -4,6 +4,8 @@ use pyo3::prelude::*;
 
 // TODO: investigate whether we want to use `benedict` as a replacement for barebones dicts
 
+// TODO: remove `pub` on pymethods, they do not need to be public
+
 // NOTE: desired API for python bindings:
 //
 // def push_action(actor, contract, action, args, exception_type=None):
@@ -40,9 +42,9 @@ mod kudu {
             format!("<kudu.APIClient: {}>", self.0.endpoint)
         }
 
-        pub fn __str__(&self) -> String {
-            self.__repr__()
-        }
+        // pub fn __str__(&self) -> String {
+        //     self.__repr__()
+        // }
 
         pub fn get<'py>(&self, py: Python<'py>, path: &str) -> PyResult<Bound<'py, PyAny>> {
             let result = self.0.get(path);
@@ -69,7 +71,7 @@ mod kudu {
     }
 
     #[pymodule_export]
-    use super::action::kudu_action;
+    use super::chain::kudu_chain;
 
     #[pymodule_init]
     fn init(m: &Bound<'_, PyModule>) -> PyResult<()> {
@@ -78,7 +80,7 @@ mod kudu {
         // properly declare submodules as packages
         // see: https://github.com/PyO3/pyo3/discussions/5397
         let modules = PyModule::import(m.py(), "sys")?.getattr("modules")?;
-        modules.set_item("kudu.action", m.getattr("action")?)?;
+        modules.set_item("kudu.chain", m.getattr("chain")?)?;
 
         // create some useful global variables
         let args = ("http://127.0.0.1:8888",);
@@ -91,4 +93,4 @@ mod kudu {
     }
 }
 
-mod action;
+mod chain;
