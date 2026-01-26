@@ -5,6 +5,7 @@ members = [
     "kudu-macros",
     "kudu-esr",
     "kudune",
+    "kudu-py",
 ]
 
 [workspace.package]

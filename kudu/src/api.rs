@@ -1,5 +1,8 @@
 use serde_json::Value as JsonValue;
+use snafu::{Snafu, ResultExt};
 use ureq;
+
+use kudu_macros::with_location;
 
 // see API endpoints from greymass here: https://www.greymass.com/endpoints
 
@@ -7,6 +10,17 @@ use ureq;
 pub struct APIClient {
     endpoint: String,
 }
+
+#[with_location]
+#[derive(Debug, Snafu)]
+pub enum HttpError {
+    #[snafu(display("{source}"))]
+    ConnectionError { source: ureq::Error },
+
+    #[snafu(display("{source}"))]
+    JsonError { source: ureq::Error },
+}
+
 
 impl APIClient {
     pub fn new(endpoint: &str) -> Self {
@@ -19,18 +33,18 @@ impl APIClient {
         format!("{}{}", &self.endpoint, path)
     }
 
-    pub fn get(&self, path: &str) -> Result<JsonValue, ureq::Error> {
+    pub fn get(&self, path: &str) -> Result<JsonValue, HttpError> {
         ureq::get(self.fullpath(path))
-            .call()?
+            .call().context(ConnectionSnafu)?
             .body_mut()
-            .read_json()
+            .read_json().context(JsonSnafu)
     }
 
-    pub fn call(&self, path: &str, params: &JsonValue) -> Result<JsonValue, ureq::Error> {
+    pub fn call(&self, path: &str, params: &JsonValue) -> Result<JsonValue, HttpError> {
         ureq::post(self.fullpath(path))
-            .send_json(params)?
+            .send_json(params).context(ConnectionSnafu)?
             .body_mut()
-            .read_json()
+            .read_json().context(JsonSnafu)
     }
 
 
