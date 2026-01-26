@@ -9,6 +9,7 @@ use kudu_macros::with_location;
 #[derive(Clone)]
 pub struct APIClient {
     pub endpoint: String,
+    pub agent: ureq::Agent,
 }
 
 #[with_location]
@@ -26,6 +27,13 @@ impl APIClient {
     pub fn new(endpoint: &str) -> Self {
         APIClient {
             endpoint: endpoint.trim_end_matches('/').to_owned(),
+            agent: ureq::Agent::config_builder()
+                // FIXME: user_agent seems to not work? InvalidHeaderValue???
+                // .user_agent(&format!("kudu/{}", crate::config::VERSION))
+                // no way to specify content-type?
+            // .accept("application/json")  // is it necessary?
+                .build()
+                .into()
         }
     }
 
@@ -34,14 +42,14 @@ impl APIClient {
     }
 
     pub fn get(&self, path: &str) -> Result<JsonValue, HttpError> {
-        ureq::get(self.fullpath(path))
+        self.agent.get(self.fullpath(path))
             .call().context(ConnectionSnafu)?
             .body_mut()
             .read_json().context(JsonSnafu)
     }
 
     pub fn call(&self, path: &str, params: &JsonValue) -> Result<JsonValue, HttpError> {
-        ureq::post(self.fullpath(path))
+        self.agent.post(self.fullpath(path))
             .send_json(params).context(ConnectionSnafu)?
             .body_mut()
             .read_json().context(JsonSnafu)
