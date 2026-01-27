@@ -6,6 +6,12 @@ use pyo3::prelude::*;
 
 // TODO: remove `pub` on pymethods, they do not need to be public
 
+// TODO: define macro to easily declare getters for the wrapped types
+
+// TODO: have the __bytes__() method be declared automatically
+
+// TODO: factor runtime_err, value_err
+
 // NOTE: desired API for python bindings:
 //
 // def push_action(actor, contract, action, args, exception_type=None):
@@ -22,75 +28,81 @@ use pyo3::prelude::*;
 /// A Python module implemented in Rust.
 #[pymodule]
 mod kudu {
-    use pyo3::exceptions::{PyRuntimeError, PyValueError};
     use pyo3::prelude::*;
-    use pythonize::{depythonize, pythonize};
-    use kudu::api::{APIClient, HttpError};
-    use kudu::JsonValue;
+    use pyo3::exceptions::PyValueError;
+    use kudu::{ABISerializable, ByteStream, Name};
 
-    #[pyclass(name = "APIClient")]
-    struct PyAPIClient(APIClient);
-
-    #[pymethods]
-    impl PyAPIClient {
-        #[new]
-        pub fn new(endpoint: &str) -> Self {
-            PyAPIClient(APIClient::new(endpoint))
-        }
-
-        pub fn __repr__(&self) -> String {
-            format!("<kudu.APIClient: {}>", self.0.endpoint)
-        }
-
-        // pub fn __str__(&self) -> String {
-        //     self.__repr__()
-        // }
-
-        pub fn get<'py>(&self, py: Python<'py>, path: &str) -> PyResult<Bound<'py, PyAny>> {
-            let result = self.0.get(path);
-            match result {
-                Ok(v) => Ok(pythonize(py, &v)?),
-                Err(e) => Err(match e {
-                    HttpError::ConnectionError { source: _ } => PyRuntimeError::new_err(format!("http error: {}", e)),
-                    HttpError::JsonError { source: _ } => PyValueError::new_err(format!("json error: {}", e)),
-                })
-            }
-        }
-
-        pub fn call<'py>(&self, py: Python<'py>, path: &str, params: &Bound<'py, PyAny>) -> PyResult<Bound<'py, PyAny>> {
-            let params: JsonValue = depythonize(params).unwrap();
-            let result = self.0.call(path, &params);
-            match result {
-                Ok(v) => Ok(pythonize(py, &v)?),
-                Err(e) => Err(match e {
-                    HttpError::ConnectionError { source: _ } => PyRuntimeError::new_err(format!("http error: {}", e)),
-                    HttpError::JsonError { source: _ } => PyValueError::new_err(format!("json error: {}", e)),
-                })
-            }
-        }
-    }
+    #[pymodule_export]
+    use super::api::kudu_api;
 
     #[pymodule_export]
     use super::chain::kudu_chain;
 
+    #[inline]
+    fn value_err<T: ToString>(e: T) -> PyErr {
+        PyValueError::new_err(e.to_string())
+    }
+
+    #[pyclass(name = "Name")]
+    struct PyName(Name);
+
+    #[pymethods]
+    impl PyName {
+        #[new]
+        pub fn new(name: &str) -> PyResult<Self> {
+            Ok(Self(Name::new(name).map_err(value_err)?))
+        }
+
+        pub fn __repr__(&self) -> String {
+            format!("'{}'", self.0)
+        }
+
+        pub fn __str__(&self) -> String {
+            self.0.to_string()
+        }
+
+        pub fn __bytes__(&self) -> Vec<u8> {
+            let mut b = ByteStream::new();
+            self.0.to_bin(&mut b);
+            b.into()
+        }
+
+        fn __eq__<'py>(&self, other: &Bound<'py, PyAny>) -> bool {
+            // compare using a python string
+            if let Ok(name) = other.extract::<&str>() {
+                return self.0 == name
+            }
+            // compare using an object of the same type
+            let p: Result<&Bound<'py, PyName>, _> = other.cast();
+            if let Ok(p) = p {
+                return self.0 == p.borrow().0;
+            }
+            false
+        }
+    }
+
+
     #[pymodule_init]
     fn init(m: &Bound<'_, PyModule>) -> PyResult<()> {
         // Arbitrary code to run at the module initialization
+        // There is also some further python code that is run, it can be
+        // found in `../python/kudu/__init__.py`
 
         // properly declare submodules as packages
         // see: https://github.com/PyO3/pyo3/discussions/5397
         let modules = PyModule::import(m.py(), "sys")?.getattr("modules")?;
+        modules.set_item("kudu.api", m.getattr("api")?)?;
         modules.set_item("kudu.chain", m.getattr("chain")?)?;
 
         // create some useful global variables
-        let args = ("http://127.0.0.1:8888",);
-        m.add("local", m.getattr("APIClient")?.call1(args)?)?;
-
-        let args = ("https://jungle4.greymass.com",);
-        m.add("jungle", m.getattr("APIClient")?.call1(args)?)?;
+        let api_client = m.getattr("api")?.getattr("APIClient")?;
+        m.add("local", api_client.call1(("http://127.0.0.1:8888",))?)?;
+        m.add("vaulta", api_client.call1(("https://api.eos.detroitledger.tech",))?)?;
+        m.add("jungle", api_client.call1(("https://jungle4.greymass.com",))?)?;
 
         Ok(())
     }
 }
 
+mod api;
 mod chain;

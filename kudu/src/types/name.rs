@@ -258,12 +258,20 @@ impl<'de> Deserialize<'de> for Name {
 //     Convenience traits implementation
 // -----------------------------------------------------------------------------
 
+// TODO: could we group all those impls with a single PartialEq<Deref<str>> or something similar?
+
 // TODO: this is not optimized!!
 impl PartialEq<&str> for Name {
     fn eq(&self, other: &&str) -> bool {
         let mut s = [0u8; 13];
         let end_pos = u64_to_buf(self.as_u64(), &mut s);
         s[..end_pos] == *other.as_bytes()
+    }
+}
+
+impl PartialEq<String> for Name {
+    fn eq(&self, other: &String) -> bool {
+        self.eq(&other.as_str())
     }
 }
 

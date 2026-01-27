@@ -771,6 +771,7 @@ dependencies = [
  "kudu",
  "pyo3",
  "pythonize",
+ "serde",
 ]
 
 [[package]]

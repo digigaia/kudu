@@ -9,6 +9,7 @@ name = "kudu"
 crate-type = ["cdylib"]
 
 [dependencies]
+kudu = { path = "../kudu" }
 pyo3 = "0.27.0"
 pythonize = "0.27.0"
-kudu = { path = "../kudu" }
+serde = { version = "1.0.200", features = ["derive"] }

@@ -1,13 +1,14 @@
-from .kudu import *
+from .kudu import *  # noqa: F403
+from kudu.api import APIClient
+from kudu.chain import PermissionLevel, Action  # noqa: F401
 
-print('imported kudu!')
 
 class SubcommandProxy():
-    def __init__(self, c: kudu.APIClient, path: list[str]):
+    def __init__(self, c: APIClient, path: list[str]):
         self.client = c
         self.path = path
 
-    def __getattr__(self, subpath: str) -> SubcommandProxy:
+    def __getattr__(self, subpath: str) -> SubcommandProxy:  # noqa: F405
         return SubcommandProxy(self.client, [*self.path, subpath])
 
     def __call__(self, *args, **kwargs):
@@ -29,8 +30,8 @@ class SubcommandProxy():
                              f'pos: {args} - named: {kwargs}')
 
 
-def apiclient_dynamic_get(c: kudu.APIClient, subpath: str):
+def apiclient_dynamic_get(c: APIClient, subpath: str):
     return SubcommandProxy(c, [subpath])
 
 
-kudu.APIClient.__getattr__ = apiclient_dynamic_get
+APIClient.__getattr__ = apiclient_dynamic_get

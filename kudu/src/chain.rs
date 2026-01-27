@@ -49,7 +49,7 @@ pub trait Contract: ABISerializable {
     fn name() -> ActionName;
 }
 
-pub use action::{Action, ActionError, PermissionLevel};
+pub use action::{Action, ActionError, IntoPermissionVec, PermissionLevel};
 pub use trace::{
     AccountAuthSequence, AccountDelta,
     ActionReceipt, ActionReceiptV0,
