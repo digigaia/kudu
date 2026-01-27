@@ -33,6 +33,9 @@ mod kudu {
     use kudu::{ABISerializable, ByteStream, Name};
 
     #[pymodule_export]
+    use super::abi::kudu_abi;
+
+    #[pymodule_export]
     use super::api::kudu_api;
 
     #[pymodule_export]
@@ -91,6 +94,7 @@ mod kudu {
         // properly declare submodules as packages
         // see: https://github.com/PyO3/pyo3/discussions/5397
         let modules = PyModule::import(m.py(), "sys")?.getattr("modules")?;
+        modules.set_item("kudu.abi", m.getattr("abi")?)?;
         modules.set_item("kudu.api", m.getattr("api")?)?;
         modules.set_item("kudu.chain", m.getattr("chain")?)?;
 
@@ -104,5 +108,6 @@ mod kudu {
     }
 }
 
+mod abi;
 mod api;
 mod chain;

@@ -26,7 +26,7 @@ class SubcommandProxy():
             return self.client.call(path, kwargs)
         else:
             # not sure what to do with mixed args and kwargs
-            raise ValueError(f'Cannot call subcommand {path} with mixed positional and named args:'
+            raise ValueError(f'Cannot call subcommand {path} with positional args, unless it is a dict of named args:'
                              f'pos: {args} - named: {kwargs}')
 
 

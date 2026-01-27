@@ -1,0 +1,37 @@
+use pyo3::prelude::*;
+
+
+/// A Python module implemented in Rust.
+#[pymodule(name = "abi", submodule)]
+pub mod kudu_abi {
+    use pyo3::prelude::*;
+    use pyo3::exceptions::PyValueError;
+
+    use kudu::abi::ABI;
+    // use kudu::JsonValue;
+
+    #[inline]
+    fn value_err<T: ToString>(e: T) -> PyErr {
+        PyValueError::new_err(e.to_string())
+    }
+
+    #[pyclass(name = "ABI", module = "kudu.abi")]
+    pub struct PyABI(pub ABI);
+
+    #[pymethods]
+    impl PyABI {
+        #[new]
+        pub fn new(abi_definition: &str) -> PyResult<Self> {
+            Ok(PyABI(ABI::from_str(abi_definition).map_err(value_err)?))
+        }
+
+        pub fn __repr__(&self) -> String {
+            format!("<kudu.api.ABI: {:?}>", self.0)
+        }
+
+        // pub fn __str__(&self) -> String {
+        //     self.__repr__()
+        // }
+
+    }
+}

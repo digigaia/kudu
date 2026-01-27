@@ -7,7 +7,7 @@ use crate::{
     AccountName, ActionName, Contract,
     PermissionName, Name, ABISerializable,
     abiserializable::to_bin, Bytes, JsonValue,
-    ByteStream, ABIProvider, ABIError, InvalidName,
+    ByteStream, ABI, ABIProvider, ABIError, InvalidName,
     with_location, impl_auto_error_conversion,
 };
 
@@ -175,6 +175,12 @@ impl Action {
         abi.decode_variant(&mut ds, &self.name.to_string()).unwrap()
     }
 
+    pub fn decode_data2(&self, abi: &ABI) -> JsonValue {
+        // FIXME: this .clone() is unnecessary once we fix deserializing from bytestream
+        let mut ds = ByteStream::from(self.data.clone());
+        abi.decode_variant(&mut ds, &self.name.to_string()).unwrap()  // FIXME: do not use unwrap() here
+    }
+
     pub fn with_data(mut self, abi_provider: &ABIProvider, value: &JsonValue) -> Self {
         let mut ds = ByteStream::new();
         let abi = abi_provider.get_abi(&self.account.to_string()).unwrap();
@@ -189,6 +195,15 @@ impl Action {
             "name": self.name.to_string(),
             "authorization": serde_json::to_value(&self.authorization).unwrap(),
             "data": self.decode_data(abi_provider),
+        })
+    }
+
+    pub fn to_json2(&self, abi: &ABI) -> JsonValue {
+        json!({
+            "account": self.account.to_string(),
+            "name": self.name.to_string(),
+            "authorization": serde_json::to_value(&self.authorization).unwrap(),
+            "data": self.decode_data2(abi),
         })
     }
 }

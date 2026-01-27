@@ -7,6 +7,12 @@ use serde_json::json;
 use crate::{ABI, ABIDefinition, ABIError, APIClient};
 
 
+// FIXME: find a better API for all of this
+//        maybe instead of static methods on the ABIProvider, we could have a registry with
+//        all (pre-)loaded ABIs (loading which can be triggered automatically for often used ABIs, or manually)
+//        all functions requiring an ABI could then accept Option<ABI>, and use the one provided or if None,
+//        use the registry to find a matching ABI
+
 //
 // see tests and more: https://github.com/wharfkit/abicache/blob/master/test/tests/abi.ts
 //

@@ -8,7 +8,7 @@ pub mod kudu_chain {
     use pyo3::exceptions::{PyRuntimeError, PyValueError};
     use pyo3::prelude::*;
     use pyo3::types::{PyDict, PyList};
-    use pythonize::depythonize;
+    use pythonize::{depythonize, pythonize};
 
     use kudu::chain::{Action, IntoPermissionVec, PermissionLevel};
     use kudu::{ABISerializable, AccountName, ActionName, Bytes, ByteStream, PermissionName};
@@ -28,7 +28,7 @@ pub mod kudu_chain {
     // -----------------------------------------------------------------------------
 
     #[pyclass(name = "PermissionLevel", module="kudu.chain")]
-    struct PyPermissionLevel(PermissionLevel);
+    pub struct PyPermissionLevel(PermissionLevel);
 
     #[pymethods]
     impl PyPermissionLevel {
@@ -145,6 +145,9 @@ pub mod kudu_chain {
             &self.0.data.0[..]
         }
 
+        pub fn decode_data<'py>(&self, py: Python<'py>, abi: &crate::abi::kudu_abi::PyABI) -> PyResult<Bound<'py, PyAny>> {
+            Ok(pythonize(py, &self.0.decode_data2(&abi.0))?)
+        }
 
     }
 }
