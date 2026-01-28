@@ -147,9 +147,9 @@ impl SigningRequest {
         }
     }
 
-    pub fn from_action_json(abi_provider: ABIProvider, action: &JsonValue) -> Self {
-        let action = Action::from_json(Some(&abi_provider), action).unwrap();
-        SigningRequest::from_action(action).with_abi_provider(abi_provider)
+    pub fn from_action_json(action: &JsonValue) -> Self {
+        let action = Action::from_json(action).unwrap();
+        SigningRequest::from_action(action)
     }
 
     pub fn from_actions(actions: Vec<Action>) -> Self {
@@ -159,14 +159,14 @@ impl SigningRequest {
         }
     }
 
-    pub fn from_actions_json(abi_provider: ABIProvider, actions: &JsonValue) -> Self {
-        let actions = Action::from_json_array(Some(&abi_provider), actions).unwrap();
-        SigningRequest::from_actions(actions).with_abi_provider(abi_provider)
+    pub fn from_actions_json(actions: &JsonValue) -> Self {
+        let actions = Action::from_json_array(actions).unwrap();
+        SigningRequest::from_actions(actions)
     }
 
-    pub fn from_transaction_json(abi_provider: Option<&ABIProvider>, tx: JsonValue) -> Self {
+    pub fn from_transaction_json(tx: JsonValue) -> Self {
         SigningRequest {
-            request: Request::Transaction(Transaction::from_json(abi_provider, &tx).unwrap()),
+            request: Request::Transaction(Transaction::from_json(&tx).unwrap()),
             ..Default::default()
         }
     }
@@ -286,16 +286,16 @@ impl Serialize for SigningRequest {
 
 impl SigningRequest {
     pub fn to_json(&self) -> JsonValue {
-        let abi_provider = self.abi_provider.as_ref()
-            .expect("Did not set an ABI provider, required for decoding action data");
+        // let abi_provider = self.abi_provider.as_ref()
+        //     .expect("Did not set an ABI provider, required for decoding action data");
         let mut result = json!(self);
         match &self.request {
             Request::Action(action) => {
-                result["req"][1]["data"] = action.decode_data(abi_provider);
+                result["req"][1]["data"] = action.decode_data().unwrap();  // FIXME: unwrap
             },
             Request::Actions(actions) => {
                 for (i, action) in actions.iter().enumerate() {
-                    result["req"][1][i]["data"] = action.decode_data(abi_provider);
+                    result["req"][1][i]["data"] = action.decode_data().unwrap();
                 }
             },
             Request::Transaction(_) => todo!(),
@@ -328,10 +328,10 @@ impl SigningRequest {
         let req_data = &payload["req"][1];
 
         result.request = match req_type {
-            "action" => Request::Action(Action::from_json(abi_provider, req_data).unwrap()),
+            "action" => Request::Action(Action::from_json(req_data).unwrap()),
             "action[]" => {
                 let actions = req_data.as_array().unwrap();
-                Request::Actions(actions.iter().map(|v| Action::from_json(abi_provider, v).unwrap()).collect())
+                Request::Actions(actions.iter().map(|v| Action::from_json(v).unwrap()).collect())
             },
             _ => unimplemented!(),
         };

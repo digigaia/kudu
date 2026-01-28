@@ -8,7 +8,7 @@ use crate::{
     PermissionName, Name, ABISerializable,
     abiserializable::to_bin, Bytes, JsonValue,
     ByteStream, ABI, ABIProvider, ABIError, InvalidName,
-    with_location, impl_auto_error_conversion,
+    abi, with_location, impl_auto_error_conversion,
 };
 
 // this is needed to be able to call the `ABISerializable` derive macro, which needs
@@ -129,7 +129,7 @@ impl Action {
         })
     }
 
-    pub fn from_json(abi_provider: Option<&ABIProvider>, action: &JsonValue) -> Result<Action, ActionError> {
+    pub fn from_json(action: &JsonValue) -> Result<Action, ActionError> {
         // FIXME: too many unwraps
         let account = Action::conv_action_field_str(action, "account")?;
         let action_name = Action::conv_action_field_str(action, "name")?;
@@ -144,9 +144,10 @@ impl Action {
         else {
             // otherwise, we need an ABI to encode the data into a binary string
             let data = &action["data"];
+            let abi = abi::registry::get_abi(account)?;
             let mut ds = ByteStream::new();
-            ensure!(abi_provider.is_some(), MissingABIProviderSnafu);
-            let abi = abi_provider.unwrap().get_abi(account)?;  // safe unwrap
+            // ensure!(abi_provider.is_some(), MissingABIProviderSnafu);
+            // let abi = abi_provider.unwrap().get_abi(account)?;  // safe unwrap
             abi.encode_variant(&mut ds, action_name, data)?;
             ds.into()
         };
@@ -159,26 +160,21 @@ impl Action {
         })
     }
 
-    pub fn from_json_array(
-        abi_provider: Option<&ABIProvider>,
-        actions: &JsonValue
-    ) -> Result<Vec<Action>, ActionError> {
+    pub fn from_json_array(actions: &JsonValue) -> Result<Vec<Action>, ActionError> {
         Ok(actions.as_array().unwrap().iter()
-            .map(|v| Action::from_json(abi_provider, v).unwrap())
+            .map(|v| Action::from_json(v).unwrap())
             .collect())
     }
 
-    pub fn decode_data(&self, abi_provider: &ABIProvider) -> JsonValue {
-        // FIXME: this .clone() is unnecessary once we fix deserializing from bytestream
-        let mut ds = ByteStream::from(self.data.clone());
-        let abi = abi_provider.get_abi(&self.account.to_string()).unwrap();
-        abi.decode_variant(&mut ds, &self.name.to_string()).unwrap()
+    pub fn decode_data(&self) -> Result<JsonValue, ABIError> {
+        let abi = abi::registry::get_abi(&self.account.to_string())?;
+        self.decode_data_with_abi(&abi)
     }
 
-    pub fn decode_data2(&self, abi: &ABI) -> JsonValue {
+    pub fn decode_data_with_abi(&self, abi: &ABI) -> Result<JsonValue, ABIError> {
         // FIXME: this .clone() is unnecessary once we fix deserializing from bytestream
         let mut ds = ByteStream::from(self.data.clone());
-        abi.decode_variant(&mut ds, &self.name.to_string()).unwrap()  // FIXME: do not use unwrap() here
+        abi.decode_variant(&mut ds, &self.name.to_string())
     }
 
     pub fn with_data(mut self, abi_provider: &ABIProvider, value: &JsonValue) -> Self {
@@ -189,21 +185,17 @@ impl Action {
         self
     }
 
-    pub fn to_json(&self, abi_provider: &ABIProvider) -> JsonValue {
-        json!({
-            "account": self.account.to_string(),
-            "name": self.name.to_string(),
-            "authorization": serde_json::to_value(&self.authorization).unwrap(),
-            "data": self.decode_data(abi_provider),
-        })
+    pub fn to_json(&self) -> Result<JsonValue, ABIError> {
+        let abi = abi::registry::get_abi(&self.account.to_string())?;
+        self.to_json_with_abi(&abi)
     }
 
-    pub fn to_json2(&self, abi: &ABI) -> JsonValue {
-        json!({
+    pub fn to_json_with_abi(&self, abi: &ABI) -> Result<JsonValue, ABIError> {
+        Ok(json!({
             "account": self.account.to_string(),
             "name": self.name.to_string(),
-            "authorization": serde_json::to_value(&self.authorization).unwrap(),
-            "data": self.decode_data2(abi),
-        })
+            "authorization": serde_json::to_value(&self.authorization)?,
+            "data": self.decode_data_with_abi(abi)?,
+        }))
     }
 }

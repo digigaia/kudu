@@ -37,6 +37,9 @@ pub enum ABIError {
     #[snafu(display("cannot decode hex representation for hex ABI"))]
     HexABIError { source: FromHexError },
 
+    #[snafu(display("unknown ABI with name: '{name}'"))]
+    UnknownABIError { name: String },
+
     #[snafu(display("cannot convert variant to AntelopeValue: {v}"))]
     VariantConversionError { v: Box<JsonValue>, source: InvalidValue },
 
@@ -48,3 +51,4 @@ pub enum ABIError {
 }
 
 impl_auto_error_conversion!(FromHexError, ABIError, HexABISnafu);
+impl_auto_error_conversion!(JsonError, ABIError, JsonSnafu);

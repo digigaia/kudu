@@ -71,7 +71,7 @@ fn encode() -> Result<()> {
                            "0101000000000000000200000000000000110100",
                            "000000000000a032dd181be9d56500010000");
 
-    let req = SigningRequest::from_actions_json(ABIProvider::Test, &actions);
+    let req = SigningRequest::from_actions_json(&actions);
     assert_eq!(req.encode().to_hex(), expected);
 
     let req = SigningRequest::from_actions(actions2);
@@ -88,8 +88,6 @@ fn decode() -> Result<()> {
     //       SIGNER_NAME would both resolve to SIGNER_NAME
     //       we don't want to use this or support it
     // let esr = "gmNgZGRkAIFXBqEFopc6760yugsVYWCA0YIwxgKjuxLSL6-mgmQA";
-
-    let abi_provider = ABIProvider::Test;
 
     let esr = "gmNgZGRkAIFXBqEFopc6760yugsVYWBggtKCMIEFRnclpF9eTWUACgAA";
 
@@ -110,7 +108,7 @@ fn decode() -> Result<()> {
     assert_eq!(auth.actor, SIGNER_NAME);
     assert_eq!(auth.permission, SIGNER_PERMISSION);
 
-    let data = a.decode_data(&abi_provider);
+    let data = a.decode_data()?;
     assert!(data.is_object());
     assert_eq!(data["voter"], SIGNER_NAME.to_string());
     assert_eq!(data["proxy"], "greymassvote");
@@ -156,7 +154,6 @@ fn create_from_action() -> Result<()> {
     };
 
     let req = SigningRequest::from_action_json(
-        provider,
         &json!({
             "account": "eosio.token",
             "name": "transfer",
@@ -207,7 +204,6 @@ fn create_from_actions() -> Result<()> {
     let provider = ABIProvider::Test;
 
     let req = SigningRequest::from_actions_json(
-        provider,
         &json!([
             {
                 "account": "eosio.token",
@@ -283,7 +279,6 @@ fn create_from_transaction() -> Result<()> {
     let timestamp = "2018-02-15T00:00:00.000";
 
     let req = SigningRequest::from_transaction_json(
-        None,
         json!({
             "delay_sec": 123,
             "expiration": timestamp,

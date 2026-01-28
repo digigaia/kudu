@@ -145,8 +145,12 @@ pub mod kudu_chain {
             &self.0.data.0[..]
         }
 
-        pub fn decode_data<'py>(&self, py: Python<'py>, abi: &crate::abi::kudu_abi::PyABI) -> PyResult<Bound<'py, PyAny>> {
-            Ok(pythonize(py, &self.0.decode_data2(&abi.0))?)
+        pub fn decode_data<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
+            Ok(pythonize(py, &self.0.decode_data().unwrap())?)
+        }
+
+        pub fn decode_data_with_abi<'py>(&self, py: Python<'py>, abi: &crate::abi::kudu_abi::PyABI) -> PyResult<Bound<'py, PyAny>> {
+            Ok(pythonize(py, &self.0.decode_data_with_abi(&abi.0).unwrap())?)  // FIXME: remove unwrap!!
         }
 
     }

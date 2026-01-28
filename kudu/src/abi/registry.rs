@@ -1,12 +1,15 @@
 use std::collections::HashMap;
 use std::sync::{Arc, LazyLock, Mutex};
 
-use crate::{ABI, ABIError};
+use snafu::OptionExt;
+
+use crate::{ABI, ABIError, abi::error::UnknownABISnafu};
 
 //
 // see tests and more: https://github.com/wharfkit/abicache/blob/master/test/tests/abi.ts
 //
 
+// TODO: make abi name a kudu::Name instead of a String
 static REGISTRY: LazyLock<Mutex<HashMap<String, Arc<ABI>>>> = LazyLock::new(|| {
     let mut reg = HashMap::new();
     reg.insert("eosio".to_string(), Arc::new(ABI::from_str(EOSIO_ABI).unwrap()));
@@ -20,8 +23,8 @@ pub fn load_abi(abi_name: &str, abi: &str) -> Result<(), ABIError> {
     Ok(())
 }
 
-pub fn get_abi(abi_name: &str) -> Option<Arc<ABI>> {
-    REGISTRY.lock().unwrap().get(abi_name).cloned()
+pub fn get_abi(abi_name: &str) -> Result<Arc<ABI>, ABIError> {
+    REGISTRY.lock().unwrap().get(abi_name).cloned().context(UnknownABISnafu { name: abi_name.to_string() })
 }
 
 // -----------------------------------------------------------------------------

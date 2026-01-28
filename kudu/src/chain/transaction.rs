@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use snafu::Snafu;
 
 use crate::{
-    ABIProvider, Action, ActionError, Extensions, JsonValue,
+    Action, ActionError, Extensions, JsonValue,
     TransactionId, TimePointSec, VarUint32, ABISerializable,
     convert::{variant_to_object, variant_to_str, variant_to_uint, ConversionError},
     impl_auto_error_conversion, with_location,
@@ -74,12 +74,9 @@ impl Transaction {
     }
 
     /// Create a new `Transaction` from a JSON value containing the non-default fields.
-    /// You should pass an `ABIProvider` if the data fields for the `Actions` are not
-    /// encoded yet, it is unnecessary otherwise.
-    pub fn from_json(
-        abi_provider: Option<&ABIProvider>,
-        tx: &JsonValue
-    ) -> Result<Transaction, TransactionError> {
+    /// You should make sure that the necessary ABIs are properly loaded in the registry
+    /// if the data fields for the `Actions` are not encoded yet, it is unnecessary otherwise.
+    pub fn from_json(tx: &JsonValue) -> Result<Transaction, TransactionError> {
         let mut result = Transaction::default();
         for (field, value) in variant_to_object(tx)?.iter() {
             match field.as_str() {
@@ -89,8 +86,8 @@ impl Transaction {
                 "max_cpu_usage_ms"     => result.max_cpu_usage_ms     = variant_to_uint(value)?,
                 "max_net_usage_words"  => result.max_net_usage_words  = variant_to_uint::<u32>(value)?.into(),
                 "delay_sec"            => result.delay_sec            = variant_to_uint::<u32>(value)?.into(),
-                "context_free_actions" => result.context_free_actions = Action::from_json_array(abi_provider, value)?,
-                "actions"              => result.actions              = Action::from_json_array(abi_provider, value)?,
+                "context_free_actions" => result.context_free_actions = Action::from_json_array(value)?,
+                "actions"              => result.actions              = Action::from_json_array(value)?,
                 "transaction_extensions" => result.transaction_extensions = serde_json::from_value(value.clone())?,
                 other => UnknownFieldSnafu { field: other }.fail()?,
             }
