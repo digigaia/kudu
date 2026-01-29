@@ -77,3 +77,16 @@ benchmark: build-release
     hyperfine {{hyperfine_opts}} \
         '{{abieos_path}}/generate_hex_from_json -f {{abi}} -x {{bench_type}} -j '"'"'{{bench_json}}'"'" \
         'target/release/kuduconv to-hex --abi {{abi}} {{bench_type}} '"'"'{{bench_json}}'"'"
+
+
+api_endpoint := "https://vaulta.greymass.com"
+
+@_download_abi name:
+    echo "Downloading abi: {{name}}"
+    curl --silent --json '{"account_name": "{{name}}"}' {{api_endpoint}}/v1/chain/get_abi | jq > "kudu/src/abi/data/{{name}}.json"
+
+# download current ABIs from an API endpoint and store them in `src/abi/data`
+download-abis: \
+    (_download_abi "eosio") \
+    (_download_abi "eosio.token") \
+    (_download_abi "core.vaulta")
