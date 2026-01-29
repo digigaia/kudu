@@ -14,7 +14,7 @@ use serde::{Serialize, Serializer, ser::SerializeStruct};
 use kudu::{
     ABIDefinition, ABIError, Action, Bytes, ByteStream, Checksum256, JsonValue, Name,
     SerializeEnum, SerializeError, Transaction, ABI, PermissionLevel,
-    abi::ABIProvider, json, with_location,
+    json, with_location,
 };
 
 use tracing::{trace, debug, warn};
@@ -89,8 +89,6 @@ pub struct SigningRequest {
     pub flags: FlagSet<RequestFlags>,
     pub callback: Option<String>,
     pub info: Vec<JsonValue>, // TODO: consider getting something more precise
-
-    abi_provider: Option<ABIProvider>,
 }
 
 impl fmt::Debug for SigningRequest {
@@ -113,8 +111,6 @@ impl Default for SigningRequest {
             flags: RequestFlags::Broadcast.into(),
             callback: None,
             info: vec![],
-
-            abi_provider: None,
         }
     }
 }
@@ -175,7 +171,7 @@ impl SigningRequest {
         ensure!(uri.starts_with("esr://"), InvalidURISnafu { uri });
         let payload = &uri[6..];
         warn!("payload: {}", payload);
-        Self::decode(payload, None)
+        Self::decode(payload)
     }
 
     pub fn decode_payload<T: AsRef<[u8]>>(esr: T) -> Result<JsonValue, SigningRequestError> {
@@ -210,28 +206,12 @@ impl SigningRequest {
         abi.decode_variant(&mut ds, "signing_request").context(ABISnafu)
     }
 
-    pub fn decode<T>(esr: T, abi_provider: Option<ABIProvider>) -> Result<Self, SigningRequestError>
+    pub fn decode<T>(esr: T) -> Result<Self, SigningRequestError>
     where
         T: AsRef<[u8]>
     {
         let payload = Self::decode_payload(esr)?;
-        let mut result: Result<Self, SigningRequestError> = Self::try_from_json(abi_provider.as_ref(), payload);
-        if let Ok(ref mut request) = result {
-            if abi_provider.is_some() {
-                request.set_abi_provider(abi_provider);
-            }
-        }
-        result
-    }
-
-    pub fn set_abi_provider(&mut self, abi_provider: Option<ABIProvider>) {
-        self.abi_provider = abi_provider;
-    }
-
-    pub fn with_abi_provider(self, abi_provider: ABIProvider) -> Self {
-        let mut req = self;
-        req.set_abi_provider(Some(abi_provider));
-        req
+        Self::try_from_json(payload)
     }
 
     pub fn with_callback(self, callback: &str, background: bool) -> Self {
@@ -286,8 +266,6 @@ impl Serialize for SigningRequest {
 
 impl SigningRequest {
     pub fn to_json(&self) -> JsonValue {
-        // let abi_provider = self.abi_provider.as_ref()
-        //     .expect("Did not set an ABI provider, required for decoding action data");
         let mut result = json!(self);
         match &self.request {
             Request::Action(action) => {
@@ -304,7 +282,7 @@ impl SigningRequest {
         result
     }
 
-    fn try_from_json(abi_provider: Option<&ABIProvider>, payload: JsonValue) -> Result<Self, SigningRequestError> {
+    fn try_from_json(payload: JsonValue) -> Result<Self, SigningRequestError> {
         // FIXME: this would be better as `serde::Deserialize`, right?
         let mut result = SigningRequest::default();
 

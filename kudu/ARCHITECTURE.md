@@ -150,17 +150,6 @@ We switched to `snafu` for the following reasons:
 It should only be used in unittests and user code, not in the libraries themselves.
 
 
-## ABIProvider trait vs. ABIProvider enum
-
-We started with ABIProvider being a trait to allow more flexibility and to allow
-clients of the library to implement their own ABIProvider. This proved tricky
-with respect to API and design (maybe due to our own inexperience), so we switched
-to an enum representing all the possible ABIProvider implemented for now.
-It should still be possible to extend this and implement new external ABIProviders
-using a custom variant that takes ownership of a struct implementing a new
-ABIProviderTrait or something similar.
-
-
 ## Unsupported features
 
 ## `WebAuthn` signatures

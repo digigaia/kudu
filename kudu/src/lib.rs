@@ -125,7 +125,7 @@ pub use api::APIClient;
 pub use types::*;
 pub use chain::*;
 
-pub use abi::{ABI, ABIError, ABIDefinition, ABIProvider, TypeName};
+pub use abi::{ABI, ABIError, ABIDefinition, TypeName};
 
 pub mod abiserializable;
 pub mod bytestream;

@@ -10,6 +10,7 @@ use crate::{ABI, ABIError, abi::error::UnknownABISnafu};
 //
 
 // TODO: make abi name a kudu::Name instead of a String
+//       at the very least, we should be able to query using either a kudu::Name or a &str
 static REGISTRY: LazyLock<Mutex<HashMap<String, Arc<ABI>>>> = LazyLock::new(|| {
     let mut reg = HashMap::new();
     reg.insert("eosio".to_string(), Arc::new(ABI::from_str(EOSIO_ABI).unwrap()));

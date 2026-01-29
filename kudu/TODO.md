@@ -25,10 +25,6 @@ NOTE: this should be fixed, or at least a resolution for this should be decided 
 
 - add `impl Debug`/`impl Display` for the `contract` derive macro
 
-- `Action::decode_data()` should take a generic `IntoABIProvider` which is implemented
-  for `ABIProvider` (and returns itself), and for `ABI` and returns a "dummy" `ABIProvider`
-  that only returns the wrapped `ABI`
-
 
 ## CORRECTNESS / TESTING
 

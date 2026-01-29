@@ -1,13 +1,13 @@
 use hex::FromHexError;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use snafu::{Snafu, OptionExt, ensure};
+use snafu::{Snafu, OptionExt};
 
 use crate::{
     AccountName, ActionName, Contract,
     PermissionName, Name, ABISerializable,
     abiserializable::to_bin, Bytes, JsonValue,
-    ByteStream, ABI, ABIProvider, ABIError, InvalidName,
+    ByteStream, ABI, ABIError, InvalidName,
     abi, with_location, impl_auto_error_conversion,
 };
 
@@ -67,9 +67,6 @@ pub enum ActionError {
 
     #[snafu(display("invalid hex representation"))]
     FromHex { source: FromHexError },
-
-    #[snafu(display("missing ABIProvider, required to encode action data"))]
-    MissingABIProvider,
 
     #[snafu(display("could not match JSON object to transaction"))]
     FromJson { source: serde_json::Error },
@@ -146,8 +143,6 @@ impl Action {
             let data = &action["data"];
             let abi = abi::registry::get_abi(account)?;
             let mut ds = ByteStream::new();
-            // ensure!(abi_provider.is_some(), MissingABIProviderSnafu);
-            // let abi = abi_provider.unwrap().get_abi(account)?;  // safe unwrap
             abi.encode_variant(&mut ds, action_name, data)?;
             ds.into()
         };
@@ -177,9 +172,9 @@ impl Action {
         abi.decode_variant(&mut ds, &self.name.to_string())
     }
 
-    pub fn with_data(mut self, abi_provider: &ABIProvider, value: &JsonValue) -> Self {
+    pub fn with_data(mut self, value: &JsonValue) -> Self {
         let mut ds = ByteStream::new();
-        let abi = abi_provider.get_abi(&self.account.to_string()).unwrap();
+        let abi = abi::registry::get_abi(&self.account.to_string()).unwrap();
         abi.encode_variant(&mut ds, &self.name.to_string(), value).unwrap();
         self.data = ds.into();
         self

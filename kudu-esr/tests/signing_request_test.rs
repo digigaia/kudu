@@ -7,8 +7,7 @@ use tracing_subscriber::{
 };
 use color_eyre::{Result, eyre::bail};
 
-use kudu::{Action, Name, json};
-use kudu::ABIProvider;
+use kudu::{Action, Name, abi, json};
 use kudu_esr::signing_request::*;
 
 
@@ -55,7 +54,7 @@ fn encode() -> Result<()> {
         }
     }]);
 
-    let abi = ABIProvider::Test.get_abi("eosio")?;
+    let abi = abi::registry::get_abi("eosio")?;
     let actions2 = vec![Action {
         account: Name::constant("eosio"),
         name: Name::constant("voteproducer"),
@@ -91,7 +90,7 @@ fn decode() -> Result<()> {
 
     let esr = "gmNgZGRkAIFXBqEFopc6760yugsVYWBggtKCMIEFRnclpF9eTWUACgAA";
 
-    let r = SigningRequest::decode(esr, Some(ABIProvider::Test)).unwrap();
+    let r = SigningRequest::decode(esr).unwrap();
 
     assert_eq!(r.chain_id, ChainId::Alias(1));
 
@@ -126,11 +125,11 @@ fn dec2() {
     init();
 
     let esr = "gmNgZGRkAIFXBqEFopc6760yugsVYWBggtKCMIEFRnclpF9eTWUACgAA";
-    let r = json!(SigningRequest::decode(esr, Some(ABIProvider::Test)).unwrap());
+    let r = json!(SigningRequest::decode(esr).unwrap());
     warn!(%esr, %r);
 
     let esr = "gmNgZGRkAIFXBqEFopc6760yugsVYWCA0YIwxgKjuxLSL6-mgmQA";
-    let r = json!(SigningRequest::decode(esr, Some(ABIProvider::Test)).unwrap());
+    let r = json!(SigningRequest::decode(esr).unwrap());
     warn!(%esr, %r);
 
     // assert!(false);
@@ -145,13 +144,6 @@ fn dec2() {
 #[test]
 fn create_from_action() -> Result<()> {
     init();
-
-    // let provider = ABIProvider::API(APIClient::jungle());
-    let provider = ABIProvider::Test;
-    let provider = ABIProvider::Cached {
-        provider: Box::new(provider),
-        cache: Default::default(),
-    };
 
     let req = SigningRequest::from_action_json(
         &json!({
@@ -200,8 +192,6 @@ fn create_from_action() -> Result<()> {
 #[test]
 fn create_from_actions() -> Result<()> {
     init();
-
-    let provider = ABIProvider::Test;
 
     let req = SigningRequest::from_actions_json(
         &json!([
@@ -333,10 +323,8 @@ fn create_from_transaction() -> Result<()> {
 fn create_from_uri() -> Result<()> {
     init();
 
-    let provider = ABIProvider::Test;
     let uri = "esr://gmNgZGBY1mTC_MoglIGBIVzX5uxZRqAQGMBoExgDAjRi4fwAVz93ICUckpGYl12skJZfpFCSkaqQllmcwczAAAA";
-
-    let req = SigningRequest::from_uri(uri)?.with_abi_provider(provider);
+    let req = SigningRequest::from_uri(uri)?;
 
     let expected = json!({
         "chain_id": ["chain_alias", 1],
