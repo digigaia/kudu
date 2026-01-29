@@ -3,7 +3,10 @@ use std::sync::{Arc, LazyLock, Mutex};
 
 use snafu::OptionExt;
 
-use crate::{ABI, ABIError, abi::error::UnknownABISnafu};
+use crate::{
+    ABI, ABIError, abi,
+    abi::error::{NoMatchingABISnafu, UnknownABISnafu}
+};
 
 //
 // see tests and more: https://github.com/wharfkit/abicache/blob/master/test/tests/abi.ts
@@ -11,10 +14,13 @@ use crate::{ABI, ABIError, abi::error::UnknownABISnafu};
 
 // TODO: make abi name a kudu::Name instead of a String
 //       at the very least, we should be able to query using either a kudu::Name or a &str
+// TODO: could we get rid of the `Arc` here since we have a 'static lifetime?
 static REGISTRY: LazyLock<Mutex<HashMap<String, Arc<ABI>>>> = LazyLock::new(|| {
     let mut reg = HashMap::new();
-    reg.insert("eosio".to_string(), Arc::new(ABI::from_str(EOSIO_ABI).unwrap()));
-    reg.insert("eosio.token".to_string(), Arc::new(ABI::from_str(EOSIO_TOKEN_ABI).unwrap()));
+    reg.insert("eosio".to_string(), Arc::new(ABI::from_str(abi::data::EOSIO_ABI).unwrap()));
+    reg.insert("eosio.token".to_string(), Arc::new(ABI::from_str(abi::data::EOSIO_TOKEN_ABI).unwrap()));
+    reg.insert("core.vaulta".to_string(), Arc::new(ABI::from_str(abi::data::CORE_VAULTA_ABI).unwrap()));
+    reg.insert("transaction".to_string(), Arc::new(ABI::from_str(abi::data::TRANSACTION_ABI).unwrap()));
     Mutex::new(reg)
 });
 
@@ -28,41 +34,48 @@ pub fn get_abi(abi_name: &str) -> Result<Arc<ABI>, ABIError> {
     REGISTRY.lock().unwrap().get(abi_name).cloned().context(UnknownABISnafu { name: abi_name.to_string() })
 }
 
+pub fn find_abi_for(typename: &str) -> Result<Arc<ABI>, ABIError> {
+    for (_name, abi) in REGISTRY.lock().unwrap().iter() {
+        if abi.has_struct(typename) { return Ok(abi.clone()); }
+    }
+    NoMatchingABISnafu { name: typename }.fail()
+}
+
 // -----------------------------------------------------------------------------
 //     static ABI definitions for tests
 // -----------------------------------------------------------------------------
 
 // FIXME: replace this with actual ABIs from the networks
 
-static EOSIO_ABI: &str  = r#"{
-    "version": "eosio::abi/1.2",
-    "structs": [
-        {
-            "name": "voteproducer",
-            "base": "",
-            "fields": [
-                { "name": "voter", "type": "name" },
-                { "name": "proxy", "type": "name" },
-                { "name": "producers", "type": "name[]" }
-            ]
-        }
-    ]
-}
-"#;
+// static EOSIO_ABI: &str  = r#"{
+//     "version": "eosio::abi/1.2",
+//     "structs": [
+//         {
+//             "name": "voteproducer",
+//             "base": "",
+//             "fields": [
+//                 { "name": "voter", "type": "name" },
+//                 { "name": "proxy", "type": "name" },
+//                 { "name": "producers", "type": "name[]" }
+//             ]
+//         }
+//     ]
+// }
+// "#;
 
-static EOSIO_TOKEN_ABI: &str  = r#"{
-    "version": "eosio::abi/1.2",
-    "structs": [
-        {
-            "name": "transfer",
-            "base": "",
-            "fields": [
-                { "name": "from", "type": "name" },
-                { "name": "to", "type": "name" },
-                { "name": "quantity", "type": "asset" },
-                { "name": "memo", "type": "string" }
-            ]
-        }
-    ]
-}
-"#;
+// static EOSIO_TOKEN_ABI: &str  = r#"{
+//     "version": "eosio::abi/1.2",
+//     "structs": [
+//         {
+//             "name": "transfer",
+//             "base": "",
+//             "fields": [
+//                 { "name": "from", "type": "name" },
+//                 { "name": "to", "type": "name" },
+//                 { "name": "quantity", "type": "asset" },
+//                 { "name": "memo", "type": "string" }
+//             ]
+//         }
+//     ]
+// }
+// "#;

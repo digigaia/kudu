@@ -46,6 +46,9 @@ impl ABI {
         }
     }
 
+    pub fn has_struct(&self, name: &str) -> bool {
+        self.structs.contains_key(name) || self.typedefs.contains_key(name) || self.variants.contains_key(name)
+    }
 
     // -----------------------------------------------------------------------------
     //     Constructors and validation of ABI

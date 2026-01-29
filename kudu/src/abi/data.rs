@@ -7,9 +7,16 @@ pub static ABI_SCHEMA: &str = include_str!("data/abi_definition.json");
 
 pub static CONTRACT_ABI: &str = include_str!("data/contract_abi.json");
 
+pub static EOSIO_ABI: &str = include_str!("data/eosio.json");
+pub static EOSIO_TOKEN_ABI: &str = include_str!("data/eosio.token.json");
+pub static CORE_VAULTA_ABI: &str = include_str!("data/core.vaulta.json");
+
 // -----------------------------------------------------------------------------
 //     Tests data
 // -----------------------------------------------------------------------------
+
+// FIXME: find out where exactly to these ABIs come from and how to keep them
+//        up-to-date, at least semi-automatically
 
 // FIXME: find why using #[cfg(test)] makes the tests not compile
 

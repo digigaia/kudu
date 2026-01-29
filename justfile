@@ -83,7 +83,7 @@ api_endpoint := "https://vaulta.greymass.com"
 
 @_download_abi name:
     echo "Downloading abi: {{name}}"
-    curl --silent --json '{"account_name": "{{name}}"}' {{api_endpoint}}/v1/chain/get_abi | jq > "kudu/src/abi/data/{{name}}.json"
+    curl --silent --json '{"account_name": "{{name}}"}' {{api_endpoint}}/v1/chain/get_abi | jq '.["abi"]' > "kudu/src/abi/data/{{name}}.json"
 
 # download current ABIs from an API endpoint and store them in `src/abi/data`
 download-abis: \

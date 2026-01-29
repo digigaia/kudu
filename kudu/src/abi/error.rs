@@ -40,6 +40,9 @@ pub enum ABIError {
     #[snafu(display("unknown ABI with name: '{name}'"))]
     UnknownABIError { name: String },
 
+    #[snafu(display("no matching ABI for typename: '{name}'"))]
+    NoMatchingABIError { name: String },
+
     #[snafu(display("cannot convert variant to AntelopeValue: {v}"))]
     VariantConversionError { v: Box<JsonValue>, source: InvalidValue },
 
