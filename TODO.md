@@ -32,6 +32,8 @@ file once they are implemented.
   unwrap_used = "deny"
   ```
 
+- review singletons usage in tests
+
 ## MISC
 
 - Transition from EOS -> Vaulta

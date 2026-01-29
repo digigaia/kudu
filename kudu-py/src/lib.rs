@@ -10,6 +10,8 @@ use pyo3::prelude::*;
 
 // TODO: have the __bytes__() method be declared automatically
 
+// TODO: implement the Transaction::to_dict() method for all wrapped classes. Maybe call it to_python
+
 // TODO: factor runtime_err, value_err
 
 // NOTE: desired API for python bindings:

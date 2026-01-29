@@ -10,8 +10,8 @@ pub mod kudu_chain {
     use pyo3::types::{PyDict, PyList};
     use pythonize::{depythonize, pythonize};
 
-    use kudu::chain::{Action, IntoPermissionVec, PermissionLevel};
-    use kudu::{ABISerializable, AccountName, ActionName, Bytes, ByteStream, PermissionName};
+    use kudu::chain::{Action, IntoPermissionVec, PermissionLevel, Transaction};
+    use kudu::{ABISerializable, AccountName, ActionName, Bytes, ByteStream, JsonValue, PermissionName};
 
     #[inline]
     fn runtime_err<T: ToString>(e: T) -> PyErr {
@@ -118,6 +118,45 @@ pub mod kudu_chain {
             b.into()
         }
 
+        fn __eq__<'py>(&self, py: Python<'py>, other: &Bound<'py, PyAny>) -> bool {
+            // NOTE: we do not use depythonize here because it doesn't work due to a borrowed string
+            //       we might be able to fix this by looking at `Name::deserialize`
+            //       instead, we convert our instance to a python dict and use that to compare
+
+            // FIXME: we do not need to call `to_dict()` and `decoded()` in a row, we can detect
+            //        which variant we need by checking `isinstance(other.data, str)`
+            if other.is_instance_of::<PyDict>() {
+                if let Ok(d) = self.to_dict(py) {
+                    let result = d.call_method1("__eq__", (other,)).unwrap();
+                    let same: bool = result.extract().expect("__eq__ needs to return a bool!");
+                    if same { return true; }
+                }
+
+                if let Ok(d) = self.decoded(py) {
+                    let result = d.call_method1("__eq__", (other,)).unwrap();
+                    let same: bool = result.extract().expect("__eq__ needs to return a bool!");
+                    if same { return true; }
+                }
+            }
+
+            // compare using an object of the same type
+            let p: Result<&Bound<'py, PyAction>, _> = other.cast();
+            if let Ok(p) = p {
+                return self.0 == p.borrow().0;
+            }
+
+            false
+        }
+
+        pub fn to_dict<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
+            Ok(pythonize(py, &self.0)?)
+        }
+
+        pub fn decoded<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
+            Ok(pythonize(py, &self.0.to_json().map_err(value_err)?)?)
+        }
+
+
         #[getter]
         pub fn get_account(&self) -> String {
             self.0.account.to_string()
@@ -135,11 +174,6 @@ pub mod kudu_chain {
             Ok(result)
         }
 
-        // #[getter]
-        // pub fn get_authorization<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
-        //     Ok(pythonize(py, &self.0.authorization)?)
-        // }
-
         #[getter]
         pub fn get_data(&self) -> &[u8] {
             &self.0.data.0[..]
@@ -149,8 +183,54 @@ pub mod kudu_chain {
             Ok(pythonize(py, &self.0.decode_data().unwrap())?)
         }
 
-        pub fn decode_data_with_abi<'py>(&self, py: Python<'py>, abi: &crate::abi::kudu_abi::PyABI) -> PyResult<Bound<'py, PyAny>> {
+        pub fn decode_data_with_abi<'py>(
+            &self,
+            py: Python<'py>,
+            abi: &crate::abi::kudu_abi::PyABI
+        ) -> PyResult<Bound<'py, PyAny>> {
             Ok(pythonize(py, &self.0.decode_data_with_abi(&abi.0).unwrap())?)  // FIXME: remove unwrap!!
+        }
+
+    }
+
+    // -----------------------------------------------------------------------------
+    //     Transaction
+    // -----------------------------------------------------------------------------
+
+    #[pyclass(name = "Transaction", module = "kudu.chain")]
+    struct PyTransaction(Transaction);
+
+    #[pymethods]
+    impl PyTransaction {
+        #[new]
+        pub fn new<'py>(tx: &Bound<'py, PyAny>) -> PyResult<Self> {
+            let json: JsonValue = depythonize(tx)?;
+            Ok(Self(Transaction::from_json(&json).unwrap()))  // FIXME: unwrap
+        }
+
+        pub fn __repr__(&self) -> String {
+            format!("<kudu.Transaction: {:?}>", self.0.actions)
+        }
+
+        pub fn __bytes__(&self) -> Vec<u8> {
+            let mut b = ByteStream::new();
+            self.0.to_bin(&mut b);
+            b.into()
+        }
+
+        #[getter]
+        pub fn get_ref_block_num(&self) -> u16 {
+            self.0.ref_block_num
+        }
+
+        #[getter]
+        pub fn get_actions<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyList>> {
+            let elements: Vec<PyAction> = self.0.actions.iter().map(|a| PyAction(a.clone())).collect();
+            PyList::new(py, elements)
+        }
+
+        pub fn to_dict<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
+            Ok(pythonize(py, &self.0)?)
         }
 
     }
