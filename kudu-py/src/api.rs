@@ -12,6 +12,7 @@ pub mod kudu_api {
     use kudu::api::{APIClient, HttpError};
     use kudu::JsonValue;
 
+
     fn wrap_for_python<'py, T>(py: Python<'py>, value: Result<&T, &HttpError>) -> PyResult<Bound<'py, PyAny>>
     where
         T: ?Sized + Serialize
@@ -19,8 +20,8 @@ pub mod kudu_api {
         match value {
             Ok(v) => Ok(pythonize(py, &v)?),
             Err(e) => Err(match e {
-                HttpError::ConnectionError { source: _ } => PyRuntimeError::new_err(format!("http error: {}", e)),
-                HttpError::JsonError { source: _ } => PyValueError::new_err(format!("json error: {}", e)),
+                HttpError::ConnectionError { source: _ } => PyRuntimeError::new_err(format!("HTTP error: {}", e)),
+                HttpError::JsonError { source: _ } => PyValueError::new_err(format!("JSON error: {}", e)),
             })
         }
     }
@@ -39,9 +40,9 @@ pub mod kudu_api {
             format!("<kudu.api.APIClient: {}>", self.0.endpoint)
         }
 
-        // pub fn __str__(&self) -> String {
-        //     self.__repr__()
-        // }
+        pub fn __str__(&self) -> String {
+            self.__repr__()
+        }
 
         pub fn get<'py>(&self, py: Python<'py>, path: &str) -> PyResult<Bound<'py, PyAny>> {
             let result = self.0.get(path);

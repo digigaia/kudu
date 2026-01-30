@@ -5,7 +5,6 @@ use pyo3::prelude::*;
 pub mod kudu_chain {
     use std::string::ToString;
 
-    use pyo3::exceptions::{PyRuntimeError, PyValueError};
     use pyo3::prelude::*;
     use pyo3::types::{PyDict, PyList};
     use pythonize::{depythonize, pythonize};
@@ -13,15 +12,9 @@ pub mod kudu_chain {
     use kudu::chain::{Action, IntoPermissionVec, PermissionLevel, Transaction};
     use kudu::{ABISerializable, AccountName, ActionName, Bytes, ByteStream, JsonValue, PermissionName};
 
-    #[inline]
-    fn runtime_err<T: ToString>(e: T) -> PyErr {
-        PyRuntimeError::new_err(e.to_string())
-    }
-
-    #[inline]
-    fn value_err<T: ToString>(e: T) -> PyErr {
-        PyValueError::new_err(e.to_string())
-    }
+    use crate::util::{
+        gen_bytes_conversion, gen_default_repr, gen_default_str, gen_dict_conversion, gen_string_getters, runtime_err, value_err
+    };
 
     // -----------------------------------------------------------------------------
     //     PermissionLevel
@@ -29,6 +22,11 @@ pub mod kudu_chain {
 
     #[pyclass(name = "PermissionLevel", module="kudu.chain")]
     pub struct PyPermissionLevel(PermissionLevel);
+
+    gen_default_repr!("PyPermissionLevel");
+    gen_default_str!("PyPermissionLevel");
+    gen_bytes_conversion!("PyPermissionLevel");
+    gen_string_getters!("PyPermissionLevel", ["actor", "permission"]);
 
     #[pymethods]
     impl PyPermissionLevel {
@@ -39,16 +37,6 @@ pub mod kudu_chain {
                 permission: PermissionName::new(permission).map_err(runtime_err)?,
             };
             Ok(Self(pl))
-        }
-
-        pub fn __repr__(&self) -> String {
-            format!("<kudu.chain.PermissionLevel: {}@{}>", self.0.actor, self.0.permission)
-        }
-
-        pub fn __bytes__(&self) -> Vec<u8> {
-            let mut b = ByteStream::new();
-            self.0.to_bin(&mut b);
-            b.into()
         }
 
         fn __eq__<'py>(&self, other: &Bound<'py, PyAny>) -> bool {
@@ -77,16 +65,6 @@ pub mod kudu_chain {
             false
         }
 
-        #[getter]
-        pub fn get_actor(&self) -> String {
-            self.0.actor.to_string()
-        }
-
-        #[getter]
-        pub fn get_permission(&self) -> String {
-            self.0.permission.to_string()
-        }
-
     }
 
     // -----------------------------------------------------------------------------
@@ -95,6 +73,10 @@ pub mod kudu_chain {
 
     #[pyclass(name = "Action", module = "kudu.chain")]
     struct PyAction(Action);
+
+    gen_bytes_conversion!("PyAction");
+    gen_dict_conversion!("PyAction");
+    gen_string_getters!("PyAction", ["account", "name"]);
 
     #[pymethods]
     impl PyAction {
@@ -110,12 +92,6 @@ pub mod kudu_chain {
 
         pub fn __repr__(&self) -> String {
             format!("<kudu.Action: {}::{}({:?}) [auth: {:?}]>", self.0.account, self.0.name, self.0.data, self.0.authorization)
-        }
-
-        pub fn __bytes__(&self) -> Vec<u8> {
-            let mut b = ByteStream::new();
-            self.0.to_bin(&mut b);
-            b.into()
         }
 
         fn __eq__<'py>(&self, py: Python<'py>, other: &Bound<'py, PyAny>) -> bool {
@@ -148,24 +124,14 @@ pub mod kudu_chain {
             false
         }
 
-        pub fn to_dict<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
-            Ok(pythonize(py, &self.0)?)
-        }
+        // pub fn to_dict<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
+        //     Ok(pythonize(py, &self.0)?)
+        // }
 
         pub fn decoded<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
             Ok(pythonize(py, &self.0.to_json().map_err(value_err)?)?)
         }
 
-
-        #[getter]
-        pub fn get_account(&self) -> String {
-            self.0.account.to_string()
-        }
-
-        #[getter]
-        pub fn get_name(&self) -> String {
-            self.0.name.to_string()
-        }
 
         #[getter]
         pub fn get_authorization<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyList>> {
@@ -200,6 +166,9 @@ pub mod kudu_chain {
     #[pyclass(name = "Transaction", module = "kudu.chain")]
     struct PyTransaction(Transaction);
 
+    gen_bytes_conversion!("PyTransaction");
+    gen_dict_conversion!("PyTransaction");
+
     #[pymethods]
     impl PyTransaction {
         #[new]
@@ -212,12 +181,6 @@ pub mod kudu_chain {
             format!("<kudu.Transaction: {:?}>", self.0.actions)
         }
 
-        pub fn __bytes__(&self) -> Vec<u8> {
-            let mut b = ByteStream::new();
-            self.0.to_bin(&mut b);
-            b.into()
-        }
-
         #[getter]
         pub fn get_ref_block_num(&self) -> u16 {
             self.0.ref_block_num
@@ -227,10 +190,6 @@ pub mod kudu_chain {
         pub fn get_actions<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyList>> {
             let elements: Vec<PyAction> = self.0.actions.iter().map(|a| PyAction(a.clone())).collect();
             PyList::new(py, elements)
-        }
-
-        pub fn to_dict<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
-            Ok(pythonize(py, &self.0)?)
         }
 
     }

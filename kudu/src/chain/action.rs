@@ -1,3 +1,5 @@
+use std::fmt;
+
 use hex::FromHexError;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -50,6 +52,13 @@ impl IntoPermissionVec for (&str, &str) {
         }]
     }
 }
+
+impl fmt::Display for PermissionLevel {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}@{}", self.actor, self.permission)
+    }
+}
+
 
 
 #[with_location]

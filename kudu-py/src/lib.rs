@@ -1,18 +1,15 @@
 use pyo3::prelude::*;
 
+mod abi;
+mod api;
+mod chain;
+mod util;
+
 // TODO: investigate https://github.com/Jij-Inc/serde-pyobject, pros/cons vs pythonize?
 
 // TODO: investigate whether we want to use `benedict` as a replacement for barebones dicts
 
 // TODO: remove `pub` on pymethods, they do not need to be public
-
-// TODO: define macro to easily declare getters for the wrapped types
-
-// TODO: have the __bytes__() method be declared automatically
-
-// TODO: implement the Transaction::to_dict() method for all wrapped classes. Maybe call it to_python
-
-// TODO: factor runtime_err, value_err
 
 // NOTE: desired API for python bindings:
 //
@@ -31,45 +28,35 @@ use pyo3::prelude::*;
 #[pymodule]
 mod kudu {
     use pyo3::prelude::*;
-    use pyo3::exceptions::PyValueError;
     use kudu::{ABISerializable, ByteStream, Name};
 
     #[pymodule_export]
-    use super::abi::kudu_abi;
+    use crate::abi::kudu_abi;
 
     #[pymodule_export]
-    use super::api::kudu_api;
+    use crate::api::kudu_api;
 
     #[pymodule_export]
-    use super::chain::kudu_chain;
+    use crate::chain::kudu_chain;
 
-    #[inline]
-    fn value_err<T: ToString>(e: T) -> PyErr {
-        PyValueError::new_err(e.to_string())
-    }
+    use crate::util::{gen_default_repr, gen_default_str, gen_bytes_conversion, value_err};
+
+    // -----------------------------------------------------------------------------
+    //     Name
+    // -----------------------------------------------------------------------------
 
     #[pyclass(name = "Name")]
     struct PyName(Name);
+
+    gen_default_repr!("PyName");
+    gen_default_str!("PyName");
+    gen_bytes_conversion!("PyName");
 
     #[pymethods]
     impl PyName {
         #[new]
         pub fn new(name: &str) -> PyResult<Self> {
             Ok(Self(Name::new(name).map_err(value_err)?))
-        }
-
-        pub fn __repr__(&self) -> String {
-            format!("'{}'", self.0)
-        }
-
-        pub fn __str__(&self) -> String {
-            self.0.to_string()
-        }
-
-        pub fn __bytes__(&self) -> Vec<u8> {
-            let mut b = ByteStream::new();
-            self.0.to_bin(&mut b);
-            b.into()
         }
 
         fn __eq__<'py>(&self, other: &Bound<'py, PyAny>) -> bool {
@@ -87,6 +74,10 @@ mod kudu {
     }
 
 
+    // -----------------------------------------------------------------------------
+    //     Module initialization
+    // -----------------------------------------------------------------------------
+
     #[pymodule_init]
     fn init(m: &Bound<'_, PyModule>) -> PyResult<()> {
         // Arbitrary code to run at the module initialization
@@ -103,13 +94,10 @@ mod kudu {
         // create some useful global variables
         let api_client = m.getattr("api")?.getattr("APIClient")?;
         m.add("local", api_client.call1(("http://127.0.0.1:8888",))?)?;
-        m.add("vaulta", api_client.call1(("https://api.eos.detroitledger.tech",))?)?;
+        // m.add("vaulta", api_client.call1(("https://api.eos.detroitledger.tech",))?)?;
+        m.add("vaulta", api_client.call1(("https://vaulta.greymass.com",))?)?;
         m.add("jungle", api_client.call1(("https://jungle4.greymass.com",))?)?;
 
         Ok(())
     }
 }
-
-mod abi;
-mod api;
-mod chain;

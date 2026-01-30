@@ -11,10 +11,12 @@ def test_submodule():
 
 def test_name():
     name = kudu.Name('eosio')
-    assert name == 'eosio'
+
     assert str(name) == 'eosio'
-    assert repr(name) == "'eosio'"
+    assert repr(name) == '<kudu.Name: eosio>'
     assert bytes(name).hex() == '0000000000ea3055'
+
+    assert name == 'eosio'
 
     with pytest.raises(ValueError, match='normalized'):
         kudu.Name('2345;[h')
@@ -25,14 +27,17 @@ def test_name():
 
 def test_permission_level():
     perm = kudu.chain.PermissionLevel('eosio', 'active')
-    assert str(perm) == '<kudu.chain.PermissionLevel: eosio@active>'
+
+    assert str(perm) == 'eosio@active'
+    assert repr(perm) == '<kudu.chain.PermissionLevel: eosio@active>'
+    assert bytes(perm).hex() == '0000000000ea305500000000a8ed3232'
+
     assert perm.actor == 'eosio'
     assert perm.permission == 'active'
     assert perm == kudu.chain.PermissionLevel('eosio', 'active')
     assert perm == ('eosio', 'active')
     assert perm == {'actor': 'eosio', 'permission': 'active'}
     assert perm != {'actor': 23, 'permission': None}
-    assert bytes(perm).hex() == '0000000000ea305500000000a8ed3232'
 
 
 # FIXME: "data" should be able to be passed as data json repr
@@ -66,6 +71,8 @@ TX_HEX = 'b2f4335b0bb10e87af9c000000000100a6823403ea3055000000572d3ccdcd01608c31
 def test_action():
     action = Action('eosio.token', 'transfer', PermissionLevel('eosio', 'active'), bytes.fromhex(
         '608c31c6187315d6708c31c6187315d6010000000000000004535953000000000974657374206d656d6f'))
+    # assert str(action) == '...'  # FIXME: implement me
+    # assert repr, bytes
     assert action.account == 'eosio.token'
     assert action.name == 'transfer'
     assert action.authorization == [('eosio', 'active')]
