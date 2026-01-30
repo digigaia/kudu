@@ -9,7 +9,10 @@ mod util;
 
 // TODO: investigate whether we want to use `benedict` as a replacement for barebones dicts
 
-// TODO: remove `pub` on pymethods, they do not need to be public
+// TODO: investigate eyre for error reporting instead of our value_err, runtime_err wrappers
+//       see: https://pyo3.rs/main/doc/pyo3/eyre/
+
+// FIXME: check for abusive unwrap usage
 
 // NOTE: desired API for python bindings:
 //
@@ -55,7 +58,7 @@ mod kudu {
     #[pymethods]
     impl PyName {
         #[new]
-        pub fn new(name: &str) -> PyResult<Self> {
+        fn new(name: &str) -> PyResult<Self> {
             Ok(Self(Name::new(name).map_err(value_err)?))
         }
 

@@ -7,6 +7,7 @@ pub fn value_err<T: ToString>(e: T) -> PyErr {
 }
 
 #[inline]
+#[allow(dead_code)]  // FIXME: why is this needed if the function is public?
 pub fn runtime_err<T: ToString>(e: T) -> PyErr {
     PyRuntimeError::new_err(e.to_string())
 }

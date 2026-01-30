@@ -32,24 +32,24 @@ pub mod kudu_api {
     #[pymethods]
     impl PyAPIClient {
         #[new]
-        pub fn new(endpoint: &str) -> Self {
+        fn new(endpoint: &str) -> Self {
             PyAPIClient(APIClient::new(endpoint))
         }
 
-        pub fn __repr__(&self) -> String {
+        fn __repr__(&self) -> String {
             format!("<kudu.api.APIClient: {}>", self.0.endpoint)
         }
 
-        pub fn __str__(&self) -> String {
+        fn __str__(&self) -> String {
             self.__repr__()
         }
 
-        pub fn get<'py>(&self, py: Python<'py>, path: &str) -> PyResult<Bound<'py, PyAny>> {
+        fn get<'py>(&self, py: Python<'py>, path: &str) -> PyResult<Bound<'py, PyAny>> {
             let result = self.0.get(path);
             wrap_for_python(py, result.as_ref())
         }
 
-        pub fn call<'py>(&self, py: Python<'py>, path: &str, params: &Bound<'py, PyAny>) -> PyResult<Bound<'py, PyAny>> {
+        fn call<'py>(&self, py: Python<'py>, path: &str, params: &Bound<'py, PyAny>) -> PyResult<Bound<'py, PyAny>> {
             let params: JsonValue = depythonize(params).unwrap();
             let result = self.0.call(path, &params);
             wrap_for_python(py, result.as_ref())

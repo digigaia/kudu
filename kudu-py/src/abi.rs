@@ -17,11 +17,11 @@ pub mod kudu_abi {
     #[pymethods]
     impl PyABI {
         #[new]
-        pub fn new(abi_definition: &str) -> PyResult<Self> {
+        fn new(abi_definition: &str) -> PyResult<Self> {
             Ok(PyABI(ABI::from_str(abi_definition).map_err(value_err)?))
         }
 
-        pub fn __repr__(&self) -> String {
+        fn __repr__(&self) -> String {
             format!("<kudu.api.ABI: {:?}>", self.0)
         }
 

@@ -98,9 +98,11 @@ def test_action():
         'memo': 'test memo'
     }
 
+    # we can decode encoded data
     data = action.decode_data()
     assert data == decoded_data
 
+    # we can get a python object with the action data either encoded or decoded
     assert action.to_dict() == encoded
     assert action.decoded() == decoded
 
@@ -127,4 +129,5 @@ def test_transaction():
 
     assert bytes(transaction).hex() == TX_HEX
 
-    # TODO: Transaction('this should fail gracefully')
+    with pytest.raises(ValueError):
+        Transaction('this should fail gracefully')

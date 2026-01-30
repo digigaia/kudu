@@ -6,14 +6,14 @@ pub mod kudu_chain {
     use std::string::ToString;
 
     use pyo3::prelude::*;
-    use pyo3::types::{PyDict, PyList};
+    use pyo3::types::{PyDict, PyList, PyString};
     use pythonize::{depythonize, pythonize};
 
-    use kudu::chain::{Action, IntoPermissionVec, PermissionLevel, Transaction};
+    use kudu::chain::{Action, PermissionLevel, Transaction};
     use kudu::{ABISerializable, AccountName, ActionName, Bytes, ByteStream, JsonValue, PermissionName};
 
     use crate::util::{
-        gen_bytes_conversion, gen_default_repr, gen_default_str, gen_dict_conversion, gen_string_getters, runtime_err, value_err
+        gen_bytes_conversion, gen_default_repr, gen_default_str, gen_dict_conversion, gen_string_getters, value_err
     };
 
     // -----------------------------------------------------------------------------
@@ -31,12 +31,27 @@ pub mod kudu_chain {
     #[pymethods]
     impl PyPermissionLevel {
         #[new]
-        pub fn new(actor: &str, permission: &str) -> PyResult<Self> {
+        fn new(actor: &str, permission: &str) -> PyResult<Self> {
             let pl = PermissionLevel {
-                actor: AccountName::new(actor).map_err(runtime_err)?,
-                permission: PermissionName::new(permission).map_err(runtime_err)?,
+                actor: AccountName::new(actor).map_err(value_err)?,
+                permission: PermissionName::new(permission).map_err(value_err)?,
             };
             Ok(Self(pl))
+        }
+
+        #[staticmethod]
+        fn from_py<'py>(other: &Bound<'py, PyAny>) -> PyResult<Self> {
+            // other object is of the same type
+            let perm: Result<&Bound<'py, PyPermissionLevel>, _> = other.cast();
+            if let Ok(perm) = perm {
+                return Ok(Self(perm.borrow().0))
+            }
+            // other object is a tuple (actor, permission)
+            if let Ok((actor, permission)) = other.extract::<(&str, &str)>() {
+                return Self::new(actor, permission);
+            }
+
+            Err(value_err(format!("Cannot create PermissionLevel from object: {} [{}]", other, other.get_type())))
         }
 
         fn __eq__<'py>(&self, other: &Bound<'py, PyAny>) -> bool {
@@ -81,37 +96,53 @@ pub mod kudu_chain {
     #[pymethods]
     impl PyAction {
         #[new]
-        pub fn new(account: &str, name: &str, authorization: &PyPermissionLevel, data: &[u8]) -> PyResult<Self> {
+        fn new<'py>(account: &str, name: &str, authorization: &Bound<'py, PyAny>, data: &[u8]) -> PyResult<Self> {
+            // parse authorization param: can be a single PermissionLevel, a list of them, or python equivalents thereof
+            let mut auth: Vec<PermissionLevel> = vec![];
+            if let Ok(perm) = PyPermissionLevel::from_py(authorization) {
+                auth.push(perm.0);
+            }
+            else if let Ok(authorization) = authorization.cast::<PyList>() {
+                for value in authorization {
+                    auth.push(PyPermissionLevel::from_py(&value)?.0);
+                }
+            }
+            else {
+                return Err(value_err(format!("invalid value for PermissionLevel: {}", 23)));
+            }
+
             Ok(Self(Action {
                 account: AccountName::new(account).map_err(value_err)?,
                 name: ActionName::new(name).map_err(value_err)?,
-                authorization: authorization.0.into_permission_vec(),
+                authorization: auth,
                 data: Bytes(data.to_owned()),
             }))
         }
 
-        pub fn __repr__(&self) -> String {
-            format!("<kudu.Action: {}::{}({:?}) [auth: {:?}]>", self.0.account, self.0.name, self.0.data, self.0.authorization)
+        fn __repr__(&self) -> String {
+            format!("<kudu.Action: {}::{}(...) {:?}>", self.0.account, self.0.name, self.0.authorization)
         }
 
         fn __eq__<'py>(&self, py: Python<'py>, other: &Bound<'py, PyAny>) -> bool {
             // NOTE: we do not use depythonize here because it doesn't work due to a borrowed string
             //       we might be able to fix this by looking at `Name::deserialize`
             //       instead, we convert our instance to a python dict and use that to compare
-
-            // FIXME: we do not need to call `to_dict()` and `decoded()` in a row, we can detect
-            //        which variant we need by checking `isinstance(other.data, str)`
             if other.is_instance_of::<PyDict>() {
-                if let Ok(d) = self.to_dict(py) {
-                    let result = d.call_method1("__eq__", (other,)).unwrap();
-                    let same: bool = result.extract().expect("__eq__ needs to return a bool!");
-                    if same { return true; }
+                if other.get_item("data").unwrap().is_instance_of::<PyString>() {  // safe unwrap
+                    // `.data` is an hex representation of the encoded action data
+                    if let Ok(d) = self.to_dict(py) {
+                        let result = d.call_method1("__eq__", (other,)).unwrap();
+                        let same: bool = result.extract().expect("__eq__ needs to return a bool!");
+                        if same { return true; }
+                    }
                 }
-
-                if let Ok(d) = self.decoded(py) {
-                    let result = d.call_method1("__eq__", (other,)).unwrap();
-                    let same: bool = result.extract().expect("__eq__ needs to return a bool!");
-                    if same { return true; }
+                else {
+                    // `.data` is the decoded action data
+                    if let Ok(d) = self.decoded(py) {
+                        let result = d.call_method1("__eq__", (other,)).unwrap();
+                        let same: bool = result.extract().expect("__eq__ needs to return a bool!");
+                        if same { return true; }
+                    }
                 }
             }
 
@@ -124,39 +155,34 @@ pub mod kudu_chain {
             false
         }
 
-        // pub fn to_dict<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
-        //     Ok(pythonize(py, &self.0)?)
-        // }
-
-        pub fn decoded<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
+        fn decoded<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
             Ok(pythonize(py, &self.0.to_json().map_err(value_err)?)?)
         }
 
-
         #[getter]
-        pub fn get_authorization<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyList>> {
+        fn get_authorization<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyList>> {
             let elements: Vec<PyPermissionLevel> = self.0.authorization.iter().map(|p| PyPermissionLevel(*p)).collect();
             let result = PyList::new(py, elements)?;
             Ok(result)
         }
 
+        // TODO: do we want to return a Bytes object or a str with decoded hex data?
         #[getter]
-        pub fn get_data(&self) -> &[u8] {
+        fn get_data(&self) -> &[u8] {
             &self.0.data.0[..]
         }
 
-        pub fn decode_data<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
+        fn decode_data<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
             Ok(pythonize(py, &self.0.decode_data().unwrap())?)
         }
 
-        pub fn decode_data_with_abi<'py>(
+        fn decode_data_with_abi<'py>(
             &self,
             py: Python<'py>,
             abi: &crate::abi::kudu_abi::PyABI
         ) -> PyResult<Bound<'py, PyAny>> {
-            Ok(pythonize(py, &self.0.decode_data_with_abi(&abi.0).unwrap())?)  // FIXME: remove unwrap!!
+            Ok(pythonize(py, &self.0.decode_data_with_abi(&abi.0).map_err(value_err)?)?)
         }
-
     }
 
     // -----------------------------------------------------------------------------
@@ -172,22 +198,22 @@ pub mod kudu_chain {
     #[pymethods]
     impl PyTransaction {
         #[new]
-        pub fn new<'py>(tx: &Bound<'py, PyAny>) -> PyResult<Self> {
+        fn new<'py>(tx: &Bound<'py, PyAny>) -> PyResult<Self> {
             let json: JsonValue = depythonize(tx)?;
-            Ok(Self(Transaction::from_json(&json).unwrap()))  // FIXME: unwrap
+            Ok(Self(Transaction::from_json(&json).map_err(value_err)?))
         }
 
-        pub fn __repr__(&self) -> String {
+        fn __repr__(&self) -> String {
             format!("<kudu.Transaction: {:?}>", self.0.actions)
         }
 
         #[getter]
-        pub fn get_ref_block_num(&self) -> u16 {
+        fn get_ref_block_num(&self) -> u16 {
             self.0.ref_block_num
         }
 
         #[getter]
-        pub fn get_actions<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyList>> {
+        fn get_actions<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyList>> {
             let elements: Vec<PyAction> = self.0.actions.iter().map(|a| PyAction(a.clone())).collect();
             PyList::new(py, elements)
         }

@@ -21,7 +21,7 @@ extern crate self as kudu;
 // from: https://github.com/AntelopeIO/spring/blob/main/libraries/chain/include/eosio/chain/action.hpp
 
 
-#[derive(Eq, Hash, PartialEq, Debug, Copy, Clone, Default, Deserialize, Serialize, ABISerializable)]
+#[derive(Eq, Hash, PartialEq, Copy, Clone, Default, Deserialize, Serialize, ABISerializable)]
 pub struct PermissionLevel {
     pub actor: AccountName,
     pub permission: PermissionName,
@@ -54,6 +54,12 @@ impl IntoPermissionVec for (&str, &str) {
 }
 
 impl fmt::Display for PermissionLevel {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}@{}", self.actor, self.permission)
+    }
+}
+
+impl fmt::Debug for PermissionLevel {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}@{}", self.actor, self.permission)
     }
@@ -107,7 +113,7 @@ impl_auto_error_conversion!(serde_json::Error, ActionError, FromJsonSnafu);
 /// levels are declared on the action and validated independently of the executing
 /// application code. An application code will check to see if the required
 /// authorization were properly declared when it executes.
-#[derive(Eq, Hash, PartialEq, Debug, Clone, Default, Deserialize, Serialize, ABISerializable)]
+#[derive(Eq, Hash, PartialEq, Clone, Default, Deserialize, Serialize, ABISerializable)]
 pub struct Action {
     pub account: AccountName,
     pub name: ActionName,
@@ -201,5 +207,11 @@ impl Action {
             "authorization": serde_json::to_value(&self.authorization)?,
             "data": self.decode_data_with_abi(abi)?,
         }))
+    }
+}
+
+impl fmt::Debug for Action {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "Action({}::{} {:?} data={}", self.account, self.name, self.authorization, self.data.to_hex())
     }
 }
