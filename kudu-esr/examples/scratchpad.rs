@@ -28,6 +28,7 @@ fn init() {
     });
 }
 
+// TODO: add convenience constructors for predefined ChainId, eg: ChainId::Jungle4 = ChainAlias(xxx)
 
 #[derive(SerializeEnum)]
 pub enum ChainId {

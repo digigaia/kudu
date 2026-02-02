@@ -1,6 +1,7 @@
 import pytest
 
 from kudu.chain import Action, PermissionLevel, Transaction
+from kudu.crypto import PrivateKey, PublicKey
 import kudu
 
 
@@ -23,6 +24,17 @@ def test_name():
 
     with pytest.raises(ValueError, match='longer than 13 characters'):
         kudu.Name('123456789012345')
+
+
+def test_crypto():
+    priv = PrivateKey('PVT_R1_PtoxLPzJZURZmPS4e26pjBiAn41mkkLPrET5qHnwDvbvqFEL6')
+    pub = PublicKey('EOS1111111111111111111111111111111114T1Anm')
+
+    assert str(priv) == 'PVT_R1_PtoxLPzJZURZmPS4e26pjBiAn41mkkLPrET5qHnwDvbvqFEL6'
+    assert repr(priv) == '<kudu.PrivateKey: PVT_R1_PtoxLPzJZURZmPS4e26pjBiAn41mkkLPrET5qHnwDvbvqFEL6>'
+
+    assert str(pub) == 'PUB_K1_11111111111111111111111111111111149Mr2R'
+    assert repr(pub) == '<kudu.PublicKey: PUB_K1_11111111111111111111111111111111149Mr2R>'
 
 
 def test_permission_level():

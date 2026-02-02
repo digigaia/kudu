@@ -103,6 +103,7 @@ pub mod doc;
 
 pub mod abi;
 pub mod api;
+pub mod bitops;
 pub mod chain;
 pub mod config;
 pub mod convert;

@@ -58,7 +58,7 @@ pub use trace::{
     Trace,
     TransactionTrace, TransactionTraceV0, TransactionTraceException, TransactionTraceMsg,
 };
-pub use transaction::Transaction;
+pub use transaction::{SignedTransaction, Transaction};
 
 
 /// not a native Antelope type but normally defined through an ABI

@@ -25,6 +25,7 @@ NOTE: this should be fixed, or at least a resolution for this should be decided 
 
 - add `impl Debug`/`impl Display` for the `contract` derive macro
 
+- rename `ByteStream::data()` to `ByteStream::as_bytes()`
 
 ## CORRECTNESS / TESTING
 
@@ -73,6 +74,8 @@ NOTE: this should be fixed, or at least a resolution for this should be decided 
 
 - clean/properly order imports in all file (maybe wait for Rust 2024 edition and use rustfmt
   as it seems to correspond better to the style we like)
+
+- upgrade crypto crates once they have been released (see: https://github.com/RustCrypto/hashes)
 
 
 ## MISSING FEATURES

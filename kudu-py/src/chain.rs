@@ -9,11 +9,13 @@ pub mod kudu_chain {
     use pyo3::types::{PyDict, PyList, PyString};
     use pythonize::{depythonize, pythonize};
 
-    use kudu::chain::{Action, PermissionLevel, Transaction};
+    use kudu::chain::{Action, PermissionLevel, SignedTransaction, Transaction};
     use kudu::{ABISerializable, AccountName, ActionName, Bytes, ByteStream, JsonValue, PermissionName};
 
+    use crate::api::kudu_api::PyAPIClient;
+    use crate::crypto::kudu_crypto::PyPrivateKey;
     use crate::util::{
-        gen_bytes_conversion, gen_default_repr, gen_default_str, gen_dict_conversion, gen_string_getters, value_err
+        gen_bytes_conversion, gen_default_repr, gen_default_str, gen_dict_conversion, gen_string_getters, runtime_err, value_err
     };
 
     // -----------------------------------------------------------------------------
@@ -218,5 +220,40 @@ pub mod kudu_chain {
             PyList::new(py, elements)
         }
 
+        fn link(&mut self, client: &PyAPIClient) -> PyResult<()> {
+            self.0.link(client.0.clone()).map_err(runtime_err)?;
+            Ok(())
+        }
+
+        fn sign(&self, _key: &PyPrivateKey) -> PyResult<Self> {
+            todo!();
+        }
+
+        fn sign_new<'py>(&self, py: Python<'py>, key: &PyPrivateKey) -> PyResult<Bound<'py, PySignedTransaction>> {
+            let result = PySignedTransaction(self.0.sign_new(&key.0).map_err(value_err)?);
+            Bound::new(py, result)
+        }
     }
+
+    // -----------------------------------------------------------------------------
+    //     SignedTransaction
+    // -----------------------------------------------------------------------------
+
+    #[pyclass(name = "SignedTransaction", module = "kudu.chain")]
+    struct PySignedTransaction(pub SignedTransaction);
+
+    // gen_bytes_conversion!("PySignedTransaction");
+    // gen_dict_conversion!("PySignedTransaction");
+
+    #[pymethods]
+    impl PySignedTransaction {
+        fn __repr__(&self) -> String {
+            format!("<kudu.SignedTransaction: {:?}>", self.0.tx)
+        }
+
+        fn send(&self) -> PyResult<()> {
+            self.0.send().map_err(runtime_err)
+        }
+    }
+
 }

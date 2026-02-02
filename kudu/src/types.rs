@@ -166,6 +166,12 @@ macro_rules! impl_checksum {
             }
         }
 
+        impl AsRef<[u8]> for $typ {
+            fn as_ref(&self) -> &[u8] {
+                &self.0
+            }
+        }
+
         impl FromStr for $typ {
             type Err = FromHexError;
 
@@ -234,6 +240,7 @@ pub type AccountName = Name;
 pub type PermissionName = Name;
 pub type TableName = Name;
 
+pub type ChainId = Checksum256;
 pub type BlockId = Checksum256;
 pub type Checksum = Checksum256;
 pub type TransactionId = Checksum256;

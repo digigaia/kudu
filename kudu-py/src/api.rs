@@ -4,6 +4,8 @@ use pyo3::prelude::*;
 /// A Python module implemented in Rust.
 #[pymodule(name = "api", submodule)]
 pub mod kudu_api {
+    use std::sync::Arc;
+
     use pyo3::exceptions::{PyRuntimeError, PyValueError};
     use pyo3::prelude::*;
     use pythonize::{depythonize, pythonize};
@@ -20,6 +22,7 @@ pub mod kudu_api {
         match value {
             Ok(v) => Ok(pythonize(py, &v)?),
             Err(e) => Err(match e {
+                HttpError::HttpError { .. } => PyRuntimeError::new_err(format!("HTTP error: {}", e)),
                 HttpError::ConnectionError { source: _ } => PyRuntimeError::new_err(format!("HTTP error: {}", e)),
                 HttpError::JsonError { source: _ } => PyValueError::new_err(format!("JSON error: {}", e)),
             })
@@ -27,13 +30,13 @@ pub mod kudu_api {
     }
 
     #[pyclass(name = "APIClient", module = "kudu.api")]
-    struct PyAPIClient(APIClient);
+    pub struct PyAPIClient(pub Arc<APIClient>);
 
     #[pymethods]
     impl PyAPIClient {
         #[new]
         fn new(endpoint: &str) -> Self {
-            PyAPIClient(APIClient::new(endpoint))
+            PyAPIClient(Arc::new(APIClient::new(endpoint)))
         }
 
         fn __repr__(&self) -> String {

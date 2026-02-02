@@ -152,7 +152,7 @@ It should only be used in unittests and user code, not in the libraries themselv
 
 ## Unsupported features
 
-## `WebAuthn` signatures
+### `WebAuthn` signatures
 
 TODO: not yet implemented
 
