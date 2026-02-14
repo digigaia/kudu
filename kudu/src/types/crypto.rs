@@ -5,7 +5,7 @@ use std::str::FromStr;
 use bs58;
 use bytemuck::cast_ref;
 use ripemd::{Digest, Ripemd160};
-use secp256k1::{Secp256k1, Message, SecretKey};
+use secp256k1::{Message, SecretKey};
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 use sha2::Sha256;
 use snafu::{ensure, ResultExt, Snafu};
@@ -329,16 +329,6 @@ def _is_canonical(signature):
 */
 
 impl Signature {
-    pub fn from_secp_sig(sig: secp256k1::ecdsa::RecoverableSignature) -> Signature {
-        let (recid, sigdata) = sig.serialize_compact();
-        // println!("rec id: {:?}", &recid);
-        // println!("sigdata: {}", hex::encode(sigdata));
-        let mut fullsig = [0u8; 65];
-        fullsig[0] = 27 + 4 + (i32::from(recid) as u8);
-        fullsig[1..].copy_from_slice(&sigdata);
-        Signature::with_key_type(KeyType::K1, fullsig)
-    }
-
     /// Return whether this signature is an EOS-canonical signature
     pub fn is_canonical(&self) -> bool {
         let s1 = (self.data[1] & 0x80) == 0;
@@ -347,6 +337,25 @@ impl Signature {
         let s4 = self.data[33] != 0 || (self.data[34] & 0x80 != 0);
 
         s1 && s2 && s3 && s4
+    }
+}
+
+impl From<secp256k1::ecdsa::RecoverableSignature> for Signature {
+    fn from(value: secp256k1::ecdsa::RecoverableSignature) -> Signature {
+        let (recid, sigdata) = value.serialize_compact();
+        // println!("rec id: {:?}", &recid);
+        // println!("sigdata: {}", hex::encode(sigdata));
+        let mut fullsig = [0u8; 65];
+        fullsig[0] = 27 + 4 + (i32::from(recid) as u8);
+        fullsig[1..].copy_from_slice(&sigdata);
+        Signature::with_key_type(KeyType::K1, fullsig)
+    }
+}
+
+impl From<&Signature> for secp256k1::ecdsa::RecoverableSignature {
+    fn from(value: &Signature) -> Self {
+        let recid = secp256k1::ecdsa::RecoveryId::from_u8_masked(value.data[0]);
+        Self::from_compact(&value.data[1..], recid).unwrap()
     }
 }
 
@@ -360,10 +369,10 @@ impl PrivateKey {
 
     pub fn sign_digest(&self, digest: crate::Digest) -> Signature {
         if self.key_type == KeyType::K1 {
-            // FIXME: use global context
-            let secp = Secp256k1::new();
-            let secret_key = SecretKey::from_byte_array(self.data).expect("32 bytes, within curve order");
+            // use global context
+            let secp = secp256k1::global::SECP256K1;
 
+            let secret_key = SecretKey::from_byte_array(self.data).expect("32 bytes, within curve order");
             let message = Message::from_digest(digest.0);
 
             // iterate over a nonce to be added to the signatures until we find a good one
@@ -371,7 +380,7 @@ impl PrivateKey {
 
             let secp_sig = secp.sign_ecdsa_recoverable(message, &secret_key);
 
-            let mut sig = Signature::from_secp_sig(secp_sig);
+            let mut sig = Signature::from(secp_sig);
             let mut nonce: [u64; 4] = [0u64; 4];  // use this shape instead of [u8; 32] so we can iterate over nonce[0] more easily
 
             loop {
@@ -382,14 +391,59 @@ impl PrivateKey {
                 nonce[0] += 1;
 
                 let secp_sig = secp.sign_ecdsa_recoverable_with_noncedata(message, &secret_key, cast_ref::<[u64; 4], [u8; 32]>(&nonce));
-                sig = Signature::from_secp_sig(secp_sig);
+                sig = Signature::from(secp_sig);
             }
         }
         else {
             unimplemented!("can only call `PrivateKey::sign_digest()` on K1 key types")
         }
     }
+
+    pub fn to_wif(&self) -> String {
+        unimplemented!("WIF key format is deprecated, use `key.to_string()` instead");
+    }
+
 }
+
+impl PublicKey {
+    pub fn from_private_key(private_key: &PrivateKey) -> Self {
+        let secp = secp256k1::global::SECP256K1;
+        let secret_key = SecretKey::from_byte_array(private_key.data).expect("32 bytes, within curve order");
+        let public_key = secp256k1::PublicKey::from_secret_key(secp, &secret_key);
+        public_key.into()
+    }
+
+    pub fn verify_signature(&self, input: &[u8], signature: &Signature) -> bool {
+        let secp = secp256k1::global::SECP256K1;
+        let message = Message::from_digest(Sha256::digest(input).into());
+        let public_key = secp256k1::PublicKey::from_byte_array_compressed(self.data).expect("65 bytes");
+
+
+        let sig = secp256k1::ecdsa::RecoverableSignature::from(signature);
+        let sig = sig.to_standard();
+
+
+        secp.verify_ecdsa(message, &sig, &public_key).is_ok()
+    }
+
+    pub fn to_old_format(&self) -> String {
+        format!("EOS{}", &key_data_to_string(&self.data, "")[1..])
+    }
+}
+
+impl From<secp256k1::PublicKey> for PublicKey {
+    fn from(value: secp256k1::PublicKey) -> Self {
+        PublicKey::with_key_type(KeyType::K1, value.serialize())
+    }
+}
+
+impl From<PublicKey> for secp256k1::PublicKey {
+    fn from(value: PublicKey) -> Self {
+        secp256k1::PublicKey::from_byte_array_compressed(value.data).expect("33 bytes")
+    }
+}
+
+
 
 
 // =============================================================================
@@ -404,99 +458,27 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_sign1() -> Result<()> {
-        let sig = Signature::new("SIG_K1_KvmBaAEvcU3c1YhWe6btgqd1BDGkcTdo4Pziy3tuSbHtQdNJ7mDjEawCDY5F1DQzi3H9WH7efaZspfrv2Zfza1zEktg5Dc")?;
-        println!("sig0: {}", hex::encode(sig.data));
+    fn test_keys() -> Result<()> {
+        let priv_key = PrivateKey::new("5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3")?;
+        let pub_key = PublicKey::from_private_key(&priv_key);
+
+        assert_eq!(pub_key.to_string(), "PUB_K1_6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5BoDq63");
+        assert_eq!(pub_key.to_old_format(), "EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV");
+        Ok(())
+    }
+
+    #[test]
+    fn test_sign() -> Result<()> {
         let key = PrivateKey::new("5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3")?;
-        println!("key data: {}", hex::encode(key.data));
         let input = b"a";
         let sig = key.sign_bytes(input);
-        println!("sig: {}", &sig);
-        println!("sigdata: {}", hex::encode(sig.data));
+        assert_eq!(sig.to_string(), "SIG_K1_JvyUh5EJU7xS3QJSszNKdxGTkQNoo1PUcaQUAjpGTa64Sihf7R6tyiiAjoiZVkoDcfFpEokJPMVqyKYUFmgSvW1MvcRhrM");
+        assert!(sig.is_canonical());
 
-        /*  expected value
-sig: SIG_K1_JvyUh5EJU7xS3QJSszNKdxGTkQNoo1PUcaQUAjpGTa64Sihf7R6tyiiAjoiZVkoDcfFpEokJPMVqyKYUFmgSvW1MvcRhrM
-sigdata: 1f0d23aa9b3fde14471680f9c3574c7a35f131ee183236537d5083a67cc01b1ea507fcd1610b18651e2e74fad8961c62e4cd6a1006b22a1033d02a9ea801f6a499
+        let public_key = PublicKey::from_private_key(&key);
+        assert!(public_key.verify_signature(input, &sig));
 
-*/
         Ok(())
     }
 
 }
-
-
-/*
-
-void hexdump(void* ptr, int size) {
-    unsigned char* buf = (unsigned char*)ptr;
-    for (int i = 0; i < size; i++) {
-        printf("%02X", buf[i]);
-    }
-}
-
-int main(int argc, char** argv) {
-   fc::logger::get(DEFAULT_LOGGER).set_log_level(fc::log_level::debug);
-
-   private_key priv("5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3");
-   public_key pub = priv.get_public_key();
-
-   fc::sha256 digest("CA978112CA1BBDCAFAC231B39A23DC4DA786EFF8147C4E72B9807785AFEE48BB");
-
-   // fc::crypto::signature sig1 = priv.sign_compact(digest, true);
-   auto sig1 = priv.sign(digest, false);
-   auto sig2 = priv.sign(digest, true);
-   //fc::ecc::compact_signature sig2 = priv.sign(digest, true);
-
-   cout << "==============================================================" << endl;
-
-   cout << "priv: " << priv.to_string({}) << endl;
-   cout << "      "; hexdump(&priv, 32); cout << endl;
-   cout << "pub : " << pub.to_string({}) << endl;
-   cout << "      "; hexdump(&pub, 32); cout << endl;
-   cout << "digest: " << digest << endl;
-
-   cout << "sig1: " << sig1.to_string() << endl;
-   cout << "sig2: " << sig2.to_string() << endl;
-
-   hexdump(&sig1, 65);
-   cout << endl;
-
-
-=====================================================
-
-non canonical, no extended nonce function
-
-0000000010584902FD7F000080574902FD7F0000FB5BA710D955000000000000
-0000000010584902FD7F000080574902FD7F0000FB5BA710D955000000000000
-==============================================================
-priv: 5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3
-      D2653FF7CBB2D8FF129AC27EF5781CE68B2558C41A74AF1F2DDCA635CBEEF07D
-pub : EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV
-      02C0DED2BC1F1305FB0FAAC5E6C03EE3A1924234985427B6167CA569D13DF435
-digest: sha256(ca978112ca1bbdcafac231b39a23dc4da786eff8147c4e72b9807785afee48bb)
-sig1: SIG_K1_L2mNBFkV1gLvo46wzovmv7LuzJg9w9VrXhjsu4wZC6J73uhdcBE1KTo3UpKgvzyXjF96TvZy3cH92zXBHcDQLeqLGyi3vK
-sig2: SIG_K1_L2mNBFkV1gLvo46wzovmv7LuzJg9w9VrXhjsu4wZC6J73uhdcBE1KTo3UpKgvzyXjF96TvZy3cH92zXBHcDQLeqLGyi3vK
-20F4BBB594CA2E33DA601AB6957C894C75BD599DC896DB8709BC5F760E0F646DE658620592CB3A11968C07E6FD3CE2959E6924B2A2ACC8A234774D5205306710FD
-
-
-canonical
-
-00000000F0C8169AFE7F000060C8169AFE7F00002B1CF6F4F355000000000000
-00000000F0C8169AFE7F000060C8169AFE7F00002B1CF6F4F355000000000000
-01000000F0C8169AFE7F000060C8169AFE7F00002B1CF6F4F355000000000000
-02000000F0C8169AFE7F000060C8169AFE7F00002B1CF6F4F355000000000000
-03000000F0C8169AFE7F000060C8169AFE7F00002B1CF6F4F355000000000000
-04000000F0C8169AFE7F000060C8169AFE7F00002B1CF6F4F355000000000000
-05000000F0C8169AFE7F000060C8169AFE7F00002B1CF6F4F355000000000000
-06000000F0C8169AFE7F000060C8169AFE7F00002B1CF6F4F355000000000000
-==============================================================
-priv: 5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3
-      D2653FF7CBB2D8FF129AC27EF5781CE68B2558C41A74AF1F2DDCA635CBEEF07D
-pub : EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV
-      02C0DED2BC1F1305FB0FAAC5E6C03EE3A1924234985427B6167CA569D13DF435
-digest: sha256(ca978112ca1bbdcafac231b39a23dc4da786eff8147c4e72b9807785afee48bb)
-sig1: SIG_K1_KvmBaAEvcU3c1YhWe6btgqd1BDGkcTdo4Pziy3tuSbHtQdNJ7mDjEawCDY5F1DQzi3H9WH7efaZspfrv2Zfza1zEktg5Dc
-sig2: SIG_K1_Kixd1Axg547CcWQaQ445eFKFa8EcRDtUpt4LA7se8hYp9jutQ5sorBzEyu7YEnSKQWpUtwBW8qyyDwAtJCk5f5EmAvuj1V
-20C6D8FA16FA754A8DD1415B8A450E76A5947F7259DA9E79F72AB3351931028B88202816BEC2547581BDDB8F0F2114B94B63465A1728A4E45EA00ED9018D3DC6A0
-206CA1C08C104C23CD9C26232393F8BDE927F4C5499259E2ED3A7B672A40F550C579D56DAF4AA789FCCECF60F1AC1CA70DF1D12A163D9C6B115AB3A0F217CA193A
-*/
