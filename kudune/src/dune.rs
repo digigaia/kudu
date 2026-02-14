@@ -1,4 +1,4 @@
-use std::fs::{DirBuilder, write as write_file};
+use std::fs::{DirBuilder, read_to_string, write as write_file};
 use std::path::Path;
 use std::time::Duration;
 use std::{process, thread};
@@ -20,13 +20,20 @@ const CONFIG_PATH: &str = "/app/config.ini";
 const TEMP_FOLDER: &str = "/tmp/scratch";
 
 
-fn unpack_scripts(scripts: &Path) -> Result<()> {
+fn unpack_scripts<P: AsRef<Path>>(scripts: P) -> Result<()> {
+    let scripts = scripts.as_ref();
     DirBuilder::new().recursive(true).create(scripts)?;  // make sure dir exists
 
     write_file(scripts.join("launch_bg.sh"), include_str!("../scripts/launch_bg.sh"))?;
     write_file(scripts.join("build_vaulta_image.py"), include_str!("../scripts/build_vaulta_image.py"))?;
     write_file(scripts.join("my_init"), include_str!("../scripts/my_init"))?;
     Ok(())
+}
+
+fn replace_line<P: AsRef<Path>>(filename: P, line: &str, replace: &str) {
+    let contents = read_to_string(filename.as_ref()).unwrap();
+    let re = Regex::new(line).unwrap();
+    write_file(filename, re.replace(&contents, replace).as_ref()).unwrap();
 }
 
 /// A `Dune` instance manages a Docker container in which a `nodeos` instance is
@@ -57,7 +64,7 @@ impl Dune {
         let vaulta_image = duct::cmd!("docker", "images", "-q", &image).read().unwrap();
         if vaulta_image.is_empty() {
             info!("No appropriate image found, building one before starting container");
-            Self::build_image(&image, DEFAULT_BASE_IMAGE)?;
+            Self::build_image(&image, DEFAULT_BASE_IMAGE, false, None, false)?;
         }
 
         let docker = Docker::new(container, image, host_mount);
@@ -87,7 +94,7 @@ impl Dune {
 
     /// Build a Docker image starting from `base_image` that has Spring, the CDT and
     /// system contracts installed. It will be saved as `name`.
-    pub fn build_image(name: &str, base_image: &str) -> Result<()> {
+    pub fn build_image(name: &str, base_image: &str, compile: bool, nproc: Option<i16>, verbose: bool) -> Result<()> {
         // first make sure we are able to run pyinfra
         let status = duct::cmd!("which", "pyinfra")
             .stdout_capture()
@@ -103,16 +110,32 @@ impl Dune {
             return Err(eyre!(msg));
         }
 
+        let scripts_folder = Path::new(TEMP_FOLDER).join("scripts");
+
         // unpack script files to a temporary location
-        unpack_scripts(&Path::new(TEMP_FOLDER).join("scripts"))?;
+        unpack_scripts(&scripts_folder)?;
 
         // build image using pyinfra
         debug!("Building Vaulta image with a {base_image} base");
         const CAPTURE_OUTPUT: bool = false;
 
-        let command = duct::cmd!("pyinfra", "-y",
-                                 format!("@docker/{base_image}"),
-                                 "scripts/build_vaulta_image.py");
+        replace_line(&scripts_folder.join("build_vaulta_image.py"),
+                     r"COMPILE_SPRING_CDT = [A-Za-z]+",
+                     &format!("COMPILE_SPRING_CDT = {}", if compile { "True" } else { "False" }));
+
+        if nproc.is_some() {
+            replace_line(&scripts_folder.join("build_vaulta_image.py"),
+                         r"NPROC = [0-9None]+",
+                         &format!("NPROC = {}", nproc.unwrap()));
+        }
+
+        let inventory = format!("@docker/{base_image}");
+        let mut args = vec!["-y", &inventory, "scripts/build_vaulta_image.py"];
+        if verbose {
+            args.insert(1, "-vvv");
+        }
+        let command = duct::cmd("pyinfra", &args);
+
 
         let command = if CAPTURE_OUTPUT {
             command.stdout_capture().stderr_capture()

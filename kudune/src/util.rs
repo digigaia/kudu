@@ -5,6 +5,7 @@ use color_eyre::{Section, SectionExt};
 use tracing::debug;
 
 
+#[track_caller]
 pub fn eyre_from_output(msg: &str, output: &process::Output) -> Report {
     let stdout = String::from_utf8_lossy(&output.stdout);
     let stderr = String::from_utf8_lossy(&output.stderr);

@@ -47,10 +47,21 @@ enum Commands {
     /// List all the Docker containers
     ListContainers,
 
-    /// Build a Vaulta image starting from the given base image (default: ubuntu:22.04)
+    /// Build a Vaulta image starting from the given base image
     BuildImage {
+        /// base docker image used
         #[arg(default_value = "ubuntu:22.04")]
-        base: String
+        base: String,
+
+        /// whether to compile Spring and CDT or to download pre-built packages.
+        /// WARNING: compiling can take a *long* time...
+        #[arg(short, long, default_value_t=false)]
+        compile: bool,
+
+        /// max number of CPUs to be used in parallel for compilation. When not specified,
+        /// will use a heuristic to determine an efficient number.
+        #[arg(short, long)]
+        nproc: Option<i16>,
     },
 
     /// Pass-through that runs the given command in the container
@@ -186,9 +197,13 @@ fn main() -> Result<()> {
                 println!("Container: {:20} ({})", name, status);
             }
         },
-        Commands::BuildImage { base } => {
-            info!("Building Vaulta image from base image: {}", base);
-            Dune::build_image(IMAGE_NAME, &base)?;
+        Commands::BuildImage { base, compile, nproc } => {
+            let compile_info = match compile {
+                true => "(compiled)",
+                false => "(packaged)",
+            }.to_string();
+            info!("Building Vaulta image {compile_info} using base image: {base}");
+            Dune::build_image(IMAGE_NAME, &base, compile, nproc, cli.verbose>=1)?;
         },
         Commands::Destroy { container_name } => {
             Docker::destroy(container_name.as_deref()
