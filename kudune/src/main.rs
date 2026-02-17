@@ -1,11 +1,11 @@
 use std::{env, fs, io, process};
 
-use clap::{Parser, Subcommand};
+use clap::{Parser, Subcommand, CommandFactory};
 use color_eyre::eyre::Result;
 use tracing::{error, info, trace, warn, Level};
 use tracing_subscriber::{EnvFilter, filter::LevelFilter};
 
-use kudune::{Docker, Dune, NodeConfig};
+use kudune::{BuildOpts, Docker, Dune, NodeConfig};
 
 const CONTAINER_NAME: &str = "vaulta_container";
 
@@ -14,9 +14,8 @@ const CONTAINER_NAME: &str = "vaulta_container";
 #[command(
     version=kudu::config::VERSION,
     about="Kudune: Kudu Docker Utilities for Node Execution",
-    arg_required_else_help(true),
 )]
-#[command()]
+// #[command()]
 struct Cli {
     /// Turn verbose level
     #[arg(short, long, action = clap::ArgAction::Count)]
@@ -65,6 +64,10 @@ enum Commands {
         /// will use a heuristic to determine an efficient number.
         #[arg(short, long)]
         nproc: Option<i16>,
+
+        /// do not cleanup image after finishing building it. This can be useful during dev
+        #[arg(long, default_value_t=false)]
+        no_cleanup: bool,
     },
 
     /// Pass-through that runs the given command in the container
@@ -188,7 +191,11 @@ fn main() -> Result<()> {
         trace!("{:?}", cli);  // FIXME: temporary
     }
 
-    let Some(cmd) = cli.command else { unreachable!("no command -> show help"); };
+    let Some(cmd) = cli.command else {
+        let mut prog = <Cli as CommandFactory>::command();
+        prog.print_help()?;
+        std::process::exit(2);
+    };
 
     // first check the commands that don't need an instance of a Dune docker runner
     // this avoids building and starting a container when it is not needed
@@ -200,13 +207,21 @@ fn main() -> Result<()> {
                 println!("Container: {:20} ({})", name, status);
             }
         },
-        Commands::BuildImage { base, compile, nproc } => {
+        Commands::BuildImage { base, compile, nproc, no_cleanup } => {
             let compile_info = match compile {
                 true => "(compiled)",
                 false => "(packaged)",
-            }.to_string();
-            info!("Building Vaulta image {compile_info} using base image: {base}");
-            Dune::build_image(&cli.image, &base, compile, nproc, cli.verbose>=1)?;
+            };
+            info!("Building Vaulta image: {} {compile_info} using base image: {base}", &cli.image);
+            let opts = BuildOpts {
+                name: cli.image.clone(),
+                base_image: base.clone(),
+                compile,
+                nproc,
+                cleanup: !no_cleanup,
+                verbose: cli.verbose >= 1,
+            };
+            Dune::build_image(&opts)?;
         },
         Commands::Destroy { container_name } => {
             Docker::destroy(container_name.as_deref()

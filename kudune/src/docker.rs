@@ -77,7 +77,7 @@ impl Docker {
     }
 
     pub fn list_images() -> Vec<Value> {
-        Self::docker_command_json(&["images"]).run()
+        Self::docker_command_json(&["images", "--all"]).run()
     }
 
     pub fn is_running(container: &str) -> bool {

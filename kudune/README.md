@@ -44,8 +44,6 @@ kudune set-config http-server-address=0.0.0.0:8888 chain-state-db-size-mb=65536 
 
 # TODO / FIXME
 
-- "kudune -v" crashes
-
 - better error handling instead of unwrap, esp. on docker commands
   -> bubble up errors and display then with color_eyre?
 
