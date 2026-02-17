@@ -8,7 +8,6 @@ use tracing_subscriber::{EnvFilter, filter::LevelFilter};
 use kudune::{Docker, Dune, NodeConfig};
 
 const CONTAINER_NAME: &str = "vaulta_container";
-const IMAGE_NAME: &str = "vaulta:latest";
 
 
 #[derive(Parser, Debug)]
@@ -23,6 +22,10 @@ struct Cli {
     #[arg(short, long, action = clap::ArgAction::Count)]
     verbose: u8,
 
+    /// The name to be used for the docker image
+    #[arg(short, long, default_value="vaulta:latest")]
+    image: String,
+
     /// Do not print any logging messages.
     ///
     /// Normal output of the command is still available on stdout.
@@ -30,7 +33,7 @@ struct Cli {
     /// be garbled by the logging messages (eg: if you're expecting some JSON
     /// output from the command)
     #[arg(short, long)]
-    silent: bool,
+    quiet: bool,
 
     #[command(subcommand)]
     command: Option<Commands>,
@@ -180,7 +183,7 @@ fn main() -> Result<()> {
     color_eyre::install()?;
     let cli = Cli::parse();
 
-    if !cli.silent {
+    if !cli.quiet {
         init_tracing(cli.verbose);
         trace!("{:?}", cli);  // FIXME: temporary
     }
@@ -203,7 +206,7 @@ fn main() -> Result<()> {
                 false => "(packaged)",
             }.to_string();
             info!("Building Vaulta image {compile_info} using base image: {base}");
-            Dune::build_image(IMAGE_NAME, &base, compile, nproc, cli.verbose>=1)?;
+            Dune::build_image(&cli.image, &base, compile, nproc, cli.verbose>=1)?;
         },
         Commands::Destroy { container_name } => {
             Docker::destroy(container_name.as_deref()
@@ -214,7 +217,7 @@ fn main() -> Result<()> {
             let home = env::var("HOME").expect("$HOME variable should be set");
             let mut dune = Dune::new(
                 CONTAINER_NAME.to_string(),
-                IMAGE_NAME.to_string(),
+                cli.image,
                 home,
             )?;
 
