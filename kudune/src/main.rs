@@ -8,7 +8,6 @@ use tracing_subscriber::{EnvFilter, filter::LevelFilter};
 use kudune::{Docker, Dune, NodeConfig};
 
 const CONTAINER_NAME: &str = "vaulta_container";
-const IMAGE_NAME: &str = "vaulta:latest";
 
 
 #[derive(Parser, Debug)]
@@ -23,6 +22,10 @@ struct Cli {
     #[arg(short, long, action = clap::ArgAction::Count)]
     verbose: u8,
 
+    /// The name to be used for the docker image
+    #[arg(short, long, default_value="vaulta:latest")]
+    image: String,
+
     /// Do not print any logging messages.
     ///
     /// Normal output of the command is still available on stdout.
@@ -30,7 +33,7 @@ struct Cli {
     /// be garbled by the logging messages (eg: if you're expecting some JSON
     /// output from the command)
     #[arg(short, long)]
-    silent: bool,
+    quiet: bool,
 
     #[command(subcommand)]
     command: Option<Commands>,
@@ -47,10 +50,21 @@ enum Commands {
     /// List all the Docker containers
     ListContainers,
 
-    /// Build a Vaulta image starting from the given base image (default: ubuntu:22.04)
+    /// Build a Vaulta image starting from the given base image
     BuildImage {
+        /// base docker image used
         #[arg(default_value = "ubuntu:22.04")]
-        base: String
+        base: String,
+
+        /// whether to compile Spring and CDT or to download pre-built packages.
+        /// WARNING: compiling can take a *long* time...
+        #[arg(short, long, default_value_t=false)]
+        compile: bool,
+
+        /// max number of CPUs to be used in parallel for compilation. When not specified,
+        /// will use a heuristic to determine an efficient number.
+        #[arg(short, long)]
+        nproc: Option<i16>,
     },
 
     /// Pass-through that runs the given command in the container
@@ -169,7 +183,7 @@ fn main() -> Result<()> {
     color_eyre::install()?;
     let cli = Cli::parse();
 
-    if !cli.silent {
+    if !cli.quiet {
         init_tracing(cli.verbose);
         trace!("{:?}", cli);  // FIXME: temporary
     }
@@ -186,9 +200,13 @@ fn main() -> Result<()> {
                 println!("Container: {:20} ({})", name, status);
             }
         },
-        Commands::BuildImage { base } => {
-            info!("Building Vaulta image from base image: {}", base);
-            Dune::build_image(IMAGE_NAME, &base)?;
+        Commands::BuildImage { base, compile, nproc } => {
+            let compile_info = match compile {
+                true => "(compiled)",
+                false => "(packaged)",
+            }.to_string();
+            info!("Building Vaulta image {compile_info} using base image: {base}");
+            Dune::build_image(&cli.image, &base, compile, nproc, cli.verbose>=1)?;
         },
         Commands::Destroy { container_name } => {
             Docker::destroy(container_name.as_deref()
@@ -199,7 +217,7 @@ fn main() -> Result<()> {
             let home = env::var("HOME").expect("$HOME variable should be set");
             let mut dune = Dune::new(
                 CONTAINER_NAME.to_string(),
-                IMAGE_NAME.to_string(),
+                cli.image,
                 home,
             )?;
 
