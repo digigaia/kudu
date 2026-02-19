@@ -7,8 +7,6 @@ use tracing_subscriber::{EnvFilter, filter::LevelFilter};
 
 use kudune::{BuildOpts, Docker, Dune, NodeConfig};
 
-const CONTAINER_NAME: &str = "vaulta_container";
-
 
 #[derive(Parser, Debug)]
 #[command(
@@ -24,6 +22,10 @@ struct Cli {
     /// The name to be used for the docker image
     #[arg(short, long, default_value="vaulta:latest")]
     image: String,
+
+    /// The container name in which to run nodeos
+    #[arg(short, long, default_value="vaulta_nodeos")]
+    container: String,
 
     /// Do not print any logging messages.
     ///
@@ -121,10 +123,7 @@ enum Commands {
     StopNode,
 
     /// Destroy the current Vaulta container
-    Destroy {
-        #[arg(default_value=CONTAINER_NAME)]
-        container_name: Option<String>,
-    },
+    Destroy,
 
     // -----------------------------------------------------------------------------
     //     Blockchain-related commands
@@ -223,15 +222,14 @@ fn main() -> Result<()> {
             };
             Dune::build_image(&opts)?;
         },
-        Commands::Destroy { container_name } => {
-            Docker::destroy(container_name.as_deref()
-                            .expect("has default value"));
+        Commands::Destroy => {
+            Docker::destroy(cli.container.as_str());
         },
         // all the other commands need a `Dune` instance, get one now and keep matching
         _ => {
             let home = env::var("HOME").expect("$HOME variable should be set");
             let mut dune = Dune::new(
-                CONTAINER_NAME.to_string(),
+                cli.container,
                 cli.image,
                 home,
             )?;

@@ -4,7 +4,7 @@ Here is a list of workflows that should be enabled by the `kudune` utility
 and how they can be performed. This should serve both as design document
 and end-to-end testing of the binary to assess its usefulness / ease-of-use.
 
-By default, we run nodeos in a docker container with the name `vaulta_container`.
+By default, we run nodeos in a docker container with the name `vaulta_nodeos`.
 
 ## Build a base image to be used for creating containers with all the tools installed
 
