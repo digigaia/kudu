@@ -8,7 +8,11 @@ classifiers = [
 ]
 dynamic = ["version"]
 
-dependencies = ["maturin>=1.11,<2.0", "duct"]
+dependencies = [
+    "maturin>=1.11,<2.0",
+    "duct",
+    "loguru",
+]
 
 [build-system]
 requires = ["maturin>=1.11,<2.0"]

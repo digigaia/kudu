@@ -1,3 +1,5 @@
+set positional-arguments := true
+
 export RUST_BACKTRACE := "1"
 
 doc_modules := "-p 'kudu*' -p syn@2 -p ureq -p serde -p serde_json -p snafu -p strum -p tracing"
@@ -24,7 +26,7 @@ build-release:
 [group('build')]
 [working-directory: 'kudu-py']
 build-python:
-    maturin develop
+    uv run maturin develop
 
 # build and install the Kudune binary
 [group('build')]
@@ -50,10 +52,17 @@ doc-open: doc
 
 # ---- Development ------------------------------------------------------------#
 
-# run tests using nextest
+# run rust tests using nextest
 [group('development')]
 test:
     cargo nextest run
+
+# run python tests using pytest
+[group('development')]
+[working-directory: 'kudu-py']
+test-python *pytest_args: build-python
+    echo "$@"
+    uv run pytest "$@"
 
 
 # ---- Project management -----------------------------------------------------#
@@ -123,7 +132,7 @@ api_endpoint := "https://vaulta.greymass.com"
     echo "Downloading abi: {{name}}"
     curl --silent --json '{"account_name": "{{name}}"}' {{api_endpoint}}/v1/chain/get_abi | jq '.["abi"]' > "kudu/src/abi/data/{{name}}.json"
 
-# download current ABIs from an API endpoint and store them in `src/abi/data`
+# download current ABIs from an API endpoint and store them in `kudu/src/abi/data`
 [group('development')]
 download-abis: \
     (_download_abi "eosio") \

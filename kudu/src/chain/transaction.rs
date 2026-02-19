@@ -208,7 +208,7 @@ impl Transaction {
         Ok(self)
     }
 
-    pub fn sign(&self, signing_key: &PrivateKey) -> Result<Signature, TransactionError> {
+    pub fn get_signature(&self, signing_key: &PrivateKey) -> Result<Signature, TransactionError> {
         ensure!(self.chain_id.is_some(),
                 UnlinkedTransactionSnafu { message: "cannot sign transaction" });
 
@@ -216,8 +216,8 @@ impl Transaction {
         Ok(signing_key.sign_digest(self.sig_digest(context_free_data)))
     }
 
-    pub fn sign_new(&self, signing_key: &PrivateKey) -> Result<SignedTransaction, TransactionError> {
-        let sig = self.sign(signing_key)?;
+    pub fn sign(&self, signing_key: &PrivateKey) -> Result<SignedTransaction, TransactionError> {
+        let sig = self.get_signature(signing_key)?;
         Ok(SignedTransaction {
             tx: self.clone(),
             signatures: vec![sig],
@@ -265,7 +265,8 @@ impl kudu::ABISerializable for Transaction {
     }
 }
 
-#[derive(Eq, Hash, PartialEq, Debug, Clone)]
+// FIXME!! implement Serialize properly, we can't really derive it
+#[derive(Eq, Hash, PartialEq, Debug, Clone, Serialize, Deserialize)]
 pub struct SignedTransaction {
     pub tx: Transaction,
     pub signatures: Vec<Signature>,
@@ -274,16 +275,16 @@ pub struct SignedTransaction {
 }
 
 impl SignedTransaction {
-    pub fn send(&self) -> Result<(), TransactionError> {
+    pub fn send(&self) -> Result<JsonValue, TransactionError> {
         let signed_tx = self.to_json();
         let result = self.tx.client.as_ref().unwrap()
             .call("/v1/chain/push_transaction", &signed_tx)
             .context(NetworkSnafu { message: format!("Could not push transaction: {}", &signed_tx) })?;
 
-        println!("result: {result}");
-        Ok(())
+        Ok(result)
     }
 
+    // FIXME: implement `Serialize` instead!!
     fn to_json(&self) -> JsonValue {
         // FIXME: this transcode is not an ergonomic API
         let tx_json = json::to_string(&self.tx).unwrap();

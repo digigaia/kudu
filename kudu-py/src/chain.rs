@@ -6,7 +6,7 @@ pub mod kudu_chain {
     use std::string::ToString;
 
     use pyo3::prelude::*;
-    use pyo3::types::{PyDict, PyList, PyString};
+    use pyo3::types::{PyBytes, PyDict, PyList, PyString};
     use pythonize::{depythonize, pythonize};
 
     use kudu::chain::{Action, PermissionLevel, SignedTransaction, Transaction};
@@ -98,7 +98,12 @@ pub mod kudu_chain {
     #[pymethods]
     impl PyAction {
         #[new]
-        fn new<'py>(account: &str, name: &str, authorization: &Bound<'py, PyAny>, data: &[u8]) -> PyResult<Self> {
+        fn new<'py>(
+            account: &str,
+            name: &str,
+            authorization: &Bound<'py, PyAny>,
+            data: &Bound<'py, PyAny>
+        ) -> PyResult<Self> {
             // parse authorization param: can be a single PermissionLevel, a list of them, or python equivalents thereof
             let mut auth: Vec<PermissionLevel> = vec![];
             if let Ok(perm) = PyPermissionLevel::from_py(authorization) {
@@ -113,12 +118,27 @@ pub mod kudu_chain {
                 return Err(value_err(format!("invalid value for PermissionLevel: {}", 23)));
             }
 
-            Ok(Self(Action {
-                account: AccountName::new(account).map_err(value_err)?,
-                name: ActionName::new(name).map_err(value_err)?,
-                authorization: auth,
-                data: Bytes(data.to_owned()),
-            }))
+            let action = if let Ok(data) = data.cast::<PyBytes>() {
+                Action {
+                    account: AccountName::new(account).map_err(value_err)?,
+                    name: ActionName::new(name).map_err(value_err)?,
+                    authorization: auth,
+                    data: data.as_bytes().into(),
+                }
+            }
+            else {
+                let args: JsonValue = depythonize(data)?;
+
+                Action {
+                    account: AccountName::new(account).map_err(value_err)?,
+                    name: ActionName::new(name).map_err(value_err)?,
+                    authorization: auth,
+                    data: Bytes::new(),
+                }
+                .with_data(&args)
+            };
+
+            Ok(Self(action))
         }
 
         fn __repr__(&self) -> String {
@@ -201,6 +221,7 @@ pub mod kudu_chain {
     impl PyTransaction {
         #[new]
         fn new<'py>(tx: &Bound<'py, PyAny>) -> PyResult<Self> {
+            // TODO: allow to use a PyAction as input
             let json: JsonValue = depythonize(tx)?;
             Ok(Self(Transaction::from_json(&json).map_err(value_err)?))
         }
@@ -225,12 +246,8 @@ pub mod kudu_chain {
             Ok(())
         }
 
-        fn sign(&self, _key: &PyPrivateKey) -> PyResult<Self> {
-            todo!();
-        }
-
-        fn sign_new<'py>(&self, py: Python<'py>, key: &PyPrivateKey) -> PyResult<Bound<'py, PySignedTransaction>> {
-            let result = PySignedTransaction(self.0.sign_new(&key.0).map_err(value_err)?);
+        fn sign<'py>(&self, py: Python<'py>, key: &PyPrivateKey) -> PyResult<Bound<'py, PySignedTransaction>> {
+            let result = PySignedTransaction(self.0.sign(&key.0).map_err(value_err)?);
             Bound::new(py, result)
         }
     }
@@ -243,7 +260,7 @@ pub mod kudu_chain {
     struct PySignedTransaction(pub SignedTransaction);
 
     // gen_bytes_conversion!("PySignedTransaction");
-    // gen_dict_conversion!("PySignedTransaction");
+    gen_dict_conversion!("PySignedTransaction");
 
     #[pymethods]
     impl PySignedTransaction {
@@ -251,9 +268,14 @@ pub mod kudu_chain {
             format!("<kudu.SignedTransaction: {:?}>", self.0.tx)
         }
 
-        fn send(&self) -> PyResult<()> {
-            self.0.send().map_err(runtime_err)
+        fn send<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
+            let trace = self.0.send().map_err(runtime_err)?;
+            Ok(pythonize(py, &trace)?)
         }
+
+        // fn to_json(&self) -> JsonValue {
+        //     self.0.to_json()
+        // }
     }
 
 }

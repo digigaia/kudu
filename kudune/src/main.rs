@@ -277,6 +277,7 @@ fn main() -> Result<()> {
                             }
                         }
                     }
+                    dune.push_genesis(include_str!("data/genesis_dev.json"));
                     dune.start_node(replay_blockchain, clean);
                 },
                 Commands::StopNode => {

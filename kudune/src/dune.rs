@@ -148,10 +148,10 @@ impl Dune {
                      r"CLEANUP = [A-Za-z]+",
                      &format!("CLEANUP = {}", if opts.cleanup { "True" } else { "False" }));
 
-        if opts.nproc.is_some() {
+        if let Some(nproc) = opts.nproc {
             replace_line(scripts_folder.join("build_vaulta_image.py"),
                          r"NPROC = [0-9None]+",
-                         &format!("NPROC = {}", opts.nproc.unwrap()));
+                         &format!("NPROC = {}", nproc));
         }
 
 
@@ -271,6 +271,12 @@ impl Dune {
         }
     }
 
+    /// Write the given string as a genesis file inside the container. It will be
+    /// used automatically when starting nodeos for the first time
+    pub fn push_genesis(&self, genesis_content: &str) {
+        self.docker.write_file("/app/genesis.json", genesis_content);
+    }
+
 
     // =============================================================================
     //
@@ -302,6 +308,7 @@ impl Dune {
 
         let mut args = vec!["/app/launch_bg.sh", "nodeos", "--data-dir=/app/datadir"];
         args.push("--config-dir=/app");
+        args.push("--genesis-json=/app/genesis.json");
         if replay_blockchain {
             args.push("--replay-blockchain");
         }
@@ -535,6 +542,7 @@ impl Dune {
     }
 
     fn send_action(&self, action: &str, account: &str, data: &str, permission: &str) {
+        // FIXME: do not use an external 'cleos' subprocess to send it but our own kudu::APIClient
         self.cleos_cmd(&["push", "action", account, action, data, "-p", permission]);
     }
 

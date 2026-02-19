@@ -27,6 +27,19 @@ pub enum HttpError {
     JsonError { source: ureq::Error },
 }
 
+pub fn return_checked_json_response(mut response: ureq::http::Response<ureq::Body>) -> Result<JsonValue, HttpError> {
+    let code = response.status().as_u16();
+    let result: JsonValue = response
+        .body_mut()
+        .read_json().context(JsonSnafu)?;
+
+    // HTTP status code 4xx and 5xx need to raise an error
+    // we do it manually to add more information to the error than just the status code
+    ensure!(!(400..600).contains(&code), HttpSnafu { code, message: result["error"].to_string() });
+
+    Ok(result)
+}
+
 
 impl APIClient {
     pub fn new(endpoint: &str) -> Self {
@@ -47,45 +60,16 @@ impl APIClient {
         format!("{}{}", &self.endpoint, path)
     }
 
-    fn return_checked_result(&self, mut response: ureq::http::Response<ureq::Body>) -> Result<JsonValue, HttpError> {
-        let code = response.status().as_u16();
-        let result: JsonValue = response
-            .body_mut()
-            .read_json().context(JsonSnafu)?;
-
-        // HTTP status code 4xx and 5xx need to raise an error
-        // we do it manually to add more information to the error than just the status code
-        ensure!(!(400..600).contains(&code), HttpSnafu { code, message: result["error"].to_string() });
-
-        Ok(result)
-    }
-
     pub fn get(&self, path: &str) -> Result<JsonValue, HttpError> {
         let response = self.agent.get(self.fullpath(path))
             .call().context(ConnectionSnafu)?;
-        self.return_checked_result(response)
-        // let code = result.status().as_u16();
-        // let result: JsonValue = result
-        //     .body_mut()
-        //     .read_json().context(JsonSnafu)?;
-        // // HTTP status code 4xx and 5xx need to raise an error
-        // // we do it manually to add more information to the error than just the status code
-        // ensure!(!(400..600).contains(&code), HttpSnafu { code, message: result["error"].to_string() });
-        // Ok(result)
+        return_checked_json_response(response)
     }
 
     pub fn call(&self, path: &str, params: &JsonValue) -> Result<JsonValue, HttpError> {
         let response = self.agent.post(self.fullpath(path))
             .send_json(params).context(ConnectionSnafu)?;
-        self.return_checked_result(response)
-        // let code = result.status().as_u16();
-        // let result: JsonValue = result
-        //     .body_mut()
-        //     .read_json().context(JsonSnafu)?;
-        // // HTTP status code 4xx and 5xx need to raise an error
-        // // we do it manually to add more information to the error than just the status code
-        // ensure!(!(400..600).contains(&code), HttpSnafu { code, message: result["error"].to_string() });
-        // Ok(result)
+        return_checked_json_response(response)
     }
 
 

@@ -457,6 +457,13 @@ mod tests {
     use color_eyre::eyre::Result;
     use super::*;
 
+    // `eosio` testing key
+    // priv: 5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3
+    //       D2653FF7CBB2D8FF129AC27EF5781CE68B2558C41A74AF1F2DDCA635CBEEF07D
+    // pub : EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV
+    //       02C0DED2BC1F1305FB0FAAC5E6C03EE3A1924234985427B6167CA569D13DF435
+
+
     #[test]
     fn test_keys() -> Result<()> {
         let priv_key = PrivateKey::new("5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3")?;
