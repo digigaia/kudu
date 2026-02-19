@@ -5,23 +5,58 @@ open := if os() == "macos" { "open" } else { "xdg-open" }
 
 # list recipes
 default:
-    just --list
+    @just --list --unsorted
+
+
+# ---- Build ------------------------------------------------------------------#
+
+# build the library and CLI tools in debug mode
+[group('build')]
+build:
+    cargo build --features cli
 
 # build the library and CLI tools in release mode
+[group('build')]
 build-release:
     cargo build --features cli --release
 
-# run tests using nextest
-test:
-    cargo nextest run
+# build the python bindings and install them in the local venv
+[group('build')]
+[working-directory: 'kudu-py']
+build-python:
+    maturin develop
+
+# build and install the Kudune binary
+[group('build')]
+[working-directory: 'kudune']
+install-kudune:
+    cargo install --path .
+
+
+# ---- Documentation ----------------------------------------------------------#
 
 # generate documentation
+[group('documentation')]
+[working-directory: 'docs']
 doc:
     cargo doc --color always --no-deps {{doc_modules}}
 
 # generate documentation and open it
+[group('documentation')]
+[working-directory: 'docs']
 doc-open: doc
     {{open}} target/doc/kudu/index.html
+
+
+# ---- Development ------------------------------------------------------------#
+
+# run tests using nextest
+[group('development')]
+test:
+    cargo nextest run
+
+
+# ---- Project management -----------------------------------------------------#
 
 @_set_version file version:
     echo "Setting version to: {{version}} in {{file}}"
@@ -32,6 +67,7 @@ doc-open: doc
     sed 's/^\(kudu.*\)version = "[^"]*"\(.*\)$/\1version = "{{version}}"\2/' {{file}} | sponge {{file}}
 
 # set the version number in all Cargo.toml files
+[group('project management')]
 set-version version: && \
     (_set_version "Cargo.toml" version) \
     (_set_version_in_deps "kudu/Cargo.toml" version) \
@@ -40,6 +76,7 @@ set-version version: && \
     @echo "Setting version to: {{version}}:"
 
 # publish the project crates on crates.io
+[group('project management')]
 publish:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -67,6 +104,7 @@ bench_hex := "b2f4335b0bb10e87af9c000000000100a6823403ea3055000000572d3ccdcd0160
 bench_json := '{"expiration": "2018-06-27T20:33:54.000", "ref_block_num": 45323, "ref_block_prefix": 2628749070, "max_net_usage_words": 0, "max_cpu_usage_ms": 0, "delay_sec": 0, "context_free_actions": [], "actions": [{"account": "eosio.token", "name": "transfer", "authorization": [{"actor": "useraaaaaaaa", "permission": "active"}], "data": "608C31C6187315D6708C31C6187315D60100000000000000045359530000000000"}], "transaction_extensions": []}'
 
 # perform some benchmarks
+[group('development')]
 benchmark: build-release
     @echo "\n----==== Benchmarking hex -> JSON ====----\n"
     hyperfine {{hyperfine_opts}} \
@@ -86,6 +124,7 @@ api_endpoint := "https://vaulta.greymass.com"
     curl --silent --json '{"account_name": "{{name}}"}' {{api_endpoint}}/v1/chain/get_abi | jq '.["abi"]' > "kudu/src/abi/data/{{name}}.json"
 
 # download current ABIs from an API endpoint and store them in `src/abi/data`
+[group('development')]
 download-abis: \
     (_download_abi "eosio") \
     (_download_abi "eosio.token") \
