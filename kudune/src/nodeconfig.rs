@@ -16,7 +16,7 @@ const DEFAULT_PARAMS: &[(&str, &str)] = &[
     ("verbose-http-errors", "true"),
     ("agent-name", "Vaulta Test Node"),
     ("net-threads", "2"),
-    ("max-transaction-time", "100"),
+    ("max-transaction-time", "500"),
     ("producer-name", "eosio"),
     ("enable-stale-production", "true"),
     ("resource-monitor-not-shutdown-on-threshold-exceeded", "true"),

@@ -21,7 +21,7 @@ pub enum InvalidName {
 }
 
 /// Represent an immutable name in the Antelope data model and is encoded as a `uint64`.
-#[derive(Eq, Hash, PartialEq, Ord, PartialOrd, Debug, Copy, Clone, Default)]
+#[derive(Eq, Hash, PartialEq, Ord, PartialOrd, Copy, Clone, Default)]
 pub struct Name {
     value: u64,
 }
@@ -123,7 +123,7 @@ const fn string_to_u64(s: &[u8]) -> u64 {
 const CHARMAP: &[u8] = b".12345abcdefghijklmnopqrstuvwxyz";
 
 
-fn u64_to_bytes(n: u64) -> Vec<u8> {
+fn _u64_to_bytes(n: u64) -> Vec<u8> {
     let mut s: Vec<u8> = vec![b'.'; 13];
     let end_pos = u64_to_buf(n, (&mut s[..]).try_into().unwrap());
     // truncate string with unused trailing symbols
@@ -183,8 +183,8 @@ const fn is_normalized(s: &[u8], encoded: u64) -> bool {
     true
 }
 
-fn u64_to_string(n: u64) -> String {
-    String::from_utf8(u64_to_bytes(n)).unwrap()  // safe unwrap
+fn _u64_to_string(n: u64) -> String {
+    String::from_utf8(_u64_to_bytes(n)).unwrap()  // safe unwrap
 }
 
 
@@ -208,12 +208,27 @@ impl From<u64> for Name {
 
 
 // -----------------------------------------------------------------------------
+//     `Debug` implementation
+// -----------------------------------------------------------------------------
+
+impl fmt::Debug for Name {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mut buf: [u8; 13] = [0; 13];  // TODO: use MaybeUninit?
+        let n = u64_to_buf(self.value, &mut buf);
+        f.write_str(unsafe { str::from_utf8_unchecked(&buf[..n]) })
+    }
+}
+
+
+// -----------------------------------------------------------------------------
 //     `Display` implementation
 // -----------------------------------------------------------------------------
 
 impl fmt::Display for Name {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", u64_to_string(self.value))
+        let mut buf: [u8; 13] = [0; 13];  // TODO: use MaybeUninit?
+        let n = u64_to_buf(self.value, &mut buf);
+        f.write_str(unsafe { str::from_utf8_unchecked(&buf[..n]) })
     }
 }
 
@@ -258,12 +273,20 @@ impl<'de> Deserialize<'de> for Name {
 //     Convenience traits implementation
 // -----------------------------------------------------------------------------
 
+// TODO: could we group all those impls with a single PartialEq<Deref<str>> or something similar?
+
 // TODO: this is not optimized!!
 impl PartialEq<&str> for Name {
     fn eq(&self, other: &&str) -> bool {
         let mut s = [0u8; 13];
         let end_pos = u64_to_buf(self.as_u64(), &mut s);
         s[..end_pos] == *other.as_bytes()
+    }
+}
+
+impl PartialEq<String> for Name {
+    fn eq(&self, other: &String) -> bool {
+        self.eq(&other.as_str())
     }
 }
 

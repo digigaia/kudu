@@ -103,6 +103,7 @@ pub mod doc;
 
 pub mod abi;
 pub mod api;
+pub mod bitops;
 pub mod chain;
 pub mod config;
 pub mod convert;
@@ -125,7 +126,7 @@ pub use api::APIClient;
 pub use types::*;
 pub use chain::*;
 
-pub use abi::{ABI, ABIError, ABIDefinition, ABIProvider, TypeName};
+pub use abi::{ABI, ABIError, ABIDefinition, TypeName};
 
 pub mod abiserializable;
 pub mod bytestream;

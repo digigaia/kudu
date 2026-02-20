@@ -30,6 +30,7 @@ flate2 = "1.0"
 ripemd = "0.1"
 bs58 = "0.5"
 sha2 = "0.10"
+secp256k1 = { version = "0.31", features = ["global-context", "recovery"] }
 num = "0.4"
 ureq = { version = "3.0.2", features = ["json"] }
 embed-doc-image = "0.1.4"

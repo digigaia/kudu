@@ -1,17 +1,58 @@
+use std::hash::{Hash, Hasher};
+
 use serde_json::Value as JsonValue;
+use snafu::{Snafu, ResultExt, ensure};
 use ureq;
+
+use kudu_macros::with_location;
 
 // see API endpoints from greymass here: https://www.greymass.com/endpoints
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct APIClient {
-    endpoint: String,
+    pub endpoint: String,
+    pub agent: ureq::Agent,
 }
+
+#[with_location]
+#[derive(Debug, Snafu)]
+pub enum HttpError {
+    #[snafu(display("http status: {code} - error: {message}"))]
+    HttpError { code: u16, message: String },
+
+    #[snafu(display("{source}"))]
+    ConnectionError { source: ureq::Error },
+
+    #[snafu(display("{source}"))]
+    JsonError { source: ureq::Error },
+}
+
+pub fn return_checked_json_response(mut response: ureq::http::Response<ureq::Body>) -> Result<JsonValue, HttpError> {
+    let code = response.status().as_u16();
+    let result: JsonValue = response
+        .body_mut()
+        .read_json().context(JsonSnafu)?;
+
+    // HTTP status code 4xx and 5xx need to raise an error
+    // we do it manually to add more information to the error than just the status code
+    ensure!(!(400..600).contains(&code), HttpSnafu { code, message: result["error"].to_string() });
+
+    Ok(result)
+}
+
 
 impl APIClient {
     pub fn new(endpoint: &str) -> Self {
         APIClient {
             endpoint: endpoint.trim_end_matches('/').to_owned(),
+            agent: ureq::Agent::config_builder()
+                .http_status_as_error(false)
+                // FIXME: user_agent seems to not work? InvalidHeaderValue???
+                // .user_agent(&format!("kudu/{}", crate::config::VERSION))
+                // no way to specify content-type?
+            // .accept("application/json")  // is it necessary?
+                .build()
+                .into()
         }
     }
 
@@ -19,18 +60,16 @@ impl APIClient {
         format!("{}{}", &self.endpoint, path)
     }
 
-    pub fn get(&self, path: &str) -> Result<JsonValue, ureq::Error> {
-        ureq::get(self.fullpath(path))
-            .call()?
-            .body_mut()
-            .read_json()
+    pub fn get(&self, path: &str) -> Result<JsonValue, HttpError> {
+        let response = self.agent.get(self.fullpath(path))
+            .call().context(ConnectionSnafu)?;
+        return_checked_json_response(response)
     }
 
-    pub fn call(&self, path: &str, params: &JsonValue) -> Result<JsonValue, ureq::Error> {
-        ureq::post(self.fullpath(path))
-            .send_json(params)?
-            .body_mut()
-            .read_json()
+    pub fn call(&self, path: &str, params: &JsonValue) -> Result<JsonValue, HttpError> {
+        let response = self.agent.post(self.fullpath(path))
+            .send_json(params).context(ConnectionSnafu)?;
+        return_checked_json_response(response)
     }
 
 
@@ -39,6 +78,10 @@ impl APIClient {
     //     TODO: maybe this is not the best place to define them?
     // -----------------------------------------------------------------------------
 
+    pub fn local() -> Self {
+        APIClient::new("http://127.0.0.1:8888")
+    }
+
     pub fn jungle() -> Self {
         APIClient::new("https://jungle4.greymass.com")
     }
@@ -46,4 +89,22 @@ impl APIClient {
     pub fn vaulta() -> Self {
         APIClient::new("https://vaulta.greymass.com")
     }
+}
+
+impl PartialEq for APIClient {
+    fn eq(&self, other: &Self) -> bool {
+        self.endpoint == other.endpoint
+    }
+}
+
+impl Eq for APIClient {}
+
+impl Hash for APIClient {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.endpoint.hash(state);
+    }
+}
+
+impl Default for APIClient {
+    fn default() -> Self { Self::vaulta() }
 }

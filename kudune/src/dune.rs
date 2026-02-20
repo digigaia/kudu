@@ -36,6 +36,28 @@ fn replace_line<P: AsRef<Path>>(filename: P, line: &str, replace: &str) {
     write_file(filename, re.replace(&contents, replace).as_ref()).unwrap();
 }
 
+
+pub struct BuildOpts {
+    pub name: String,
+    pub base_image: String,
+    pub compile: bool,
+    pub nproc: Option<i16>,
+    pub cleanup: bool,
+    pub verbose: bool,
+}
+
+impl Default for BuildOpts {
+    fn default() -> Self {
+        Self {
+            name: "".to_string(),
+            base_image: DEFAULT_BASE_IMAGE.to_string(),
+            compile: false,
+            nproc: None,
+            cleanup: true,
+            verbose: false,
+        }
+    }
+}
 /// A `Dune` instance manages a Docker container in which a `nodeos` instance is
 /// running a Vaulta blockchain.
 ///
@@ -64,7 +86,7 @@ impl Dune {
         let vaulta_image = duct::cmd!("docker", "images", "-q", &image).read().unwrap();
         if vaulta_image.is_empty() {
             info!("No appropriate image found, building one before starting container");
-            Self::build_image(&image, DEFAULT_BASE_IMAGE, false, None, false)?;
+            Self::build_image(&BuildOpts { name: image.clone(), ..Default::default() })?;
         }
 
         let docker = Docker::new(container, image, host_mount);
@@ -94,7 +116,7 @@ impl Dune {
 
     /// Build a Docker image starting from `base_image` that has Spring, the CDT and
     /// system contracts installed. It will be saved as `name`.
-    pub fn build_image(name: &str, base_image: &str, compile: bool, nproc: Option<i16>, verbose: bool) -> Result<()> {
+    pub fn build_image(opts: &BuildOpts) -> Result<()> {
         // first make sure we are able to run pyinfra
         let status = duct::cmd!("which", "pyinfra")
             .stdout_capture()
@@ -116,26 +138,39 @@ impl Dune {
         unpack_scripts(&scripts_folder)?;
 
         // build image using pyinfra
-        debug!("Building Vaulta image with a {base_image} base");
         const CAPTURE_OUTPUT: bool = false;
 
-        replace_line(&scripts_folder.join("build_vaulta_image.py"),
+        replace_line(scripts_folder.join("build_vaulta_image.py"),
                      r"COMPILE_SPRING_CDT = [A-Za-z]+",
-                     &format!("COMPILE_SPRING_CDT = {}", if compile { "True" } else { "False" }));
+                     &format!("COMPILE_SPRING_CDT = {}", if opts.compile { "True" } else { "False" }));
 
-        if nproc.is_some() {
-            replace_line(&scripts_folder.join("build_vaulta_image.py"),
+        replace_line(scripts_folder.join("build_vaulta_image.py"),
+                     r"CLEANUP = [A-Za-z]+",
+                     &format!("CLEANUP = {}", if opts.cleanup { "True" } else { "False" }));
+
+        if let Some(nproc) = opts.nproc {
+            replace_line(scripts_folder.join("build_vaulta_image.py"),
                          r"NPROC = [0-9None]+",
-                         &format!("NPROC = {}", nproc.unwrap()));
+                         &format!("NPROC = {}", nproc));
         }
 
-        let inventory = format!("@docker/{base_image}");
+
+
+        let inventory = format!("@docker/{}", opts.base_image);
         let mut args = vec!["-y", &inventory, "scripts/build_vaulta_image.py"];
-        if verbose {
+        if opts.verbose {
             args.insert(1, "-vvv");
         }
         let command = duct::cmd("pyinfra", &args);
 
+        // if we're running on Apple silicon, we need to force the arch to be AMD64 because
+        // the EOS WASM JIT VM only runs on that architecture
+        let command = if std::env::consts::ARCH == "aarch64" {
+            command.env("DOCKER_DEFAULT_PLATFORM", "linux/amd64")
+        }
+        else {
+            command
+        };
 
         let command = if CAPTURE_OUTPUT {
             command.stdout_capture().stderr_capture()
@@ -160,13 +195,12 @@ impl Dune {
                 else {
                     // we didn't capture any output, get the image ID from the
                     // latest docker image and hope for the best
-                    // FIXME: we should do this properly
                     Docker::list_images()[0]["ID"].as_str().unwrap().to_string()
                 };
 
                 info!("Image built successfully with image ID: {:?}", &image_id);
-                Docker::docker_command(&["tag", &image_id, name]).run();
-                info!("Image tagged as: `{}`", &name);
+                Docker::docker_command(&["tag", &image_id, &opts.name]).run();
+                info!("Image tagged as: `{}`", &opts.name);
 
                 Ok(())
             },
@@ -237,6 +271,12 @@ impl Dune {
         }
     }
 
+    /// Write the given string as a genesis file inside the container. It will be
+    /// used automatically when starting nodeos for the first time
+    pub fn push_genesis(&self, genesis_content: &str) {
+        self.docker.write_file("/app/genesis.json", genesis_content);
+    }
+
 
     // =============================================================================
     //
@@ -268,6 +308,7 @@ impl Dune {
 
         let mut args = vec!["/app/launch_bg.sh", "nodeos", "--data-dir=/app/datadir"];
         args.push("--config-dir=/app");
+        args.push("--genesis-json=/app/genesis.json");
         if replay_blockchain {
             args.push("--replay-blockchain");
         }
@@ -501,6 +542,7 @@ impl Dune {
     }
 
     fn send_action(&self, action: &str, account: &str, data: &str, permission: &str) {
+        // FIXME: do not use an external 'cleos' subprocess to send it but our own kudu::APIClient
         self.cleos_cmd(&["push", "action", account, action, data, "-p", permission]);
     }
 

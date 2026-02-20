@@ -1,4 +1,5 @@
 use std::fmt;
+use std::ops::Add;
 use std::str::FromStr;
 
 use chrono::{DateTime, NaiveDate, NaiveDateTime, ParseError as ChronoParseError, TimeZone, Utc};
@@ -166,6 +167,13 @@ impl FromStr for TimePointSec {
     }
 }
 
+impl Add<u32> for TimePointSec {
+    type Output = Self;
+
+    fn add(self, other: u32) -> Self {
+        Self(self.0 + other)
+    }
+}
 
 // -----------------------------------------------------------------------------
 //     BlockTimestamp

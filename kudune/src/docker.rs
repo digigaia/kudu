@@ -77,7 +77,7 @@ impl Docker {
     }
 
     pub fn list_images() -> Vec<Value> {
-        Self::docker_command_json(&["images"]).run()
+        Self::docker_command_json(&["images", "--all"]).run()
     }
 
     pub fn is_running(container: &str) -> bool {
@@ -97,6 +97,11 @@ impl Docker {
         // check first if a container with the same name already exists
         if let Some(c) = Docker::find_container(name) {
             match c["State"].as_str().unwrap() {
+                "created" => {
+                    // FIXME!! do we want this or to fall through out of the match?
+                    if log { debug!("Container `{}` created but not running. Starting it", name); }
+                    Self::docker_command(&["container", "start", name]).run();
+                }
                 "running" => {
                     if log { debug!("Container `{}` already running, using it", name); }
                 },

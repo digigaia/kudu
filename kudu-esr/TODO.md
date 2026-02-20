@@ -38,10 +38,6 @@
   const result = await jungle4.v1.chain.compute_transaction(transaction)
   ```
 
-- do we want `ABIProvider` to be a member of `SigningRequest`, or should we just pass it every time
-  we need it?
-  - having it as member would allow us to have de/serialization to a JSON value with decoded data
-
 
 ## CORRECTNESS / TESTING
 

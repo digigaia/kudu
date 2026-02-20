@@ -3,12 +3,26 @@ use std::marker::PhantomData;
 use std::str::FromStr;
 
 use bs58;
+use bytemuck::cast_ref;
 use ripemd::{Digest, Ripemd160};
+use secp256k1::{Message, SecretKey};
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 use sha2::Sha256;
 use snafu::{ensure, ResultExt, Snafu};
 
+
 use kudu_macros::with_location;
+
+// NOTE: as for which library to use for computing signatures, they are a few candidates
+//       - k256 + ecdsa: where the Rust crypto world seems to be going, however this doesn't offer
+//         passing a custom nonce when signing, which is required to find an "EOS-canonical" signature
+//       - libsecp256k1: no longer maintained, in favor or the previous one
+//       - secp256k1: rust bindings to the C libsecp256k1, the one we are using here as it allows us to
+//         pass a custom nonce
+
+// TODO: investigate `hybrid_array` crate as a better way to represent our crypto data. This will also
+//       give us better compatibility with the Rust crypto world as they use it as base array type
+//       crypto libs used to use `generic-array` but it looks like they are all moving to `hybrid_array`
 
 #[with_location]
 #[derive(Debug, Snafu)]
@@ -126,6 +140,10 @@ impl<T: CryptoDataType, const DATA_SIZE: usize> CryptoData<T, DATA_SIZE> {
             msg: format!("wrong size for {}, needs to be {} but is: {}", T::DISPLAY_NAME, DATA_SIZE, input_len)
         });
         Ok(result.unwrap())  // safe unwrap
+    }
+
+    pub fn to_hex(&self) -> String {
+        hex::encode(self.data)
     }
 }
 
@@ -285,4 +303,189 @@ fn key_data_to_string<const N: usize>(k: &[u8; N], prefix: &str) -> String {
     let enc_data = bs58::encode(data).into_string();
 
     format!("{}_{}", prefix, enc_data)
+}
+
+/*
+
+def _is_canonical(signature):
+    canonical = all(
+        [
+            not (signature[1] & 0x80),
+            not (signature[1] == 0 and not (signature[2] & 0x80)),
+            not (signature[33] & 0x80),
+            not (signature[33] == 0 and not (signature[34] & 0x80)),
+        ]
+    )
+    return canonical
+
+    bool public_key::is_canonical( const compact_signature& c ) {
+        return !(c.data[1] & 0x80)
+               && !(c.data[1] == 0 && !(c.data[2] & 0x80))
+               && !(c.data[33] & 0x80)
+               && !(c.data[33] == 0 && !(c.data[34] & 0x80));
+    }
+
+
+*/
+
+impl Signature {
+    /// Return whether this signature is an EOS-canonical signature
+    pub fn is_canonical(&self) -> bool {
+        let s1 = (self.data[1] & 0x80) == 0;
+        let s2 = self.data[1] != 0 || (self.data[2] & 0x80 != 0);
+        let s3 = self.data[33] & 0x80 == 0;
+        let s4 = self.data[33] != 0 || (self.data[34] & 0x80 != 0);
+
+        s1 && s2 && s3 && s4
+    }
+}
+
+impl From<secp256k1::ecdsa::RecoverableSignature> for Signature {
+    fn from(value: secp256k1::ecdsa::RecoverableSignature) -> Signature {
+        let (recid, sigdata) = value.serialize_compact();
+        // println!("rec id: {:?}", &recid);
+        // println!("sigdata: {}", hex::encode(sigdata));
+        let mut fullsig = [0u8; 65];
+        fullsig[0] = 27 + 4 + (i32::from(recid) as u8);
+        fullsig[1..].copy_from_slice(&sigdata);
+        Signature::with_key_type(KeyType::K1, fullsig)
+    }
+}
+
+impl From<&Signature> for secp256k1::ecdsa::RecoverableSignature {
+    fn from(value: &Signature) -> Self {
+        let recid = secp256k1::ecdsa::RecoveryId::from_u8_masked(value.data[0]);
+        Self::from_compact(&value.data[1..], recid).unwrap()
+    }
+}
+
+impl PrivateKey {
+    pub fn sign_bytes(&self, input: &[u8]) -> Signature {
+        // hash our bytes into a digest to be signed
+        let digest: [u8; 32] = Sha256::digest(input).into();
+
+        self.sign_digest(digest.into())
+    }
+
+    pub fn sign_digest(&self, digest: crate::Digest) -> Signature {
+        if self.key_type == KeyType::K1 {
+            // use global context
+            let secp = secp256k1::global::SECP256K1;
+
+            let secret_key = SecretKey::from_byte_array(self.data).expect("32 bytes, within curve order");
+            let message = Message::from_digest(digest.0);
+
+            // iterate over a nonce to be added to the signatures until we find a good one
+            // (i.e.: EOS-canonical)
+
+            let secp_sig = secp.sign_ecdsa_recoverable(message, &secret_key);
+
+            let mut sig = Signature::from(secp_sig);
+            let mut nonce: [u64; 4] = [0u64; 4];  // use this shape instead of [u8; 32] so we can iterate over nonce[0] more easily
+
+            loop {
+                // if sig is canonical, return it
+                if sig.is_canonical() { return sig; }
+
+                // otherwise, iterate over our nonce until we find a good signature
+                nonce[0] += 1;
+
+                let secp_sig = secp.sign_ecdsa_recoverable_with_noncedata(message, &secret_key, cast_ref::<[u64; 4], [u8; 32]>(&nonce));
+                sig = Signature::from(secp_sig);
+            }
+        }
+        else {
+            unimplemented!("can only call `PrivateKey::sign_digest()` on K1 key types")
+        }
+    }
+
+    pub fn to_wif(&self) -> String {
+        unimplemented!("WIF key format is deprecated, use `key.to_string()` instead");
+    }
+
+}
+
+impl PublicKey {
+    pub fn from_private_key(private_key: &PrivateKey) -> Self {
+        let secp = secp256k1::global::SECP256K1;
+        let secret_key = SecretKey::from_byte_array(private_key.data).expect("32 bytes, within curve order");
+        let public_key = secp256k1::PublicKey::from_secret_key(secp, &secret_key);
+        public_key.into()
+    }
+
+    pub fn verify_signature(&self, input: &[u8], signature: &Signature) -> bool {
+        let secp = secp256k1::global::SECP256K1;
+        let message = Message::from_digest(Sha256::digest(input).into());
+        let public_key = secp256k1::PublicKey::from_byte_array_compressed(self.data).expect("65 bytes");
+
+
+        let sig = secp256k1::ecdsa::RecoverableSignature::from(signature);
+        let sig = sig.to_standard();
+
+
+        secp.verify_ecdsa(message, &sig, &public_key).is_ok()
+    }
+
+    pub fn to_old_format(&self) -> String {
+        format!("EOS{}", &key_data_to_string(&self.data, "")[1..])
+    }
+}
+
+impl From<secp256k1::PublicKey> for PublicKey {
+    fn from(value: secp256k1::PublicKey) -> Self {
+        PublicKey::with_key_type(KeyType::K1, value.serialize())
+    }
+}
+
+impl From<PublicKey> for secp256k1::PublicKey {
+    fn from(value: PublicKey) -> Self {
+        secp256k1::PublicKey::from_byte_array_compressed(value.data).expect("33 bytes")
+    }
+}
+
+
+
+
+// =============================================================================
+//
+//     Unittests
+//
+// =============================================================================
+
+#[cfg(test)]
+mod tests {
+    use color_eyre::eyre::Result;
+    use super::*;
+
+    // `eosio` testing key
+    // priv: 5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3
+    //       D2653FF7CBB2D8FF129AC27EF5781CE68B2558C41A74AF1F2DDCA635CBEEF07D
+    // pub : EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV
+    //       02C0DED2BC1F1305FB0FAAC5E6C03EE3A1924234985427B6167CA569D13DF435
+
+
+    #[test]
+    fn test_keys() -> Result<()> {
+        let priv_key = PrivateKey::new("5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3")?;
+        let pub_key = PublicKey::from_private_key(&priv_key);
+
+        assert_eq!(pub_key.to_string(), "PUB_K1_6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5BoDq63");
+        assert_eq!(pub_key.to_old_format(), "EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV");
+        Ok(())
+    }
+
+    #[test]
+    fn test_sign() -> Result<()> {
+        let key = PrivateKey::new("5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3")?;
+        let input = b"a";
+        let sig = key.sign_bytes(input);
+        assert_eq!(sig.to_string(), "SIG_K1_JvyUh5EJU7xS3QJSszNKdxGTkQNoo1PUcaQUAjpGTa64Sihf7R6tyiiAjoiZVkoDcfFpEokJPMVqyKYUFmgSvW1MvcRhrM");
+        assert!(sig.is_canonical());
+
+        let public_key = PublicKey::from_private_key(&key);
+        assert!(public_key.verify_signature(input, &sig));
+
+        Ok(())
+    }
+
 }

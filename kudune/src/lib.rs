@@ -13,5 +13,5 @@ pub mod util;
 
 pub use command::{DockerCommand, DockerCommandJson};
 pub use docker::Docker;
-pub use dune::Dune;
+pub use dune::{BuildOpts, Dune};
 pub use nodeconfig::NodeConfig;

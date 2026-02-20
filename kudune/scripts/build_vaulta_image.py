@@ -13,6 +13,7 @@ CDT_VERSION = '4.1.1'
 SYSTEM_CONTRACTS_VERSION = '3.8.0'
 COMPILE_SPRING_CDT = True
 NPROC = None
+CLEANUP = True
 
 ARCH = host.get_fact(Arch)
 if ARCH == 'x86_64':
@@ -129,7 +130,10 @@ def compile_spring(tag=None, branch=None):
     build_dir = f'{work_dir}/build'
     files.directory(build_dir)
     server.shell(commands=['cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=/usr/lib/llvm-11 -DCMAKE_INSTALL_PREFIX=/usr ..',
-                           f'make -j{nproc(required_gb_per_core=4)} package',
+                           f'make -j{nproc(required_gb_per_core=4)}',
+                           # for some reason, parallel build of the package fails in amd64 images on Apple silicon
+                           # with bad file descriptors errors. Couldn't pinpoint it exactly, but `-j1` solves it
+                           'make -j1 package',
                            'apt install -y ./antelope-spring_*.deb'],
                  _chdir=build_dir)
 
@@ -209,7 +213,7 @@ def deploy_fees_system_contract(version=None):
 def create_default_wallet():
     privkey = '5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3'
 
-    server.shell(commands=['cleos wallet create --file .wallet.pw',
+    server.shell(commands=['cleos wallet create --file .wallet.pw || true',
                            # no need, wallet is already unlocked upon creation
                            # 'cat .wallet.pw | cleos wallet unlock --password',
                            # import main Vaulta account private key
@@ -252,4 +256,5 @@ deploy_system_contracts(version=SYSTEM_CONTRACTS_VERSION)
 deploy_fees_system_contract()
 create_default_wallet()
 install_reaper_script_for_zombies()
-cleanup()
+if CLEANUP:
+    cleanup()

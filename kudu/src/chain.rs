@@ -49,7 +49,7 @@ pub trait Contract: ABISerializable {
     fn name() -> ActionName;
 }
 
-pub use action::{Action, ActionError, PermissionLevel};
+pub use action::{Action, ActionError, IntoPermissionVec, PermissionLevel};
 pub use trace::{
     AccountAuthSequence, AccountDelta,
     ActionReceipt, ActionReceiptV0,
@@ -58,7 +58,7 @@ pub use trace::{
     Trace,
     TransactionTrace, TransactionTraceV0, TransactionTraceException, TransactionTraceMsg,
 };
-pub use transaction::Transaction;
+pub use transaction::{SignedTransaction, Transaction};
 
 
 /// not a native Antelope type but normally defined through an ABI

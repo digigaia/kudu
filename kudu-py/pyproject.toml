@@ -1,0 +1,29 @@
+[project]
+name = "kudu"
+requires-python = ">=3.14"
+classifiers = [
+    "Programming Language :: Rust",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+]
+dynamic = ["version"]
+
+dependencies = [
+    "maturin>=1.11,<2.0",
+    "duct",
+    "loguru",
+]
+
+[build-system]
+requires = ["maturin>=1.11,<2.0"]
+build-backend = "maturin"
+
+[tool.maturin]
+python-source = "python"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3.5",
+    "python-lsp-ruff>=2.2.2",
+    "python-lsp-server>=1.12.2",
+]
