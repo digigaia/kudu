@@ -27,7 +27,6 @@ kudu-macros        = { path = "../kudu-macros", version = "0.1.0" }
 bytemuck = "1"
 chrono = { version = "0.4", features = ["serde"] }
 flate2 = "1.0"
-generic-array = "0.14"
 ripemd = "0.1"
 bs58 = "0.5"
 sha2 = "0.10"

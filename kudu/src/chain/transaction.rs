@@ -4,11 +4,6 @@ use bytemuck::cast_ref;
 use chrono::ParseError as ChronoParseError;
 use hex::FromHexError;
 use serde::{Deserialize, Serialize};
-// use generic_array::{GenericArray, typenum::U32};
-// use k256::{
-//     ecdsa::{SigningKey, Signature, signature::Signer},
-//     SecretKey,
-// };
 use sha2::{Sha256, Digest};
 use snafu::{ResultExt, Snafu, ensure};
 

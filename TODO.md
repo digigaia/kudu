@@ -34,6 +34,11 @@ file once they are implemented.
 
 - review singletons usage in tests
 
+
+## PYTHON
+
+- python version in `kudu-py/pyproject.toml` and `kudu-py/Cargo.toml` need to be updated by `just set-version`
+
 ## MISC
 
 - Transition from EOS -> Vaulta
