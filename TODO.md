@@ -39,6 +39,8 @@ file once they are implemented.
 
 - python version in `kudu-py/pyproject.toml` and `kudu-py/Cargo.toml` need to be updated by `just set-version`
 
+- SignedTransaction needs to implement Serialize properly to it can be converted to/from json
+
 ## MISC
 
 - Transition from EOS -> Vaulta
