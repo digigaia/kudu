@@ -259,7 +259,6 @@ pub mod kudu_chain {
     #[pyclass(name = "SignedTransaction", module = "kudu.chain")]
     struct PySignedTransaction(pub SignedTransaction);
 
-    // gen_bytes_conversion!("PySignedTransaction");
     gen_dict_conversion!("PySignedTransaction");
 
     #[pymethods]

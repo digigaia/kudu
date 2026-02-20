@@ -82,8 +82,6 @@ pub struct Transaction {
     //       these do not get serialized
     // -----------------------------------------------------------------------------
 
-    // FIXME!!: we need to implement the `hash` trait manually to ignore the next fields
-
     #[serde(skip)]
     pub chain_id: Option<ChainId>,
 
@@ -91,7 +89,6 @@ pub struct Transaction {
     pub client: Option<Arc<APIClient>>,
 }
 
-// type DigestType = GenericArray<u8, U32>;
 type DigestType = Checksum256;
 
 
@@ -141,11 +138,11 @@ impl Transaction {
         Ok(result)
     }
 
-    pub fn sig_digest(&self, context_free_data: &[u8]) -> DigestType {
+    pub fn sig_digest(&self, context_free_data: &[u8]) -> Result<DigestType, TransactionError> {
         let mut hasher = Sha256::new();
         match &self.chain_id {
             Some(chain_id) => hasher.update(chain_id),
-            None => panic!("signing without a chain id!"),   // FIXME: don't panic here
+            None => UnlinkedTransactionSnafu { message: "you need a chain ID to be set to compute the tx digest".to_string() }.fail()?,
         }
 
         let mut ds = ByteStream::new();
@@ -160,21 +157,14 @@ impl Transaction {
         }
 
         let r: [u8; 32] = hasher.finalize().into();
-        r.into()
+        Ok(r.into())
     }
 
-    pub fn get_tapos_info(block: &BlockId) -> (u16, u32) {
+    fn get_tapos_info(block: &BlockId) -> (u16, u32) {
         let hash = cast_ref::<[u8; 32], [u64; 4]>(&block.0);
         let ref_block_num = endian_reverse_u32((hash[0] & 0xFFFFFFFF) as u32) as u16;
         let ref_block_prefix = hash[1] as u32;
         (ref_block_num, ref_block_prefix)
-    }
-
-    // FIXME: pass by ref or value here?
-    pub fn set_reference_block(&mut self, block: &BlockId) {
-        let (ref_block_num, ref_block_prefix) = Self::get_tapos_info(block);
-        self.ref_block_num = ref_block_num;
-        self.ref_block_prefix = ref_block_prefix;
     }
 
     pub fn link(&mut self, client: Arc<APIClient>) -> Result<&mut Self, TransactionError> {
@@ -208,7 +198,7 @@ impl Transaction {
                 UnlinkedTransactionSnafu { message: "cannot sign transaction" });
 
         let context_free_data = b"";
-        Ok(signing_key.sign_digest(self.sig_digest(context_free_data)))
+        Ok(signing_key.sign_digest(self.sig_digest(context_free_data)?))
     }
 
     pub fn sign(&self, signing_key: &PrivateKey) -> Result<SignedTransaction, TransactionError> {
@@ -298,7 +288,6 @@ impl SignedTransaction {
 #[cfg(test)]
 mod tests {
     use color_eyre::eyre::Result;
-    use crate::{json, Bytes, IntoPermissionVec, Name, PrivateKey};
 
     use super::*;
 
@@ -308,53 +297,6 @@ mod tests {
         let (ref_block_num, ref_block_prefix) = Transaction::get_tapos_info(&block_id);
         assert_eq!(ref_block_num, 12711);
         assert_eq!(ref_block_prefix, 4162520323);
-        Ok(())
-    }
-
-    #[test]
-    #[ignore]
-    fn test_signing() -> Result<()> {
-        let client = Arc::new(APIClient::local());
-        let action = Action {
-            account: Name::new("eosio.token")?,
-            name: Name::new("transfer")?,
-            authorization: ("alice", "active").into_permission_vec(),
-            data: Bytes::new(),
-        }.with_data(&json!({
-            "from": "alice",
-            "to": "bob",
-            "quantity": "1.000 SON",
-            "memo": "yep!",
-        }));
-
-        let mut tx = Transaction::new(vec![action]);
-        tx.link(client.clone())?;
-        println!("tx: {}", json::to_string(&tx)?);
-
-
-        let signing_key = PrivateKey::new("5JEc9CzLAx48Utvn7mo4y6hhmSVj7n4zgDNJx2KNZo3gSBr8Fet")?;
-
-        let digest = tx.sig_digest(b"");
-        let sig = signing_key.sign_digest(digest);
-
-        // FIXME: this transcode is not an ergonomic API
-        let tx_json = json::to_string(&tx)?;
-        let mut signed_tx: JsonValue = json::from_str(&tx_json)?;
-        signed_tx["signatures"] = json!([sig]);
-        signed_tx["compression"] = json!(false);
-        signed_tx["packed_content_free_data"] = json!("");  // FIXME!
-        let mut s = ByteStream::new();
-        tx.to_bin(&mut s);
-        signed_tx["packed_trx"] = JsonValue::String(s.hex_data());
-
-
-
-        println!("signed_tx: {}", &signed_tx);
-
-        let result = client.call("/v1/chain/push_transaction", &signed_tx)?;
-
-        println!("result: {result}");
-        assert!(result["transaction_id"].as_str().is_some());
         Ok(())
     }
 }
