@@ -55,6 +55,8 @@ kudune set-config http-server-address=0.0.0.0:8888 chain-state-db-size-mb=65536 
 
 - make sure we can generate a decent documentation
 
+- add options to `build-image` to specify versions of the tools deployed: spring, cdt and system contracts
+
 - try to follow guidelines from <https://clig.dev>
 
 - try to optimize docker image using `dive` or `xray-tui` to check it

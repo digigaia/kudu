@@ -11,6 +11,8 @@ file once they are implemented.
 
 - check <https://rust-lang.github.io/api-guidelines/checklist.html>
 
+- TimePointSec::new() should return Result<_>, not Option<_>
+
 
 ## DOCUMENTATION
 
@@ -35,17 +37,13 @@ file once they are implemented.
 - review singletons usage in tests
 
 
-## PYTHON
-
-- python version in `kudu-py/pyproject.toml` and `kudu-py/Cargo.toml` need to be updated by `just set-version`
-
 ## MISC
 
 - Transition from EOS -> Vaulta
   - rename project name EOS -> Vaulta
   - check that system contracts properly use the Vaulta ones
   - verify accounts used (ie: eosio -> core.vaulta?)
-  - check token name is `A` now instead of `EOS` (or `SYS`)
+  - check token name is `A` now instead of `EOS` (or `SYS`) => upgrade to system contracts 3.10.0
   - check following links:
     - https://github.com/AntelopeIO/spring/pull/1536
     - https://github.com/AntelopeIO/spring/blob/main/tutorials/bios-boot-tutorial/bios-boot-tutorial.py
