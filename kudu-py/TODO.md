@@ -6,11 +6,7 @@
 
 - use a new type for LinkedTransaction, to avoid some runtime checks
 
-- need to add more API coverage for the bindings for the classes we already have (and more tests to verify them)
-
 - Readme needs to mention python bindings
-
-- more complete API coverage on the python bindings
 
 - replace "let perm: Result<&Bound<'py, PyPermissionLevel>, _> = other.cast();" with "if let Some(perm) = other.cast::<PyPermissionLevel>()" everywhere and for all types
 

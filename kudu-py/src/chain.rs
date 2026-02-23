@@ -5,6 +5,7 @@ use pyo3::prelude::*;
 pub mod kudu_chain {
     use std::string::ToString;
 
+    use pyo3::exceptions::PyPermissionError;
     use pyo3::prelude::*;
     use pyo3::types::{PyBytes, PyDict, PyList, PyString};
     use pythonize::{depythonize, pythonize};
@@ -15,7 +16,8 @@ pub mod kudu_chain {
     use crate::api::kudu_api::PyAPIClient;
     use crate::crypto::kudu_crypto::PyPrivateKey;
     use crate::util::{
-        gen_bytes_conversion, gen_default_repr, gen_default_str, gen_dict_conversion, gen_string_getters, runtime_err, value_err
+        gen_bytes_conversion, gen_default_repr, gen_default_str, gen_dict_conversion,
+        gen_int_getters, gen_string_getters, runtime_err, value_err
     };
 
     // -----------------------------------------------------------------------------
@@ -188,7 +190,6 @@ pub mod kudu_chain {
             Ok(result)
         }
 
-        // TODO: do we want to return a Bytes object or a str with decoded hex data?
         #[getter]
         fn get_data(&self) -> &[u8] {
             &self.0.data.0[..]
@@ -216,6 +217,9 @@ pub mod kudu_chain {
 
     gen_bytes_conversion!("PyTransaction");
     gen_dict_conversion!("PyTransaction");
+    gen_int_getters!("PyTransaction", "u16", ["ref_block_num"]);
+    gen_int_getters!("PyTransaction", "u32", ["ref_block_prefix", "max_net_usage_words", "delay_sec"]);
+    gen_int_getters!("PyTransaction", "u8", ["max_cpu_usage_ms"]);
 
     #[pymethods]
     impl PyTransaction {
@@ -231,14 +235,50 @@ pub mod kudu_chain {
         }
 
         #[getter]
-        fn get_ref_block_num(&self) -> u16 {
-            self.0.ref_block_num
+        fn get_expiration(&self) {
+            unimplemented!("needs to implement TimePointSec -> datetime first");
+        }
+
+        // #[getter]
+        // fn get_ref_block_num(&self) -> u16 {
+        //     self.0.ref_block_num
+        // }
+
+        // #[getter]
+        // fn get_ref_block_prefix(&self) -> u32 {
+        //     self.0.ref_block_prefix
+        // }
+
+        // #[getter]
+        // fn get_max_net_usage_words(&self) -> u32 {
+        //     self.0.max_net_usage_words.into()
+        // }
+
+        // #[getter]
+        // fn get_cpu_usage_ms(&self) -> u8 {
+        //     self.0.max_cpu_usage_ms
+        // }
+
+        // #[getter]
+        // fn get_delay_sec(&self) -> u32 {
+        //     self.0.delay_sec.into()
+        // }
+
+        #[getter]
+        fn get_context_free_actions<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyList>> {
+            let elements: Vec<PyAction> = self.0.context_free_actions.iter().map(|a| PyAction(a.clone())).collect();
+            PyList::new(py, elements)
         }
 
         #[getter]
         fn get_actions<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyList>> {
             let elements: Vec<PyAction> = self.0.actions.iter().map(|a| PyAction(a.clone())).collect();
             PyList::new(py, elements)
+        }
+
+        #[getter]
+        fn get_transaction_extensions(&self) -> () {
+            todo!()
         }
 
         fn link(&mut self, client: &PyAPIClient) -> PyResult<()> {
