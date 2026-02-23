@@ -3,12 +3,21 @@ use std::sync::Arc;
 use bytemuck::cast_ref;
 use chrono::ParseError as ChronoParseError;
 use hex::FromHexError;
-use serde::{Deserialize, Serialize};
+use serde::{
+    Deserialize, Serialize,
+    ser::{Serializer, SerializeMap}
+};
 use sha2::{Sha256, Digest};
 use snafu::{ResultExt, Snafu, ensure};
 
 use crate::{
-    ABISerializable, APIClient, Action, ActionError, BlockId, ByteStream, Bytes, ChainId, Checksum256, Extensions, JsonValue, PrivateKey, Signature, TimePointSec, TransactionId, VarUint32, api::HttpError, bitops::endian_reverse_u32, convert::{ConversionError,  variant_to_object, variant_to_str, variant_to_uint}, impl_auto_error_conversion, json, with_location
+    ABISerializable, APIClient, Action, ActionError, BlockId, ByteStream, Bytes, ChainId,
+    Checksum256, Extensions, JsonValue, PrivateKey, Signature, TimePointSec, TransactionId,
+    VarUint32,
+    api::HttpError,
+    bitops::endian_reverse_u32,
+    convert::{ConversionError,  variant_to_object, variant_to_str, variant_to_uint},
+    impl_auto_error_conversion, json, with_location
 };
 
 // this is needed to be able to call the `ABISerializable` derive macro, which needs
@@ -17,7 +26,6 @@ extern crate self as kudu;
 
 #[with_location]
 #[derive(Debug, Snafu)]
-// TODO: rename to `InvalidAction` for consistency?
 pub enum TransactionError {
     #[snafu(display("unknown field: '{field}'"))]
     UnknownField { field: String },
@@ -193,15 +201,15 @@ impl Transaction {
         Ok(self)
     }
 
-    pub fn get_signature(&self, signing_key: &PrivateKey) -> Result<Signature, TransactionError> {
-        ensure!(self.chain_id.is_some(),
-                UnlinkedTransactionSnafu { message: "cannot sign transaction" });
-
-        let context_free_data = b"";
+    fn get_signature(&self, signing_key: &PrivateKey) -> Result<Signature, TransactionError> {
+        let context_free_data = b"";  // TODO: support this
         Ok(signing_key.sign_digest(self.sig_digest(context_free_data)?))
     }
 
     pub fn sign(&self, signing_key: &PrivateKey) -> Result<SignedTransaction, TransactionError> {
+        ensure!(self.chain_id.is_some(),
+                UnlinkedTransactionSnafu { message: "cannot sign transaction" });
+
         let sig = self.get_signature(signing_key)?;
         Ok(SignedTransaction {
             tx: self.clone(),
@@ -213,8 +221,8 @@ impl Transaction {
 
 }
 
-// FIXME: we implement this manually as we don't have a way yet to ignore fields using the derive macro
-// FIXME: implement this, using #[serde(skip)] to decide whether to skip fields
+// TODO: we implement this manually as we don't have a way yet to ignore fields using the derive macro
+// TODO: implement this, using #[serde(skip)] to decide whether to skip fields
 impl kudu::ABISerializable for Transaction {
     fn to_bin(&self, s: &mut kudu::ByteStream) {
         // transaction header
@@ -250,8 +258,7 @@ impl kudu::ABISerializable for Transaction {
     }
 }
 
-// FIXME!! implement Serialize properly, we can't really derive it
-#[derive(Eq, Hash, PartialEq, Debug, Clone, Serialize, Deserialize)]
+#[derive(Eq, Hash, PartialEq, Debug, Clone)]
 pub struct SignedTransaction {
     pub tx: Transaction,
     pub signatures: Vec<Signature>,
@@ -261,26 +268,33 @@ pub struct SignedTransaction {
 
 impl SignedTransaction {
     pub fn send(&self) -> Result<JsonValue, TransactionError> {
-        let signed_tx = self.to_json();
+        let signed_tx = json!(self);
         let result = self.tx.client.as_ref().unwrap()
             .call("/v1/chain/push_transaction", &signed_tx)
             .context(NetworkSnafu { message: format!("Could not push transaction: {}", &signed_tx) })?;
 
         Ok(result)
     }
+}
 
-    // FIXME: implement `Serialize` instead!!
-    fn to_json(&self) -> JsonValue {
-        // FIXME: this transcode is not an ergonomic API
-        let tx_json = json::to_string(&self.tx).unwrap();
-        let mut signed_tx: JsonValue = json::from_str(&tx_json).unwrap();
-        signed_tx["signatures"] = json!(&self.signatures);
-        signed_tx["compression"] = json!(self.compression);
-        signed_tx["packed_content_free_data"] = json!(self.packed_content_free_data);  // FIXME! review
+// NOTE: we implement `Serialize` manually but we can't implement `Deserialize` as we
+//       haven't serialized the `chain_id` field and so can't restore it.
+impl Serialize for SignedTransaction {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer
+    {
+        let mut map = serializer.serialize_map(Some(9 + 4))?;
+        // transaction header
+        map.serialize_entry("signatures", &self.signatures)?;
+        map.serialize_entry("compression", &self.compression)?;
+        map.serialize_entry("packed_content_free_data", &self.packed_content_free_data)?;
+
         let mut s = ByteStream::new();
         self.tx.to_bin(&mut s);
-        signed_tx["packed_trx"] = JsonValue::String(s.hex_data());
-        signed_tx
+        map.serialize_entry("packed_trx", &s.hex_data())?;
+
+        map.end()
     }
 }
 
@@ -289,7 +303,10 @@ impl SignedTransaction {
 mod tests {
     use color_eyre::eyre::Result;
 
+    use crate::{chain::Transfer, Name};
     use super::*;
+
+
 
     #[test]
     fn test_tapos() -> Result<()> {
@@ -297,6 +314,64 @@ mod tests {
         let (ref_block_num, ref_block_prefix) = Transaction::get_tapos_info(&block_id);
         assert_eq!(ref_block_num, 12711);
         assert_eq!(ref_block_prefix, 4162520323);
+        Ok(())
+    }
+
+    #[test]
+    fn test_sign_transaction() -> Result<()> {
+
+        let transfer = Transfer {
+            from: Name::new("useraaaaaaaa")?,
+            to: Name::new("useraaaaaaab")?,
+            quantity: "0.0001 SYS".try_into()?,
+            memo: "".into(),
+        };
+
+        let mut tx = Transaction {
+            expiration: "2009-02-13T23:31:31.000".parse()?,
+            ref_block_num: 1234,
+            ref_block_prefix: 5678,
+            actions: vec![
+                Action::new(("useraaaaaaaa", "active"), &transfer),
+            ],
+            ..Default::default()
+        };
+
+        assert_eq!(json!(tx), json!({
+            "ref_block_num": 1234,
+            "ref_block_prefix": 5678,
+            "expiration": "2009-02-13T23:31:31.000",
+            "max_net_usage_words": 0,
+            "max_cpu_usage_ms": 0,
+            "delay_sec": 0,
+            "context_free_actions": [],
+            "actions": [{
+                "account": "eosio.token",
+                "name": "transfer",
+                "authorization": [{"actor":"useraaaaaaaa","permission":"active"}],
+                "data": "608c31c6187315d6708c31c6187315d60100000000000000045359530000000000"
+            }],
+            "transaction_extensions": []
+        }));
+
+        let signing_key = PrivateKey::new("5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3")?;
+        tx.chain_id = Some(Checksum256::from_hex(crate::config::JUNGLE_CHAIN_ID)?);
+        let sig = tx.get_signature(&signing_key)?;
+
+        let signed_tx = SignedTransaction {
+            tx: tx.clone(),
+            signatures: vec![sig],
+            compression: false,
+            packed_content_free_data: Bytes::new(),
+        };
+
+        assert_eq!(json!(signed_tx), json!({
+            "signatures": ["SIG_K1_K18qEA2qTqVj153ZKriMnnRwHpLuENX7bp9UYs5AJsRWhgD6diPgMeoebwRRFQuvyicDsgwVYTt3g4GsG5FxCXM3WNZVN7"],
+            "compression": false,
+            "packed_content_free_data": "",
+            "packed_trx": "d3029649d2042e160000000000000100a6823403ea3055000000572d3ccdcd01608c31c6187315d600000000a8ed323221608c31c6187315d6708c31c6187315d6010000000000000004535953000000000000",
+        }));
+
         Ok(())
     }
 }

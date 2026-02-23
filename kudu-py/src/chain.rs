@@ -271,10 +271,6 @@ pub mod kudu_chain {
             let trace = self.0.send().map_err(runtime_err)?;
             Ok(pythonize(py, &trace)?)
         }
-
-        // fn to_json(&self) -> JsonValue {
-        //     self.0.to_json()
-        // }
     }
 
 }

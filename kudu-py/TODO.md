@@ -6,8 +6,6 @@
 
 - use a new type for LinkedTransaction, to avoid some runtime checks
 
-- SignedTransaction needs to implement Serialize properly to it can be converted to/from json
-
 - need to add more API coverage for the bindings for the classes we already have (and more tests to verify them)
 
 - Readme needs to mention python bindings

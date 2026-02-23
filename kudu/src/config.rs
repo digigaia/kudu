@@ -27,3 +27,6 @@ pub const VAULTA_FEATURES: &[(&str, &str)] = &[
     ("DISABLE_DEFERRED_TRXS_STAGE_2",    "09e86cb0accf8d81c9e85d34bea4b925ae936626d00c984e4691186891f5bc16"),
     ("SAVANNA",                          "cbe0fafc8fcc6cc998395e9b6de6ebd94644467b1b4a97ec126005df07013c52"),
 ];
+
+pub const VAULTA_CHAIN_ID: &str = "aca376f206b8fc25a6ed44dbdc66547c36c6c33e3a119ffbeaef943642f0e906";
+pub const JUNGLE_CHAIN_ID: &str = "73e4385a2708e6d7048834fbc1079f2fabb17b3c125b146af438971e90716c4d";
