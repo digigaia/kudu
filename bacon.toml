@@ -63,7 +63,7 @@ analyzer = "nextest"
 [jobs.nextest_trace]
 command = ["cargo", "nextest", "run", "--color", "always", "--hide-progress-bar", "--failure-output", "final"]
 need_stdout = true
-env.RUST_LOG = "trace"
+env.RUST_LOG = "kudu=trace"
 analyzer = "nextest"
 
 [jobs.doc]

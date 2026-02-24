@@ -6,8 +6,6 @@
 
 - Readme needs to mention python bindings
 
-- push_action in test_chain.py needs to be implemented in Rust, with python bindings
-
 - wallet.py needs to be implemented in Rust, with python bindings
 
 - integration between tracing and python logging: https://pyo3.rs/v0.28.2/ecosystem/tracing

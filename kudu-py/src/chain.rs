@@ -5,13 +5,16 @@ use pyo3::prelude::*;
 pub mod kudu_chain {
     use std::string::ToString;
 
-    use pyo3::exceptions::PyPermissionError;
     use pyo3::prelude::*;
+    use pyo3::exceptions::PyValueError;
     use pyo3::types::{PyBytes, PyDict, PyList, PyString};
     use pythonize::{depythonize, pythonize};
 
     use kudu::chain::{Action, PermissionLevel, SignedTransaction, Transaction};
-    use kudu::{ABISerializable, AccountName, ActionName, Bytes, ByteStream, JsonValue, PermissionName};
+    use kudu::{
+        ABISerializable, AccountName, ActionName, Bytes, ByteStream, JsonValue, Name, PermissionName,
+        json,
+    };
 
     use crate::api::kudu_api::PyAPIClient;
     use crate::crypto::kudu_crypto::PyPrivateKey;
@@ -46,7 +49,7 @@ pub mod kudu_chain {
         #[staticmethod]
         fn from_py<'py>(other: &Bound<'py, PyAny>) -> PyResult<Self> {
             // other object is of the same type
-            if let Ok(perm) = other.cast::<PyPermissonLevel>() {
+            if let Ok(perm) = other.cast::<PyPermissionLevel>() {
                 return Ok(Self(perm.borrow().0))
             }
             // other object is a tuple (actor, permission)
@@ -54,7 +57,7 @@ pub mod kudu_chain {
                 return Self::new(actor, permission);
             }
 
-            Err(value_err(format!("Cannot create PermissionLevel from object: {} [{}]", other, other.get_type())))
+            Err(PyValueError::new_err(format!("Cannot create PermissionLevel from object: {} [{}]", other, other.get_type())))
         }
 
         fn __eq__<'py>(&self, other: &Bound<'py, PyAny>) -> bool {
@@ -114,7 +117,7 @@ pub mod kudu_chain {
                 }
             }
             else {
-                return Err(value_err(format!("invalid value for PermissionLevel: {}", 23)));
+                return Err(PyValueError::new_err(format!("invalid value for PermissionLevel: {}", 23)));
             }
 
             let action = if let Ok(data) = data.cast::<PyBytes>() {
@@ -134,7 +137,7 @@ pub mod kudu_chain {
                     authorization: auth,
                     data: Bytes::new(),
                 }
-                .with_data(&args)
+                .with_data(&args).map_err(value_err)?
             };
 
             Ok(Self(action))
@@ -204,6 +207,26 @@ pub mod kudu_chain {
         }
     }
 
+    #[pyfunction]
+    fn push_action<'py>(
+        client: &Bound<'py, PyAPIClient>,
+        actor: &str,
+        signing_key: &Bound<'py, PyPrivateKey>,
+        contract: &str,
+        action: &str,
+        args: &Bound<'py, PyAny>,
+    ) -> PyResult<()> {
+        let args: JsonValue = depythonize(args)?;
+        kudu::chain::push_action(
+            client.borrow().0.clone(),
+            Name::new(actor).map_err(value_err)?,
+            &signing_key.borrow().0,
+            Name::new(contract).map_err(value_err)?,
+            Name::new(action).map_err(value_err)?,
+            &args,
+        ).map_err(value_err)
+    }
+
     // -----------------------------------------------------------------------------
     //     Transaction
     // -----------------------------------------------------------------------------
@@ -234,31 +257,6 @@ pub mod kudu_chain {
         fn get_expiration(&self) {
             unimplemented!("needs to implement TimePointSec -> datetime first");
         }
-
-        // #[getter]
-        // fn get_ref_block_num(&self) -> u16 {
-        //     self.0.ref_block_num
-        // }
-
-        // #[getter]
-        // fn get_ref_block_prefix(&self) -> u32 {
-        //     self.0.ref_block_prefix
-        // }
-
-        // #[getter]
-        // fn get_max_net_usage_words(&self) -> u32 {
-        //     self.0.max_net_usage_words.into()
-        // }
-
-        // #[getter]
-        // fn get_cpu_usage_ms(&self) -> u8 {
-        //     self.0.max_cpu_usage_ms
-        // }
-
-        // #[getter]
-        // fn get_delay_sec(&self) -> u32 {
-        //     self.0.delay_sec.into()
-        // }
 
         #[getter]
         fn get_context_free_actions<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyList>> {

@@ -5,6 +5,7 @@ from loguru import logger
 import duct
 import pytest
 
+from kudu.chain import push_action
 from kudu.wallet import wallet
 import kudu
 
@@ -64,68 +65,13 @@ def test_is_running(chain):
     assert info['head_block_num'] > 0
 
 
-
-def eos_log(response, console_output):
-    # this is a separate function (instead of inline) so it shows that the logs come from nodeos
-    if console_output:
-        logger.debug(f'Console output for tx {response["transaction_id"]}:')
-    for output in console_output:
-        for line in output.splitlines():
-            logger.debug(line)
-
-
-def push_action(client, actor, contract, action, args, exception_type=None):
-    logger.debug(f'==== ACTION: {actor} {contract} {action} {args}')
-
-    # create a new transaction with the given action
-    action = kudu.Action(contract, action, kudu.PermissionLevel(actor, 'active'), args)
-    tx = kudu.chain.Transaction({'actions': [action.to_dict()]})
-    tx.link(client)
-    # print(f'Linked tx: {pformat(tx.to_dict())}')
-
-    # sign the transaction using the corresponding private key
-    pkey = wallet.private_keys[actor]
-    key = kudu.crypto.PrivateKey(pkey)
-
-    signed_tx = tx.sign(key)
-    # pprint(signed_tx.to_dict())
-
-    # send the transaction
-    result = signed_tx.send()
-    logger.trace(json.dumps(result, indent=4))
-
-    # parse result
-    if 'processed' in result:
-        # print console output
-        console_output = []
-        for action in result['processed']['action_traces']:
-            if output := action.get('console'):
-                console_output.append(output)
-            for trace in action.get('inline_traces', []):
-                if output := trace.get('console'):
-                    console_output.append(output)
-        eos_log(result, console_output)
-
-    elif 'error' in result:
-        err = result['error']
-        msg = err['details'][0]['message']
-        logger.error(err['what'])
-        logger.error(msg)
-
-        if exception_type is not None:
-            raise exception_type(msg)
-
-    else:
-        msg = 'unhandled case!!!'
-        logger.error(msg)
-        if exception_type is not None:
-            raise exception_type(msg)
-
-
 def run_action_list(client, actions):
-    for permission, contract, action, args in actions:
-        logger.info(f'ACTION: {permission:12} {contract:>12}::{action:12} -  {args}')
-        push_action(client, permission, contract, action, args)
+    for actor, contract, action, args in actions:
+        pkey = wallet.private_keys[actor]
+        key = kudu.crypto.PrivateKey(pkey)
+
+        logger.info(f'ACTION: {actor:12} {contract:>12}::{action:12} -  {args}')
+        push_action(client, actor, key, contract, action, args)
 
 
 def populate_db(client):

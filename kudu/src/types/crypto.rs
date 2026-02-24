@@ -403,6 +403,9 @@ impl PrivateKey {
         unimplemented!("WIF key format is deprecated, use `key.to_string()` instead");
     }
 
+    pub fn eosio_dev() -> Self {
+        PrivateKey::new("5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3").unwrap()
+    }
 }
 
 impl PublicKey {
@@ -466,7 +469,7 @@ mod tests {
 
     #[test]
     fn test_keys() -> Result<()> {
-        let priv_key = PrivateKey::new("5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3")?;
+        let priv_key = PrivateKey::eosio_dev();
         let pub_key = PublicKey::from_private_key(&priv_key);
 
         assert_eq!(pub_key.to_string(), "PUB_K1_6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5BoDq63");
@@ -476,7 +479,7 @@ mod tests {
 
     #[test]
     fn test_sign() -> Result<()> {
-        let key = PrivateKey::new("5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3")?;
+        let key = PrivateKey::eosio_dev();
         let input = b"a";
         let sig = key.sign_bytes(input);
         assert_eq!(sig.to_string(), "SIG_K1_JvyUh5EJU7xS3QJSszNKdxGTkQNoo1PUcaQUAjpGTa64Sihf7R6tyiiAjoiZVkoDcfFpEokJPMVqyKYUFmgSvW1MvcRhrM");

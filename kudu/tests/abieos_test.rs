@@ -6,10 +6,6 @@ use std::sync::{Once, OnceLock};
 use color_eyre::eyre::Result;
 use serde::{de::DeserializeOwned, Serialize};
 use tracing::{trace, debug, info, instrument};
-use tracing_subscriber::{
-    EnvFilter,
-    // fmt::format::FmtSpan,
-};
 
 use kudu::{
     abiserializable::{to_bin, from_bin, ABISerializable},
@@ -58,13 +54,7 @@ use kudu::{
 static TRACING_INIT: Once = Once::new();
 
 fn init() {
-    TRACING_INIT.call_once(|| {
-        tracing_subscriber::fmt()
-            .with_env_filter(EnvFilter::from_default_env())
-            // .with_span_events(FmtSpan::ACTIVE)
-            // .pretty()
-            .init();
-    });
+    TRACING_INIT.call_once(kudu::tracing_init);
 }
 
 fn transaction_abi() -> &'static ABI {

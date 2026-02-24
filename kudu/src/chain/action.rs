@@ -69,7 +69,7 @@ impl fmt::Debug for PermissionLevel {
 
 #[with_location]
 #[derive(Debug, Snafu)]
-// TODO: rename to `InvalidAction` for consistency?
+// TODO: rename to `InvalidAction` for consistency? or rather rename InvalidName to NameError
 pub enum ActionError {
     #[snafu(display("Cannot convert action['{field_name}'] to str, actual type: {value:?}"))]
     FieldType {
@@ -187,12 +187,12 @@ impl Action {
         abi.decode_variant(&mut ds, &self.name.to_string())
     }
 
-    pub fn with_data(mut self, value: &JsonValue) -> Self {
+    pub fn with_data(mut self, value: &JsonValue) -> Result<Self, ActionError> {
         let mut ds = ByteStream::new();
-        let abi = abi::registry::get_abi(&self.account.to_string()).unwrap();
-        abi.encode_variant(&mut ds, &self.name.to_string(), value).unwrap();
+        let abi = abi::registry::get_abi(&self.account.to_string())?;
+        abi.encode_variant(&mut ds, &self.name.to_string(), value)?;
         self.data = ds.into();
-        self
+        Ok(self)
     }
 
     pub fn to_json(&self) -> Result<JsonValue, ABIError> {
@@ -213,5 +213,11 @@ impl Action {
 impl fmt::Debug for Action {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "Action({}::{} {:?} data={}", self.account, self.name, self.authorization, self.data.to_hex())
+    }
+}
+
+impl fmt::Display for Action {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        <Self as fmt::Debug>::fmt(self, f)
     }
 }

@@ -1,14 +1,26 @@
+use std::error::Error;
+
 use pyo3::prelude::*;
 use pyo3::exceptions::{PyRuntimeError, PyValueError};
 
-#[inline]
-pub fn value_err<T: ToString>(e: T) -> PyErr {
-    PyValueError::new_err(e.to_string())
+fn full_error_message<T: Error>(e: T) -> String {
+    let mut message = vec![e.to_string()];
+    let mut current_source = e.source();
+    while let Some(source) = current_source {
+        message.push(source.to_string());
+        current_source = source.source();
+    }
+    message.join(": ")
 }
 
 #[inline]
-pub fn runtime_err<T: ToString>(e: T) -> PyErr {
-    PyRuntimeError::new_err(e.to_string())
+pub fn value_err<T: Error>(e: T) -> PyErr {
+    PyValueError::new_err(full_error_message(e))
+}
+
+#[inline]
+pub fn runtime_err<T: Error>(e: T) -> PyErr {
+    PyRuntimeError::new_err(full_error_message(e))
 }
 
 #[crabtime::function]

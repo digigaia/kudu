@@ -3,10 +3,6 @@ use std::sync::Once;
 
 use color_eyre::eyre::Result;
 use serde_json::{json, Value as JsonValue};
-use tracing_subscriber::{
-    EnvFilter,
-    // fmt::format::FmtSpan,
-};
 
 use kudu::*;
 
@@ -38,12 +34,7 @@ use kudu::*;
 static TRACING_INIT: Once = Once::new();
 
 fn init() {
-    TRACING_INIT.call_once(|| {
-        tracing_subscriber::fmt()
-            .with_env_filter(EnvFilter::from_default_env())
-            // .with_span_events(FmtSpan::ACTIVE)
-            .init();
-    });
+    TRACING_INIT.call_once(kudu::tracing_init);
 }
 
 

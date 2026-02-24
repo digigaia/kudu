@@ -1,4 +1,5 @@
 use std::hash::{Hash, Hasher};
+use std::sync::Arc;
 
 use serde_json::Value as JsonValue;
 use snafu::{Snafu, ResultExt, ensure};
@@ -72,22 +73,29 @@ impl APIClient {
         return_checked_json_response(response)
     }
 
+    pub fn call_unchecked(&self, path: &str, params: &JsonValue) -> Result<JsonValue, HttpError> {
+        self.agent.post(self.fullpath(path))
+            .send_json(params).context(ConnectionSnafu)?
+            .body_mut()
+            .read_json().context(JsonSnafu)
+    }
+
 
     // -----------------------------------------------------------------------------
     //     helper functions for known endpoints
     //     TODO: maybe this is not the best place to define them?
     // -----------------------------------------------------------------------------
 
-    pub fn local() -> Self {
-        APIClient::new("http://127.0.0.1:8888")
+    pub fn local() -> Arc<Self> {
+        Arc::new(APIClient::new("http://127.0.0.1:8888"))
     }
 
-    pub fn jungle() -> Self {
-        APIClient::new("https://jungle4.greymass.com")
+    pub fn jungle() -> Arc<Self> {
+        Arc::new(APIClient::new("https://jungle4.greymass.com"))
     }
 
-    pub fn vaulta() -> Self {
-        APIClient::new("https://vaulta.greymass.com")
+    pub fn vaulta() -> Arc<Self> {
+        Arc::new(APIClient::new("https://vaulta.greymass.com"))
     }
 }
 
@@ -103,8 +111,4 @@ impl Hash for APIClient {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.endpoint.hash(state);
     }
-}
-
-impl Default for APIClient {
-    fn default() -> Self { Self::vaulta() }
 }

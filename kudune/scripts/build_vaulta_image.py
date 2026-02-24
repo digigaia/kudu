@@ -211,7 +211,7 @@ def deploy_fees_system_contract(version=None):
 
 @deploy('Create default wallet')
 def create_default_wallet():
-    privkey = '5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3'
+    privkey = kudu.PrivateKey.eosio_dev()
 
     server.shell(commands=['cleos wallet create --file .wallet.pw || true',
                            # no need, wallet is already unlocked upon creation

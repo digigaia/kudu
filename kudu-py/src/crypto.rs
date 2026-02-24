@@ -32,6 +32,11 @@ pub mod kudu_crypto {
         fn __repr__(&self) -> String {
             format!("<kudu.PrivateKey: {}>", &self.0)
         }
+
+        #[staticmethod]
+        fn eosio_dev() -> Self {
+            Self(PrivateKey::eosio_dev())
+        }
     }
 
 

@@ -50,6 +50,9 @@ pub enum TransactionError {
 
     #[snafu(display("could not match JSON object to transaction"))]
     FromJson { source: serde_json::Error },
+
+    #[snafu(display("Nodeos error: {message}"))]
+    NodeosError { message: String },
 }
 
 impl_auto_error_conversion!(ChronoParseError, TransactionError, DateTimeParseSnafu);
@@ -275,6 +278,15 @@ impl SignedTransaction {
 
         Ok(result)
     }
+
+    pub fn send_unchecked(&self) -> Result<JsonValue, TransactionError> {
+        let signed_tx = json!(self);
+        let result = self.tx.client.as_ref().unwrap()
+            .call_unchecked("/v1/chain/push_transaction", &signed_tx)
+            .context(NetworkSnafu { message: format!("Could not push transaction: {}", &signed_tx) })?;
+
+        Ok(result)
+    }
 }
 
 // NOTE: we implement `Serialize` manually but we can't implement `Deserialize` as we
@@ -354,7 +366,7 @@ mod tests {
             "transaction_extensions": []
         }));
 
-        let signing_key = PrivateKey::new("5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3")?;
+        let signing_key = PrivateKey::eosio_dev();
         tx.chain_id = Some(Checksum256::from_hex(crate::config::JUNGLE_CHAIN_ID)?);
         let sig = tx.get_signature(&signing_key)?;
 

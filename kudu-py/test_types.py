@@ -223,6 +223,7 @@ def test_transaction():
     # TODO:
     # assert transaction == TX
     # assert str(transaction) == '...'
+    # assert attr access
 
     assert len(transaction.actions) == 1
     assert isinstance(transaction.actions[0], Action)
