@@ -81,6 +81,7 @@ set-version version: && \
     (_set_version "Cargo.toml" version) \
     (_set_version_in_deps "kudu/Cargo.toml" version) \
     (_set_version_in_deps "kudu-esr/Cargo.toml" version) \
+    (_set_version_in_deps "kudu-py/Cargo.toml" version) \
     (_set_version_in_deps "kudune/Cargo.toml" version)
     @echo "Setting version to: {{version}}:"
 

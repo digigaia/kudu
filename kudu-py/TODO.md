@@ -2,8 +2,6 @@
 
 - folder needs to have a README.md file
 
-- python version in `kudu-py/pyproject.toml` and `kudu-py/Cargo.toml` need to be updated by `just set-version`
-
 - use a new type for LinkedTransaction, to avoid some runtime checks
 
 - Readme needs to mention python bindings

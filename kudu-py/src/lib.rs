@@ -33,6 +33,7 @@ mod time;
 #[pymodule]
 mod kudu {
     use pyo3::prelude::*;
+    use pyo3::types::PyString;
 
     use kudu::{ABISerializable, ByteStream, Name};
 
@@ -96,6 +97,8 @@ mod kudu {
         // Arbitrary code to run at the module initialization
         // There is also some further python code that is run, it can be
         // found in `../python/kudu/__init__.py`
+
+        m.add("__version__", PyString::new(m.py(), kudu::config::VERSION))?;
 
         // properly declare submodules as packages
         // see: https://github.com/PyO3/pyo3/discussions/5397
