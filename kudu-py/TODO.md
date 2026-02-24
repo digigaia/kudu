@@ -6,8 +6,6 @@
 
 - Readme needs to mention python bindings
 
-- replace "let perm: Result<&Bound<'py, PyPermissionLevel>, _> = other.cast();" with "if let Some(perm) = other.cast::<PyPermissionLevel>()" everywhere and for all types
-
 - push_action in test_chain.py needs to be implemented in Rust, with python bindings
 
 - wallet.py needs to be implemented in Rust, with python bindings

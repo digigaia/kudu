@@ -46,8 +46,7 @@ pub mod kudu_chain {
         #[staticmethod]
         fn from_py<'py>(other: &Bound<'py, PyAny>) -> PyResult<Self> {
             // other object is of the same type
-            let perm: Result<&Bound<'py, PyPermissionLevel>, _> = other.cast();
-            if let Ok(perm) = perm {
+            if let Ok(perm) = other.cast::<PyPermissonLevel>() {
                 return Ok(Self(perm.borrow().0))
             }
             // other object is a tuple (actor, permission)
@@ -64,8 +63,7 @@ pub mod kudu_chain {
                 return self.0.actor == actor && self.0.permission == permission
             }
             // compare using a dict of named args
-            let d: Result<&Bound<'py, PyDict>, _> = other.cast();
-            if let Ok(d) = d {
+            if let Ok(d) = other.cast::<PyDict>() {
                 return d.len() == 2 && d.contains("actor").unwrap() && d.contains("permission").unwrap() && {
                     let actor: Result<String, _> = depythonize(&d.get_item("actor").unwrap().unwrap());
                     let permission: Result<String, _> = depythonize(&d.get_item("permission").unwrap().unwrap());
@@ -77,8 +75,7 @@ pub mod kudu_chain {
                 };
             }
             // compare using an object of the same type
-            let p: Result<&Bound<'py, PyPermissionLevel>, _> = other.cast();
-            if let Ok(p) = p {
+            if let Ok(p) = other.cast::<PyPermissionLevel>() {
                 return self.0 == p.borrow().0;
             }
             false
@@ -171,8 +168,7 @@ pub mod kudu_chain {
             }
 
             // compare using an object of the same type
-            let p: Result<&Bound<'py, PyAction>, _> = other.cast();
-            if let Ok(p) = p {
+            if let Ok(p) = other.cast::<PyAction>() {
                 return self.0 == p.borrow().0;
             }
 
