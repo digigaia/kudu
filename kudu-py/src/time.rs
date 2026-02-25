@@ -22,7 +22,7 @@ pub mod kudu_time {
     // -----------------------------------------------------------------------------
 
     #[pyclass(name = "TimePoint", module = "kudu.time")]
-    struct PyTimePoint(TimePoint);
+    pub struct PyTimePoint(pub TimePoint);
 
     gen_default_repr!("PyTimePoint");
     gen_default_str!("PyTimePoint");
@@ -47,7 +47,7 @@ pub mod kudu_time {
                                               dt.get_minute().into(),
                                               dt.get_second().into(),
                                               dt.get_microsecond() / 1000)
-                                  .unwrap())) // if it's a valid datetime, it should also be a valid TimePointSec
+                                  .unwrap())) // if it's a valid datetime, it should also be a valid TimePoint
             }
             else if let Ok((y, m, d, h, min, s, milli)) = dt.extract::<(i32, u32, u32, u32, u32, u32, u32)>() {
                 match TimePoint::new(y, m, d, h, min, s, milli) {
@@ -98,7 +98,7 @@ pub mod kudu_time {
     // -----------------------------------------------------------------------------
 
     #[pyclass(name = "TimePointSec", module = "kudu.time")]
-    struct PyTimePointSec(TimePointSec);
+    pub struct PyTimePointSec(pub TimePointSec);
 
     gen_default_repr!("PyTimePointSec");
     gen_default_str!("PyTimePointSec");

@@ -7,17 +7,17 @@ pub mod kudu_chain {
 
     use pyo3::prelude::*;
     use pyo3::exceptions::PyValueError;
-    use pyo3::types::{PyBytes, PyDict, PyList, PyString};
+    use pyo3::types::{PyBytes, PyDict, PyList, PyString, PyTuple};
     use pythonize::{depythonize, pythonize};
 
     use kudu::chain::{Action, PermissionLevel, SignedTransaction, Transaction};
     use kudu::{
         ABISerializable, AccountName, ActionName, Bytes, ByteStream, JsonValue, Name, PermissionName,
-        json,
     };
 
     use crate::api::kudu_api::PyAPIClient;
     use crate::crypto::kudu_crypto::PyPrivateKey;
+    use crate::time::kudu_time::PyTimePointSec;
     use crate::util::{
         gen_bytes_conversion, gen_default_repr, gen_default_str, gen_dict_conversion,
         gen_int_getters, gen_string_getters, runtime_err, value_err
@@ -254,8 +254,8 @@ pub mod kudu_chain {
         }
 
         #[getter]
-        fn get_expiration(&self) {
-            unimplemented!("needs to implement TimePointSec -> datetime first");
+        fn get_expiration(&self) -> PyTimePointSec {
+            PyTimePointSec(self.0.expiration)
         }
 
         #[getter]
@@ -271,8 +271,13 @@ pub mod kudu_chain {
         }
 
         #[getter]
-        fn get_transaction_extensions(&self) -> () {
-            todo!()
+        fn get_transaction_extensions<'py>(&self, py: Python<'py>) -> Bound<'py, PyList> {
+            let exts: Vec<Bound<'py, PyTuple>> = self.0
+                .transaction_extensions
+                .iter()
+                .map(|(ext_type, data)| (ext_type, PyBytes::new(py, data.as_ref())).into_pyobject(py).unwrap())  // unwrap should be safe
+                .collect();
+            PyList::new(py, exts).unwrap()  // unwrap should be safe
         }
 
         fn link(&mut self, client: &PyAPIClient) -> PyResult<()> {

@@ -75,7 +75,7 @@ def run_action_list(client, actions):
 
 
 def populate_db(client):
-    # actions = list of tuples: (permission, contract, action, args)
+    # actions = list of tuples: (actor, contract, action, args)
 
     tokenacct = 'eosio.token'
 

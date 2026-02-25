@@ -216,21 +216,26 @@ def test_action():
 
 
 def test_transaction():
-    transaction = Transaction(TX)
-    assert transaction.ref_block_num == 45323
-    assert transaction.to_dict() == TX
+    tx = Transaction(TX)
 
-    # TODO:
-    # assert transaction == TX
-    # assert str(transaction) == '...'
-    # assert attr access
+    assert repr(tx) == '<kudu.Transaction: [Action(eosio.token::transfer [useraaaaaaaa@active] data=608c31c6187315d6708c31c6187315d60100000000000000045359530000000000]>'
+    assert str(tx) == '<kudu.Transaction: [Action(eosio.token::transfer [useraaaaaaaa@active] data=608c31c6187315d6708c31c6187315d60100000000000000045359530000000000]>'
+    assert bytes(tx).hex() == TX_HEX
 
-    assert len(transaction.actions) == 1
-    assert isinstance(transaction.actions[0], Action)
-    assert transaction.actions[0].name == 'transfer'
-    assert transaction.actions[0] == ACTION
+    assert tx.expiration == kudu.TimePointSec((2018, 6, 27, 20, 33, 54))
+    assert tx.ref_block_num == 45323
+    assert tx.ref_block_prefix == 2628749070
+    assert tx.max_net_usage_words == 0
+    assert tx.delay_sec == 0
+    assert tx.context_free_actions == []
+    assert tx.transaction_extensions == []
 
-    assert bytes(transaction).hex() == TX_HEX
+    assert len(tx.actions) == 1
+    assert isinstance(tx.actions[0], Action)
+    assert tx.actions[0].name == 'transfer'
+    assert tx.actions[0] == ACTION
+
+    assert tx.to_dict() == TX
 
     with pytest.raises(ValueError):
         Transaction('this should fail gracefully')

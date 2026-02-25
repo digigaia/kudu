@@ -3,9 +3,7 @@
 
 from pathlib import Path
 from loguru import logger
-# import pyntelope
 import duct
-# import invoke
 import json
 import shlex
 
@@ -72,7 +70,6 @@ class Wallet(object):
         # accounts we are importing
         self._update_public_keys(accounts)
 
-        # wallet_pwd = invoke.run('kudune wallet-password', hide=True).stdout
         wallet_pwd = kudune('--quiet wallet-password', capture=True)
         keypairs = json.loads(kudune(f'--quiet exec -- cleos wallet private_keys --password {wallet_pwd}',
                                      capture=True))
