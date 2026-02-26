@@ -19,6 +19,8 @@ const DEFAULT_HTTP_ADDR: &str = "0.0.0.0:8888";
 const CONFIG_PATH: &str = "/app/config.ini";
 const TEMP_FOLDER: &str = "/tmp/scratch";
 
+const SYS_TOKEN_SYMBOL: &str = "EOS";
+
 
 fn unpack_scripts<P: AsRef<Path>>(scripts: P) -> Result<()> {
     let scripts = scripts.as_ref();
@@ -228,7 +230,6 @@ impl Dune {
 
     fn cleos_cmd(&self, cmd: &[&str]) -> process::Output {
         trace!("Running cleos command: {:?}", cmd);
-        self.unlock_wallet();
         let url = format!("http://{}", self.http_addr);
         let mut cleos_cmd = vec!["cleos", "--verbose", "-u", &url];
         cleos_cmd.extend_from_slice(cmd);
@@ -442,21 +443,13 @@ impl Dune {
     /// <https://github.com/AntelopeIO/spring/blob/main/tutorials/bios-boot-tutorial/bios-boot-tutorial.py>
     pub fn bootstrap_system(&self) {
         // TODO: check tests/eosio.system_tester.hpp in system-contracts
-        let currency = "SYS";
+        let currency = SYS_TOKEN_SYMBOL;
         let max_value     = "10000000000.0000";
         let initial_value =  "1000000000.0000";
 
-        self.preactivate_features(); // required for boot contract
-
-        // wait a little bit for feature to be activated (one block should be enough?)
-        // FIXME: use a retry wrapper instead of actively waiting
-        thread::sleep(Duration::from_millis(500));
-
-        info!("Deploying boot contract");
-        self.deploy_contract("/app/system_contracts/build/contracts/eosio.boot", "eosio");
-
-        info!("Activating features");
-        self.activate_features();
+        // -----------------------------------------------------------------------------
+        //     create system accounts
+        // -----------------------------------------------------------------------------
 
         info!("Creating accounts needed for system contracts");
         self.create_account("eosio.msig", Some("eosio"));
@@ -471,15 +464,88 @@ impl Dune {
         self.create_account("eosio.rex", Some("eosio"));
         self.create_account("eosio.fees", Some("eosio"));  // added in system-contracts v3.4.0
         self.create_account("eosio.powup", Some("eosio")); // added in system-contracts v3.4.0
+        self.create_account("core.vaulta", Some("eosio"));
+
+        // FIXME: missing: eosio.{reward, wram, reserv}
+
+        // -----------------------------------------------------------------------------
+        //     install system contracts
+        // -----------------------------------------------------------------------------
 
         info!("Deploying system contracts");
         self.deploy_contract("/app/system_contracts/build/contracts/eosio.msig", "eosio.msig");
         self.deploy_contract("/app/system_contracts/build/contracts/eosio.token", "eosio.token");
-        self.deploy_contract("/app/system_contracts/build/contracts/eosio.system", "eosio");
-        self.deploy_contract("/app/eosio.fees", "eosio.fees");
+        // NOTE: not in bios tutorial, is it needed?
+        // self.deploy_contract("/app/eosio.fees", "eosio.fees");
+
+        // -----------------------------------------------------------------------------
+        //     install system token (SYS)
+        // -----------------------------------------------------------------------------
 
         info!("Setting up `{currency}` token");
         self.setup_token(currency, max_value, initial_value);
+
+        // -----------------------------------------------------------------------------
+        //     set system contract
+        // -----------------------------------------------------------------------------
+
+        self.preactivate_features(); // required for boot contract
+
+        // wait a little bit for feature to be activated (one block should be enough?)
+        // FIXME: use a retry wrapper instead of actively waiting
+        thread::sleep(Duration::from_millis(500));
+
+        info!("Deploying boot contract");
+        self.deploy_contract("/app/system_contracts/build/contracts/eosio.boot", "eosio");
+
+        info!("Activating features");
+        self.activate_features();
+
+        info!("Deploying main system contracts");
+        self.deploy_contract("/app/system_contracts/build/contracts/eosio.system", "eosio");
+
+        self.send_action(
+            "setpriv",
+            "eosio",
+            r#"["eosio.msig", 1]"#,
+            "eosio@active"
+        );
+        self.send_action(
+            "setpriv",
+            "eosio",
+            r#"["core.vaulta", 1]"#,
+            "eosio@active"
+        );
+
+        self.deploy_contract("/app/system_contracts/build/contracts/core.vaulta", "core.vaulta");
+
+        // -----------------------------------------------------------------------------
+        //     init system contract
+        // -----------------------------------------------------------------------------
+
+        info!("Initialize system contract");
+        // Initialize the system account with code zero (needed at initialization time)
+        // and currency / token with precision 4
+        self.send_action(
+            "init",
+            "eosio",
+            &format!(r#"["0", "4,{currency}"]"#),
+            "eosio@active"
+        );
+
+        // -----------------------------------------------------------------------------
+        //     issue `A` token
+        // -----------------------------------------------------------------------------
+
+        info!("Initialize `core.vaulta` contract and issue `A` token");
+        // Initialize the core.vaulta account contract
+        // see: https://github.com/VaultaFoundation/vaulta-system-contract/blob/main/tests/eosio.system_tester.hpp#L330
+        self.send_action(
+            "init",
+            "core.vaulta",
+            r#"["2100000000.0000 A"]"#,
+            "core.vaulta@active"
+        );
     }
 
     fn setup_token(&self, currency: &str, max_value: &str, initial_value: &str) {
@@ -499,16 +565,6 @@ impl Dune {
             &format!(r#"[ "eosio", "{initial_value} {currency}", "memo" ]"#),
             "eosio@active"
         );
-
-        // Initialize the system account with code zero (needed at initialization time)
-        // and currency / token with precision 4
-        self.send_action(
-            "init",
-            "eosio",
-            &format!(r#"["0", "4,{currency}"]"#),
-            "eosio@active"
-        );
-
     }
 
     /// TODO: use builder pattern like so:
@@ -541,6 +597,7 @@ impl Dune {
         }
     }
 
+    // FIXME: order of args: account needs to come before action
     fn send_action(&self, action: &str, account: &str, data: &str, permission: &str) {
         // FIXME: do not use an external 'cleos' subprocess to send it but our own kudu::APIClient
         self.cleos_cmd(&["push", "action", account, action, data, "-p", permission]);
@@ -573,8 +630,8 @@ impl Dune {
         self.cleos_cmd(&[
             "system", "newaccount",
             "--transfer",
-            "--stake-net", "1.0000 SYS",
-            "--stake-cpu", "1.0000 SYS",
+            "--stake-net", &format!("1.0000 {SYS_TOKEN_SYMBOL}"),
+            "--stake-cpu", &format!("1.0000 {SYS_TOKEN_SYMBOL}"),
             "--buy-ram-kbytes", "512",
             creator, account, &public,
         ]);

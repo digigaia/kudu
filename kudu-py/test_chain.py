@@ -9,7 +9,7 @@ from kudu.chain import push_action
 from kudu.wallet import wallet
 import kudu
 
-BOOTSTRAP = True
+BOOTSTRAP = False
 VERBOSE = False
 
 # FIXME: use different container name than default for tests, also use different ports
@@ -60,6 +60,10 @@ def chain(client):
     return client.v1.chain
 
 
+sysacct = 'core.vaulta'
+tokenacct = 'eosio.token'
+
+
 def test_is_running(chain):
     info = chain.get_info()
     assert info['head_block_num'] > 0
@@ -77,15 +81,12 @@ def run_action_list(client, actions):
 def populate_db(client):
     # actions = list of tuples: (actor, contract, action, args)
 
-    tokenacct = 'eosio.token'
-
-
     #### 1- create accounts ################################################
     if BOOTSTRAP:
         kudune('system-newaccount figaro eosio')
         kudune('system-newaccount sabin eosio')
         kudune('system-newaccount edgar eosio')
-    wallet.import_from_kudune_wallet(['eosio', 'eosio.token', 'figaro', 'sabin', 'edgar'])
+    wallet.import_from_kudune_wallet(['core.vaulta', 'eosio', 'eosio.token', 'figaro', 'sabin', 'edgar'])
 
     #### 2- token creation #################################################
     token_creation = [
@@ -122,10 +123,9 @@ def populate_db(client):
 def test_new_token(client):
     populate_db(client)
 
-    tokenacct = 'eosio.token'
-
     def get_balance(account, symbol) -> float | None:
-        b = client.v1.chain.get_currency_balance(account=account, code=tokenacct, symbol=symbol)
+        code = sysacct if symbol == 'A' else tokenacct
+        b = client.v1.chain.get_currency_balance(account=account, code=code, symbol=symbol)
         if b:
             return float(b[0].split(' ')[0])
         else:
@@ -149,3 +149,14 @@ def test_new_token(client):
 
     assert edgar_now == edgar - 1
     assert sabin_now == sabin + 1
+
+
+def test_vaulta_transition(client):
+    assert client.v1.chain.get_currency_balance(account='core.vaulta', code=sysacct, symbol='A') == ['2100000000.0000 A']
+    actions = [
+        ('core.vaulta', sysacct, 'transfer', {'from': 'core.vaulta',
+                                                'to': 'eosio',
+                                                'quantity': '1.0000 A',
+                                                'memo': 'hello'}),
+    ]
+    run_action_list(client, actions)

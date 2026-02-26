@@ -49,7 +49,7 @@ file once they are implemented.
     - https://github.com/AntelopeIO/spring/blob/main/tutorials/bios-boot-tutorial/bios-boot-tutorial.py
     - https://github.com/VaultaFoundation/system-contracts/pull/206
 
-- add license before publishing
+- add license before publishing, also in all cargo.toml and pyproject.toml files
 
 - setup CI using GitHub actions before publishing
 

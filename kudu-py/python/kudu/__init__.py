@@ -1,6 +1,7 @@
 from .kudu import *  # noqa: F403
 from kudu.api import APIClient
 from kudu.chain import *  # noqa: F403
+from kudu.crypto import *  # noqa: F403
 from kudu.time import *  # noqa: F403
 
 class SubcommandProxy():

@@ -10,7 +10,7 @@ import math
 
 SPRING_VERSION = '1.2.2'
 CDT_VERSION = '4.1.1'
-SYSTEM_CONTRACTS_VERSION = '3.8.0'
+SYSTEM_CONTRACTS_VERSION = '3.10.0'
 COMPILE_SPRING_CDT = True
 NPROC = None
 CLEANUP = True
@@ -22,7 +22,35 @@ elif ARCH == 'aarch64':
     ARCH = 'arm64'
 DISTRO = host.get_fact(LinuxDistribution)['release_meta']
 
+SYS_NPROC = 0
+SYS_RAM = 0
+
+def get_system_info():
+    global SYS_NPROC, SYS_RAM
+    cpus = int(host.get_fact(Command, 'nproc'))
+    mem = host.get_fact(Command, 'free -k | grep Mem').split()[1]
+    mem = int(mem) // (1024*1024)
+    SYS_NPROC, SYS_RAM = cpus, mem
+
+
+get_system_info()
+
+
+def nproc(required_gb_per_core=None):
+    if NPROC:
+        return NPROC
+    cpus = SYS_NPROC
+    if required_gb_per_core is not None:
+        cpus = math.ceil(min(SYS_NPROC, SYS_RAM / required_gb_per_core))
+    return cpus
+
+
 logger.warning(f"Installing on: {host.get_fact(LinuxDistribution)['release_meta']['PRETTY_NAME']} (arch: {ARCH})")
+logger.warning(f'Host has {SYS_NPROC} CPUs and {SYS_RAM} Gb RAM')
+logger.warning('Installing the following versions:')
+logger.warning(f' - Spring: {SPRING_VERSION}')
+logger.warning(f' - CDT: {CDT_VERSION}')
+logger.warning(f' - System contracts: {SYSTEM_CONTRACTS_VERSION}')
 
 
 ################################################################################
@@ -67,30 +95,6 @@ def git_repo(src, dest, tag=None, branch=None):
             commands = [f'git switch {branch}', 'git pull']
         server.shell(commands=commands + ['git submodule update --init --recursive'],
                      _chdir=dest)
-
-
-SYS_NPROC = 0
-SYS_RAM = 0
-
-def get_system_info():
-    global SYS_NPROC, SYS_RAM
-    cpus = int(host.get_fact(Command, 'nproc'))
-    mem = host.get_fact(Command, 'free -k | grep Mem').split()[1]
-    mem = int(mem) // (1024*1024)
-    SYS_NPROC, SYS_RAM = cpus, mem
-    logger.warning(f'Host has {cpus} CPUs and {mem} Gb RAM')
-
-
-get_system_info()
-
-
-def nproc(required_gb_per_core=None):
-    if NPROC:
-        return NPROC
-    cpus = SYS_NPROC
-    if required_gb_per_core is not None:
-        cpus = math.ceil(min(SYS_NPROC, SYS_RAM / required_gb_per_core))
-    return cpus
 
 
 @deploy('Install NodeJS and Webpack')
@@ -165,7 +169,7 @@ def compile_cdt(tag=None, branch=None):
 
     build_dir = f'{work_dir}/build'
     files.directory(build_dir)
-    server.shell(commands=['cmake ..',
+    server.shell(commands=['cmake -DCMAKE_BUILD_TYPE=Release ..',
                            f'make -j{nproc(required_gb_per_core=2)}',
                            f'cd packages && bash ./generate_package.sh deb ubuntu-22.04 {ARCH}',
                            'apt install -y ./packages/cdt_*.deb'],
@@ -192,7 +196,7 @@ def deploy_system_contracts(version=None):
 
     build_dir = f'{work_dir}/build'
     files.directory(build_dir)
-    server.shell(commands=['cmake ..', f'make -j{nproc()}'],
+    server.shell(commands=['cmake -DCMAKE_BUILD_TYPE=Release ..', f'make -j{nproc()}'],
                  _chdir=build_dir)
 
 
@@ -209,9 +213,21 @@ def deploy_fees_system_contract(version=None):
                  _chdir=work_dir)
 
 
+@deploy('Deploy Vaulta system contract')
+def deploy_vaulta_contract():
+    work_dir = '/app/vaulta_system_contract'
+    git_repo(src='https://github.com/VaultaFoundation/vaulta-system-contract', dest=work_dir, branch='main')
+
+    build_dir = f'{work_dir}/build'
+    files.directory(build_dir)
+    server.shell(commands=['cmake -DCMAKE_BUILD_TYPE=Release ..', f'make -j{nproc()}'],
+                 _env={'SYSTEM_CONTRACTS_PATH': '/app/system-contracts/build/contracts'},
+                 _chdir=build_dir)
+
+
 @deploy('Create default wallet')
 def create_default_wallet():
-    privkey = kudu.PrivateKey.eosio_dev()
+    privkey = '5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3'  # eosio dev key
 
     server.shell(commands=['cleos wallet create --file .wallet.pw || true',
                            # no need, wallet is already unlocked upon creation
@@ -254,6 +270,7 @@ else:
     deploy_cdt(version=CDT_VERSION)
 deploy_system_contracts(version=SYSTEM_CONTRACTS_VERSION)
 deploy_fees_system_contract()
+deploy_vaulta_contract()
 create_default_wallet()
 install_reaper_script_for_zombies()
 if CLEANUP:

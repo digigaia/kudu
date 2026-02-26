@@ -44,6 +44,8 @@ impl DockerCommand {
 
         let output = expr.unchecked().run().unwrap();
 
+        print_streams!(trace, &output);
+
         if self.check_status {
             self.handle_error(&output);
         }

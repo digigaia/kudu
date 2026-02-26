@@ -234,6 +234,9 @@ fn main() -> Result<()> {
                 home,
             )?;
 
+            // unlock our wallet pre-emptively to be able to perform operations
+            dune.unlock_wallet();
+
             match cmd {
                 Commands::WalletPassword => {
                     info!("Wallet password is:");
