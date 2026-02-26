@@ -8,16 +8,16 @@ import json
 import shlex
 
 import kudu
-net = kudu.local.v1.chain
 
 # FIXME!! refactor the whole file
+#         also make sure we don't have a wallet singleton lying around, do it properly
 
-def kudune(cmd, capture=False):
-    cmd = duct.cmd('kudune', *shlex.split(cmd))
-    if capture:
-        return cmd.read()
-    else:
-        return cmd.run()
+# def kudune(cmd, capture=False):
+#     cmd = duct.cmd('kudune', *shlex.split(cmd))
+#     if capture:
+#         return cmd.read()
+#     else:
+#         return cmd.run()
 
 
 class Wallet(object):
@@ -28,14 +28,19 @@ class Wallet(object):
 
     DEFAULT_WALLET_LOCATION = Path('~/.local/share/eos_dev_wallet/wallet.json').expanduser()
 
-    def __init__(self, location=None):
+    def __init__(self, location=None, chain_api=None):
         self.location = Path(location) if location else self.DEFAULT_WALLET_LOCATION
         self.public_keys = {}  # account -> pubkey
         self.private_keys = {}  # account -> privkey
+        self.chain_api = chain_api or kudu.local.v1.chain
+
+    def set_kudune(self, kudune: kudu.Kudune):
+        self.kudune = kudune
+        self.chain_api = kudu.APIClient(f'http://localhost:{kudune.nodeos_port}').v1.chain
 
     def _update_public_keys(self, accounts):
         for name in accounts:
-            account = net.get_account(account_name=name)
+            account = self.chain_api.get_account(account_name=name)
             if 'error' in account:
                 logger.warning(f'Account {name} doesn\'t exist')
                 continue
@@ -70,9 +75,8 @@ class Wallet(object):
         # accounts we are importing
         self._update_public_keys(accounts)
 
-        wallet_pwd = kudune('--quiet wallet-password', capture=True)
-        keypairs = json.loads(kudune(f'--quiet exec -- cleos wallet private_keys --password {wallet_pwd}',
-                                     capture=True))
+        wallet_pwd = self.kudune.wallet_password(quiet=True, capture=True)
+        keypairs = json.loads(self.kudune.exec(f'cleos wallet private_keys --password {wallet_pwd}', quiet=True, capture=True))
 
         self._import_private_keys(keypairs, accounts)
         self.save()

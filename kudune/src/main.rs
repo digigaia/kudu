@@ -27,6 +27,10 @@ struct Cli {
     #[arg(short, long, default_value="vaulta_nodeos")]
     container: String,
 
+    /// The network port mappings to be used when starting a new docker container, outside->inside
+    #[arg(short, long, default_value="8888:8888,8976:8976")]
+    ports: String,
+
     /// Do not print any logging messages.
     ///
     /// Normal output of the command is still available on stdout.
@@ -181,6 +185,12 @@ fn init_tracing(verbose_level: u8) {
     };
 }
 
+fn parse_mapping(s: &str) -> (u16, u16) {
+     // FIXME: return Err
+    let (a, b) = s.split_once(':').unwrap();
+    (a.parse().unwrap(), b.parse().unwrap())
+}
+
 fn main() -> Result<()> {
     color_eyre::install()?;
     let cli = Cli::parse();
@@ -228,9 +238,11 @@ fn main() -> Result<()> {
         // all the other commands need a `Dune` instance, get one now and keep matching
         _ => {
             let home = env::var("HOME").expect("$HOME variable should be set");
+            let ports = cli.ports.split(",").map(parse_mapping).collect();
             let mut dune = Dune::new(
                 cli.container,
                 cli.image,
+                ports,
                 home,
             )?;
 

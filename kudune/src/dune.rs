@@ -15,7 +15,7 @@ use crate::util::eyre_from_output;
 
 
 const DEFAULT_BASE_IMAGE: &str = "ubuntu:22.04";
-const DEFAULT_HTTP_ADDR: &str = "0.0.0.0:8888";
+const DEFAULT_NODEOS_HTTP_PORT: u16 = 8888;
 const CONFIG_PATH: &str = "/app/config.ini";
 const TEMP_FOLDER: &str = "/tmp/scratch";
 
@@ -74,6 +74,8 @@ impl Default for BuildOpts {
 pub struct Dune {
     docker: Docker,
 
+    /// the internal (to the container) http address where to connect to nodeos
+    /// FIXME: this should be replaced just by the port, the addr inside the container will always be localhost:{port}
     http_addr: String,
 }
 
@@ -82,7 +84,7 @@ impl Dune {
     /// properly, and getting an instance fully created means we have a running
     /// container
     /// In contrast, the Docker constructor is barebones and doesn't perform additional actions
-    pub fn new(container: String, image: String, host_mount: String) -> Result<Dune> {
+    pub fn new(container: String, image: String, port_mapping: Vec<(u16, u16)>, host_mount: String) -> Result<Dune> {
         // make sure we have a docker image ready in case we need one to build
         // a new container off of it2
         let vaulta_image = duct::cmd!("docker", "images", "-q", &image).read().unwrap();
@@ -91,10 +93,10 @@ impl Dune {
             Self::build_image(&BuildOpts { name: image.clone(), ..Default::default() })?;
         }
 
-        let docker = Docker::new(container, image, host_mount);
+        let docker = Docker::new(container, port_mapping, image, host_mount);
         docker.start(true);
 
-        let mut result = Dune { docker, http_addr: DEFAULT_HTTP_ADDR.to_string() };
+        let mut result = Dune { docker, http_addr: format!("0.0.0.0:{DEFAULT_NODEOS_HTTP_PORT}") };
         result.sync_config();
 
         Ok(result)

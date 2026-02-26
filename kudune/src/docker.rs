@@ -12,6 +12,9 @@ pub struct Docker {
     /// the container name in which we run the docker commands
     container: String,
 
+    /// the list of network port mappings, from outward-facing port to inward-facing one
+    ports: Vec<(u16, u16)>,
+
     /// the image used to build the container if we haven't one already
     image: String,
 
@@ -28,8 +31,8 @@ impl Docker {
     // the Docker constructor is pretty barebones and doesn't ensure
     // anything is running. You have to call the `start()` method yourself
     // if you need to ensure the container is running
-    pub fn new(container: String, image: String, host_mount: String) -> Docker {
-        Docker { container, image, host_mount }
+    pub fn new(container: String, ports: Vec<(u16, u16)>, image: String, host_mount: String) -> Docker {
+        Docker { container, ports, image, host_mount }
     }
 
     /// Return a `DockerCommand` builder that you can later run.
@@ -120,19 +123,24 @@ impl Docker {
         if log { info!("Starting container..."); }
         let src = &self.host_mount;
         let dest = HOST_MOUNT_PATH;
-        Self::docker_command(&[
-            "run",
-            "-p", "127.0.0.1:8888:8888/tcp",
-            "-p", "127.0.0.1:9876:9876/tcp",
-            // "-p", "127.0.0.1:8080:8080/tcp",
-            // "-p", "127.0.0.1:3000:3000/tcp",
-            // "-p", "127.0.0.1:8000:8000/tcp",
-            "--mount", &format!("type=bind,source={},target={}", src, dest),
+        let ports: Vec<_> = self.ports.iter().map(|(pout, pin)| format!("127.0.0.1:{pout}:{pin}/tcp")).collect();
+        let mount = format!("type=bind,source={},target={}", src, dest);
+        let cname = format!("--name={}", &self.container);
+
+        let mut args = vec!["run"];
+        #[allow(clippy::needless_range_loop)]  // we want a & that outlives the for loop
+        for i in 0..ports.len() {
+            args.push("-p");
+            args.push(&ports[i]);
+        }
+        args.extend_from_slice(&[
+            "--mount", &mount,
             "--detach",
-            &format!("--name={}", &self.container),
+            &cname,
             &self.image,
             "/sbin/my_init",
-        ]).run();
+        ]);
+        Self::docker_command(&args[..]).run();
     }
 
     fn find_container(name: &str) -> Option<Value> {

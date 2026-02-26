@@ -1,4 +1,3 @@
-import json
 import shlex
 
 from loguru import logger
@@ -9,35 +8,29 @@ from kudu.chain import push_action
 from kudu.wallet import wallet
 import kudu
 
-BOOTSTRAP = False
+BOOTSTRAP = True
 VERBOSE = False
 
-# FIXME: use different container name than default for tests, also use different ports
-# CONTAINER_NAME = 'kudupy_test'
-KUDUNE_CMD = f'kudune {"-vv " if VERBOSE else ""}'  # --container {CONTAINER_NAME}'
+# NOTE: use different container name than default for tests, also use different ports
+CONTAINER_NAME = 'vaulta_pytest'
+NODEOS_PORT = 8898
 
-
-def kudune(cmd, capture=False):
-    cmd = duct.cmd(*shlex.split(KUDUNE_CMD), *shlex.split(cmd))
-    print(f'executing {cmd}')
-    if capture:
-        return cmd.read()
-    else:
-        return cmd.run()
+kudune = kudu.Kudune(container=CONTAINER_NAME, nodeos_port=NODEOS_PORT, verbose=VERBOSE)
+wallet.set_kudune(kudune)
 
 
 @pytest.fixture(scope='module')
 def bootstrap_node():
     # create a fresh node from scratch
-    kudune('destroy')
-    kudune('start-node')
-    kudune('bootstrap')
+    kudune.destroy()
+    kudune.start_node()
+    kudune.bootstrap()
 
 
 @pytest.fixture(scope='module')
 def existing_node():
     # start an existing node
-    kudune('start-node')
+    kudune.start_node()
 
 
 start_node = bootstrap_node if BOOTSTRAP else existing_node
@@ -47,12 +40,12 @@ start_node = bootstrap_node if BOOTSTRAP else existing_node
 def node(start_node):
     # time.sleep(1)  # give it time to start
     yield
-    kudune('stop-node')
+    kudune.stop_node()
 
 
 @pytest.fixture
 def client(node):
-    return kudu.api.APIClient('http://localhost:8888')
+    return kudu.api.APIClient(f'http://localhost:{NODEOS_PORT}')
 
 
 @pytest.fixture
@@ -83,9 +76,9 @@ def populate_db(client):
 
     #### 1- create accounts ################################################
     if BOOTSTRAP:
-        kudune('system-newaccount figaro eosio')
-        kudune('system-newaccount sabin eosio')
-        kudune('system-newaccount edgar eosio')
+        kudune.system_newaccount('figaro', 'eosio')
+        kudune.system_newaccount('sabin', 'eosio')
+        kudune.system_newaccount('edgar', 'eosio')
     wallet.import_from_kudune_wallet(['core.vaulta', 'eosio', 'eosio.token', 'figaro', 'sabin', 'edgar'])
 
     #### 2- token creation #################################################
@@ -153,10 +146,11 @@ def test_new_token(client):
 
 def test_vaulta_transition(client):
     assert client.v1.chain.get_currency_balance(account='core.vaulta', code=sysacct, symbol='A') == ['2100000000.0000 A']
+    wallet.import_from_kudune_wallet(['core.vaulta'])
     actions = [
         ('core.vaulta', sysacct, 'transfer', {'from': 'core.vaulta',
-                                                'to': 'eosio',
-                                                'quantity': '1.0000 A',
-                                                'memo': 'hello'}),
+                                              'to': 'eosio',
+                                              'quantity': '1.0000 A',
+                                              'memo': 'hello'}),
     ]
     run_action_list(client, actions)
