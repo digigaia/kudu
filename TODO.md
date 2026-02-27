@@ -53,6 +53,8 @@ file once they are implemented.
 
 - setup CI using GitHub actions before publishing
 
+- investigate https://github.com/release-plz/release-plz for releasing new versions
+
 - include `ARCHITECTURE.md` somewhere in the docs
 
 - investigate rust libs found here: <https://onblock.dev/communicating-with-the-wax-blockchain>
@@ -61,6 +63,10 @@ file once they are implemented.
 
 - check <https://kerkour.com/rust-how-to-organize-large-workspaces>
   <https://www.reddit.com/r/rust/comments/1e30mkl/how_to_organize_large_rust_codebases/>
+
+- check <https://kerkour.com/rust-production-checklist> for advice. In particular:
+  - release configuration
+  - replace the global allocator by mimalloc
 
 - implement `Debug` and `Display` trait for all basic types
 

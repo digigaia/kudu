@@ -119,6 +119,8 @@ def test_new_token(client):
     def get_balance(account, symbol) -> float | None:
         code = sysacct if symbol == 'A' else tokenacct
         b = client.v1.chain.get_currency_balance(account=account, code=code, symbol=symbol)
+        # note: can also use the following to get all balances
+        # b = client.v1.chain.get_table_rows(code=code, scope=account, table='accounts', json=True)
         if b:
             return float(b[0].split(' ')[0])
         else:

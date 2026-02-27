@@ -200,6 +200,7 @@ mod tests {
 
 
     #[test]
+    #[ignore]  // we need kudune to run a node before this test, find a way to do it cleanly
     fn test_push_action() -> Result<(), TransactionError> {
         kudu::tracing_init();
 
