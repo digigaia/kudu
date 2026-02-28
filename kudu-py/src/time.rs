@@ -51,8 +51,8 @@ pub mod kudu_time {
             }
             else if let Ok((y, m, d, h, min, s, milli)) = dt.extract::<(i32, u32, u32, u32, u32, u32, u32)>() {
                 match TimePoint::new(y, m, d, h, min, s, milli) {
-                    Some(tp) => Ok(PyTimePoint(tp)),
-                    None => Err(PyValueError::new_err("invalid time point")),
+                    Ok(tp) => Ok(PyTimePoint(tp)),
+                    Err(e) => Err(value_err(e)),
                 }
             }
             else {
@@ -126,8 +126,8 @@ pub mod kudu_time {
             }
             else if let Ok((y, m, d, h, min, s)) = dt.extract::<(i32, u32, u32, u32, u32, u32)>() {
                 match TimePointSec::new(y, m, d, h, min, s) {
-                    Some(tp) => Ok(PyTimePointSec(tp)),
-                    None => Err(PyValueError::new_err("invalid time point")),
+                    Ok(tp) => Ok(PyTimePointSec(tp)),
+                    Err(e) => Err(value_err(e)),
                 }
             }
             else {

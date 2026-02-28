@@ -64,7 +64,7 @@ def test_timepointsec():
     assert tp.minute == 17
     assert tp.second == 47
 
-    with pytest.raises(ValueError, match='invalid time point'):
+    with pytest.raises(ValueError, match='Invalid year-month-day'):
         kudu.TimePointSec((2018, 6, 45, 19, 17, 47))
 
     with pytest.raises(ValueError, match='input contains invalid characters'):
@@ -99,7 +99,7 @@ def test_timepoint():
     assert tp.second == 47
     assert tp.milli == 999
 
-    with pytest.raises(ValueError, match='invalid time point'):
+    with pytest.raises(ValueError, match='Invalid year-month-day'):
         kudu.TimePoint((2018, 6, 45, 19, 17, 47, 999))
 
     with pytest.raises(ValueError, match='input contains invalid characters'):

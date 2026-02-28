@@ -5,9 +5,46 @@ use std::str::FromStr;
 use chrono::{DateTime, NaiveDate, NaiveDateTime, ParseError as ChronoParseError, TimeZone, Utc};
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::{json, Value as JsonValue};
+use snafu::{Snafu, OptionExt};
+
+use kudu_macros::with_location;
 
 use crate::config;
 
+
+#[with_location]
+#[derive(Debug, Snafu)]
+pub enum InvalidTimePoint {
+    #[snafu(display("Invalid year-month-day: {year}-{month}-{day}"))]
+    YMD {
+        year: i32,
+        month: u32,
+        day: u32,
+    },
+
+    #[snafu(display("Invalid hour:minute:second: {hour}:{min}:{sec}"))]
+    HMS {
+        hour: u32,
+        min: u32,
+        sec: u32,
+    },
+
+    #[snafu(display("Invalid hour:minute:second.milli: {hour}:{min}:{sec}.{milli}"))]
+    HMSMilli {
+        hour: u32,
+        min: u32,
+        sec: u32,
+        milli: u32,
+    },
+
+    #[snafu(display("Invalid hour:minute:second.micro: {hour}:{min}:{sec}.{micro}"))]
+    HMSMicro {
+        hour: u32,
+        min: u32,
+        sec: u32,
+        micro: u32,
+    },
+}
 
 const DATE_FORMAT: &str = "%Y-%m-%dT%H:%M:%S%.f";      // accept any number of digits for millis/micros
 const DATE_FORMAT_MS: &str = "%Y-%m-%dT%H:%M:%S%.3f";  // fixed 3 digits for millis
@@ -92,16 +129,16 @@ macro_rules! impl_from {
 pub struct TimePoint(i64);
 
 impl TimePoint {
-    pub fn new(year: i32, month: u32, day: u32, hour: u32, min: u32, sec: u32, milli: u32) -> Option<Self> {
-        Some(TimePoint::from_datetime(
-            NaiveDate::from_ymd_opt(year, month, day)?
-                .and_hms_milli_opt(hour, min, sec, milli)?
+    pub fn new(year: i32, month: u32, day: u32, hour: u32, min: u32, sec: u32, milli: u32) -> Result<Self, InvalidTimePoint> {
+        Ok(TimePoint::from_datetime(
+            NaiveDate::from_ymd_opt(year, month, day).context(YMDSnafu { year, month, day })?
+                .and_hms_milli_opt(hour, min, sec, milli).context(HMSMilliSnafu { hour, min, sec, milli })?
                 .and_utc()))
     }
-    pub fn from_ymd_hms_micro(year: i32, month: u32, day: u32, hour: u32, min: u32, sec: u32, micro: u32) -> Option<Self> {
-        Some(TimePoint::from_datetime(
-            NaiveDate::from_ymd_opt(year, month, day)?
-                .and_hms_micro_opt(hour, min, sec, micro)?
+    pub fn from_ymd_hms_micro(year: i32, month: u32, day: u32, hour: u32, min: u32, sec: u32, micro: u32) -> Result<Self, InvalidTimePoint> {
+        Ok(TimePoint::from_datetime(
+            NaiveDate::from_ymd_opt(year, month, day).context(YMDSnafu { year, month, day })?
+                .and_hms_micro_opt(hour, min, sec, micro).context(HMSMicroSnafu { hour, min, sec, micro })?
                 .and_utc()))
     }
     pub fn from_datetime(dt: DateTime<Utc>) -> Self {
@@ -137,10 +174,10 @@ impl FromStr for TimePoint {
 pub struct TimePointSec(u32);
 
 impl TimePointSec {
-    pub fn new(year: i32, month: u32, day: u32, hour: u32, min: u32, sec: u32) -> Option<Self> {
-        Some(TimePointSec::from_datetime(
-            NaiveDate::from_ymd_opt(year, month, day)?
-                .and_hms_opt(hour, min, sec)?
+    pub fn new(year: i32, month: u32, day: u32, hour: u32, min: u32, sec: u32) -> Result<Self, InvalidTimePoint> {
+        Ok(TimePointSec::from_datetime(
+            NaiveDate::from_ymd_opt(year, month, day).context(YMDSnafu { year, month, day })?
+                .and_hms_opt(hour, min, sec).context(HMSSnafu { hour, min, sec })?
                 .and_utc()))
     }
     pub fn from_datetime(dt: DateTime<Utc>) -> Self {
