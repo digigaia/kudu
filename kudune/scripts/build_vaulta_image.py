@@ -7,10 +7,12 @@ from pyinfra.facts.server import Arch, Command, LinuxDistribution
 from pyinfra.api import deploy
 from pyinfra import host, logger
 import math
+import re
 
 SPRING_VERSION = '1.2.2'
 CDT_VERSION = '4.1.1'
 SYSTEM_CONTRACTS_VERSION = '3.10.0'
+VAULTA_CONTRACT_VERSION = 'main'
 COMPILE_SPRING_CDT = True
 NPROC = None
 CLEANUP = True
@@ -45,12 +47,15 @@ def nproc(required_gb_per_core=None):
     return cpus
 
 
+spring_cdt_source = 'compiled' if COMPILE_SPRING_CDT else 'from package'
+
 logger.warning(f"Installing on: {host.get_fact(LinuxDistribution)['release_meta']['PRETTY_NAME']} (arch: {ARCH})")
 logger.warning(f'Host has {SYS_NPROC} CPUs and {SYS_RAM} Gb RAM')
 logger.warning('Installing the following versions:')
-logger.warning(f' - Spring: {SPRING_VERSION}')
-logger.warning(f' - CDT: {CDT_VERSION}')
-logger.warning(f' - System contracts: {SYSTEM_CONTRACTS_VERSION}')
+logger.warning(f' - Spring: {SPRING_VERSION} ({spring_cdt_source})')
+logger.warning(f' - CDT: {CDT_VERSION} ({spring_cdt_source})')
+logger.warning(f' - System contracts: {SYSTEM_CONTRACTS_VERSION} (compiled)')
+logger.warning(f' - Vaulta contract: {VAULTA_CONTRACT_VERSION} (compiled)')
 
 
 ################################################################################
@@ -58,6 +63,12 @@ logger.warning(f' - System contracts: {SYSTEM_CONTRACTS_VERSION}')
 ##   Various deploys to install the parts of a running Vaulta system          ##
 ##                                                                            ##
 ################################################################################
+
+def gitref(git_ref):
+    if re.match(r'[0-9]+\.[0-9]+\.[0-9]+', git_ref):
+        # tagged versions start with a 'v' prefix
+        return f'v{git_ref}'
+    return git_ref
 
 
 @deploy('Install base packages')
@@ -82,19 +93,25 @@ def install_base_packages():
 
 
 @deploy('Clone/update git repo')
-def git_repo(src, dest, tag=None, branch=None):
+def git_repo(src, dest, git_ref=None):
     if not host.get_fact(Directory, dest):
         git.repo(src=src, dest=dest, update_submodules=True, recursive_submodules=True)
     else:
         # repo is already checked out, update it
         server.shell('git fetch --all --tags --prune', _chdir=dest)
-    if tag or branch:
-        if tag:
-            commands = [f'git checkout {tag}']
-        else:
-            commands = [f'git switch {branch}', 'git pull']
-        server.shell(commands=commands + ['git submodule update --init --recursive'],
-                     _chdir=dest)
+
+    if git_ref:
+        git_ref = gitref(git_ref)
+        commands = [f'git checkout {git_ref}']
+    else:
+        commands = []
+
+    commands += [
+        # only do a `git pull` if we are on a branch (ie: not detached)
+        '([ $(git rev-parse --abbrev-ref --symbolic-full-name HEAD) != "HEAD" ] && git pull) || true',
+        'git submodule update --init --recursive',
+    ]
+    server.shell(commands=commands, _chdir=dest)
 
 
 @deploy('Install NodeJS and Webpack')
@@ -113,9 +130,9 @@ def deploy_nodejs(major_version=18):
 
 
 @deploy('Compile Antelope Spring')
-def compile_spring(tag=None, branch=None):
+def compile_spring(git_ref=None):
     work_dir = '/app/spring'
-    git_repo(src='https://github.com/AntelopeIO/spring', dest=work_dir, tag=tag, branch=branch)
+    git_repo(src='https://github.com/AntelopeIO/spring', dest=work_dir, git_ref=git_ref)
 
     build_deps = [
         'build-essential',
@@ -150,9 +167,9 @@ def deploy_spring(version=None):
 
 
 @deploy('Compile Antelope CDT')
-def compile_cdt(tag=None, branch=None):
+def compile_cdt(git_ref=None):
     work_dir = '/app/cdt'
-    git_repo(src='https://github.com/AntelopeIO/cdt', dest=work_dir, tag=tag, branch=branch)
+    git_repo(src='https://github.com/AntelopeIO/cdt', dest=work_dir, git_ref=git_ref)
 
     build_deps = [
         'build-essential',
@@ -191,8 +208,7 @@ def deploy_cdt(version=None):
 @deploy('Deploy system contracts')
 def deploy_system_contracts(version=None):
     work_dir = '/app/system_contracts'
-    tag = f'v{version}' if version else None
-    git_repo(src='https://github.com/VaultaFoundation/system-contracts', dest=work_dir, tag=tag)
+    git_repo(src='https://github.com/VaultaFoundation/system-contracts', dest=work_dir, git_ref=version)
 
     build_dir = f'{work_dir}/build'
     files.directory(build_dir)
@@ -207,7 +223,7 @@ def deploy_fees_system_contract(version=None):
     git.repo(src='https://github.com/VaultaFoundation/eosio.fees',
              dest=work_dir)
     if version:
-        server.shell(commands=f'git checkout v{version}', _chdir=work_dir)
+        server.shell(commands=f'git checkout {gitref(version)}', _chdir=work_dir)
 
     server.shell(commands=['cdt-cpp eosio.fees.cpp -I ./include'],
                  _chdir=work_dir)
@@ -263,8 +279,8 @@ install_base_packages()
 #deploy_nodejs(major_version=18)
 
 if COMPILE_SPRING_CDT:
-    compile_spring(tag=f'v{SPRING_VERSION}')
-    compile_cdt(tag=f'v{CDT_VERSION}')
+    compile_spring(git_ref=SPRING_VERSION)
+    compile_cdt(git_ref=CDT_VERSION)
 else:
     deploy_spring(version=SPRING_VERSION)
     deploy_cdt(version=CDT_VERSION)

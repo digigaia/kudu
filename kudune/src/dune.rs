@@ -42,6 +42,9 @@ fn replace_line<P: AsRef<Path>>(filename: P, line: &str, replace: &str) {
 pub struct BuildOpts {
     pub name: String,
     pub base_image: String,
+    pub spring: Option<String>,
+    pub cdt: Option<String>,
+    pub system_contracts: Option<String>,
     pub compile: bool,
     pub nproc: Option<i16>,
     pub cleanup: bool,
@@ -53,6 +56,9 @@ impl Default for BuildOpts {
         Self {
             name: "".to_string(),
             base_image: DEFAULT_BASE_IMAGE.to_string(),
+            spring: None,
+            cdt: None,
+            system_contracts: None,
             compile: false,
             nproc: None,
             cleanup: true,
@@ -143,6 +149,24 @@ impl Dune {
 
         // build image using pyinfra
         const CAPTURE_OUTPUT: bool = false;
+
+        if let Some(version) = &opts.spring {
+            replace_line(scripts_folder.join("build_vaulta_image.py"),
+                         r"SPRING_VERSION = .+",
+                         &format!("SPRING_VERSION = '{}'", version));
+        }
+
+        if let Some(version) = &opts.cdt {
+            replace_line(scripts_folder.join("build_vaulta_image.py"),
+                         r"CDT_VERSION = .+",
+                         &format!("CDT_VERSION = '{}'", version));
+        }
+
+        if let Some(version) = &opts.system_contracts {
+            replace_line(scripts_folder.join("build_vaulta_image.py"),
+                         r"SYSTEM_CONTRACTS_VERSION = .+",
+                         &format!("SYSTEM_CONTRACTS_VERSION = '{}'", version));
+        }
 
         replace_line(scripts_folder.join("build_vaulta_image.py"),
                      r"COMPILE_SPRING_CDT = [A-Za-z]+",

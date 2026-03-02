@@ -62,9 +62,21 @@ enum Commands {
         #[arg(default_value = "ubuntu:22.04")]
         base: String,
 
+        /// version of Antelope Spring to be installed
+        #[arg(long)]
+        spring: Option<String>,
+
+        /// version of CDT to be installed
+        #[arg(long)]
+        cdt: Option<String>,
+
+        /// version of system contracts to be installed
+        #[arg(long)]
+        system_contracts: Option<String>,
+
         /// whether to compile Spring and CDT or to download pre-built packages.
         /// WARNING: compiling can take a *long* time...
-        #[arg(short, long, default_value_t=false)]
+        #[arg(short, long, default_value_t = false)]
         compile: bool,
 
         /// max number of CPUs to be used in parallel for compilation. When not specified,
@@ -73,7 +85,7 @@ enum Commands {
         nproc: Option<i16>,
 
         /// do not cleanup image after finishing building it. This can be useful during dev
-        #[arg(long, default_value_t=false)]
+        #[arg(long, default_value_t = false)]
         no_cleanup: bool,
     },
 
@@ -220,7 +232,7 @@ fn main() -> Result<()> {
                 println!("Container: {:20} ({})", name, status);
             }
         },
-        Commands::BuildImage { base, compile, nproc, no_cleanup } => {
+        Commands::BuildImage { base, spring, cdt, system_contracts, compile, nproc, no_cleanup } => {
             let compile_info = match compile {
                 true => "(compiled)",
                 false => "(packaged)",
@@ -229,6 +241,9 @@ fn main() -> Result<()> {
             let opts = BuildOpts {
                 name: cli.image.clone(),
                 base_image: base.clone(),
+                spring,
+                cdt,
+                system_contracts,
                 compile,
                 nproc,
                 cleanup: !no_cleanup,
