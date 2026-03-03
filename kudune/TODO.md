@@ -17,6 +17,8 @@
 - use IndexMap on the node config to ensure we do not mess up the config file order
   also ensure we're keeping comments from the config file when round-tripping it
 
+- try to replace all calls to cleos with direct call to nodes
+
 - make sure we can generate a decent documentation
 
 - try to follow guidelines from <https://clig.dev>

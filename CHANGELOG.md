@@ -3,22 +3,27 @@
 
 ## General enhancements
 
- - cleanup API around ABI/ABIProvider: there is now a global registry for preloaded ABIs, which doesn't require
-   us to pass ABIs around for a lot of methods that need them (encoding/decoding JSON <-> binary).
-   It is still possible to explicitly pass an ABI if needed.
+- cleanup API around `ABI`/`ABIProvider`: there is now a global registry for preloaded ABIs, which doesn't
+  require you to pass ABIs around for a lot of methods that need them (encoding/decoding JSON <-> binary).
+  It is still possible to explicitly pass an ABI if needed.
 
- - `kuduconv` does not require to pass an ABI explicitly anymore, if will select a preloaded one automatically
-   that matches the type being converted
+- `kuduconv` does not require you to pass an ABI explicitly anymore, if will select a preloaded
+  one automatically that matches the type being converted.
 
- - new types/structs: `Transaction`, that can also sign if given a private key
+- new types/structs: `Transaction`, that can also sign if given a private key to sign with.
 
 
 ## Kudune enhancements
 
- - it can compile Spring and CDT instead of downloading packages when building an image
- - it can run on MacOS (tested with Orbstack), will use an amd64 base image
- - increased default cpu max usage time for transactions to be able to run on lower-power
-   machines (eg: CI, emulated AMD64 on Apple silicon, etc.
+- EOS -> Vaulta transition: latest system contracts support the `A` token and the `core.vaulta`
+  contract as system contract
+- you can specify the versions of Spring, CDT and system contracts you want installed
+- you can compile Spring and CDT instead of downloading packages when building an image
+- kudune now can run on MacOS (tested with Orbstack), will use an amd64 base image
+- `kudune info` will list the version of the components installed in the container
+- increased default cpu max usage time for transactions to be able to run on lower-power
+  machines (eg: CI, emulated AMD64 on Apple silicon, etc.)
+- kudune image has been optimized a bit, now takes ~1.2GB
 
 
 ## Python bindings
@@ -53,4 +58,4 @@ It is subdivided into 3 main crates for now:
           tool (similar to `abieos`).
 - `kudu-esr`: provides ESR (EOSIO Signing Request) utils.
 - `kudune`: is a CLI tool that helps you manage and run nodeos instances in Docker.
-            It aims at replacing the deprecated `DUNES` utility
+            It aims at replacing the deprecated `DUNES` utility.

@@ -254,7 +254,7 @@ impl Dune {
         self.docker.color_command(args).capture_output(false)
     }
 
-    fn cleos_cmd(&self, cmd: &[&str]) -> process::Output {
+    pub fn cleos_cmd(&self, cmd: &[&str]) -> process::Output {
         trace!("Running cleos command: {:?}", cmd);
         let url = format!("http://{}", self.http_addr);
         let mut cleos_cmd = vec!["cleos", "--verbose", "-u", &url];

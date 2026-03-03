@@ -177,6 +177,16 @@ enum Commands {
         location: String,
     },
 
+    /// Retrieve table data
+    GetTable {
+        /// the account name with the token contract
+        account: String,
+        /// the user which we are looking up
+        scope: String,
+        /// the specific table for this user with the given name
+        table: String,
+    },
+
     /// Show the wallet password
     WalletPassword,
 
@@ -365,6 +375,11 @@ fn main() -> Result<()> {
                 Commands::CmakeBuild { location } => {
                     let location = dune.host_to_container_path(&location)?;
                     dune.cmake_build(&location);
+                },
+                Commands::GetTable { account, scope, table } => {
+                    let output = String::from_utf8(dune.cleos_cmd(&["get", "table", &account, &scope, &table]).stdout)?;
+                    info!("{}", &output);
+
                 },
                 Commands::Exec { cmd } => {
                     let cmd: Vec<_> = cmd.iter().map(String::as_str).collect();
