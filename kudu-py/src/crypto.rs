@@ -5,7 +5,7 @@ use pyo3::prelude::*;
 pub mod kudu_crypto {
     use pyo3::prelude::*;
 
-    use kudu::{ABISerializable, ByteStream, PrivateKey, PublicKey};
+    use kudu::{ABISerializable, PrivateKey, PublicKey};
 
     use crate::util::{gen_bytes_conversion, value_err};
 

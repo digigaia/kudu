@@ -35,7 +35,7 @@ mod kudu {
     use pyo3::prelude::*;
     use pyo3::types::PyString;
 
-    use kudu::{ABISerializable, ByteStream, Name};
+    use kudu::{ABISerializable, Name};
 
     #[pymodule_export]
     use crate::abi::kudu_abi;

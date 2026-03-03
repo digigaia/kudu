@@ -8,7 +8,7 @@ use snafu::{Snafu, ResultExt};
 use kudu_macros::with_location;
 
 use crate::{
-    ByteStream, StreamError, ABIError,
+    ByteStreamView, StreamError, ABIError,
     types::*,
     impl_auto_error_conversion,
 };
@@ -54,31 +54,30 @@ impl_auto_error_conversion!(InvalidAsset, SerializeError, InvalidAssetSnafu);
 impl_auto_error_conversion!(InvalidCryptoData, SerializeError, InvalidCryptoDataSnafu);
 
 
-/// Define methods required to (de)serialize a struct to a [`ByteStream`]
+/// Define methods required to (de)serialize a struct to a [`Bytes`] (from a `ByteStreamView`)
 pub trait ABISerializable {
-    fn to_bin(&self, stream: &mut ByteStream);
-    fn from_bin(stream: &mut ByteStream) -> Result<Self, SerializeError>
+    fn to_bin(&self, stream: &mut Bytes);
+    fn from_bin(stream: &mut ByteStreamView) -> Result<Self, SerializeError>
     where
         Self: Sized;
 }
 
 /// Serialize a `ABISerializable` type to binary data.
 pub fn to_bin<T: ABISerializable>(value: &T) -> Bytes {
-    let mut s = ByteStream::new();
+    let mut s = Bytes::new();
     value.to_bin(&mut s);
-    Bytes(s.into_bytes())
+    s
 }
 
 /// Return the hex representation of the binary serialization of a `ABISerializable` type.
 pub fn to_hex<T: ABISerializable>(value: &T) -> String {
-    let mut s = ByteStream::new();
+    let mut s = Bytes::new();
     value.to_bin(&mut s);
-    s.hex_data()
+    s.to_hex()
 }
 
-// FIXME: this makes an unnecessary copy
 pub fn from_bin<T: ABISerializable>(bin: impl AsRef<[u8]>) -> Result<T, SerializeError> {
-    let mut s = ByteStream::from(bin.as_ref().to_vec());
+    let mut s = ByteStreamView::from(bin.as_ref());
     T::from_bin(&mut s)
 }
 
@@ -90,11 +89,11 @@ macro_rules! impl_pod_serialization {
     ($typ:ty, $size:literal) => {
         impl ABISerializable for $typ {
             #[inline]
-            fn to_bin(&self, stream: &mut ByteStream) {
+            fn to_bin(&self, stream: &mut Bytes) {
                 stream.write_bytes(cast_ref::<$typ, [u8; $size]>(self))
             }
             #[inline]
-            fn from_bin(stream: &mut ByteStream) -> Result<Self, SerializeError> {
+            fn from_bin(stream: &mut ByteStreamView) -> Result<Self, SerializeError> {
                 Ok(pod_read_unaligned(stream.read_bytes($size)?))
             }
         }
@@ -105,11 +104,11 @@ macro_rules! impl_wrapped_serialization {
     ($typ:ty, $inner:ty) => {
         impl ABISerializable for $typ {
             #[inline]
-            fn to_bin(&self, stream: &mut ByteStream) {
+            fn to_bin(&self, stream: &mut Bytes) {
                 <$inner>::from(*self).to_bin(stream)
             }
             #[inline]
-            fn from_bin(stream: &mut ByteStream) -> Result<Self, SerializeError> {
+            fn from_bin(stream: &mut ByteStreamView) -> Result<Self, SerializeError> {
                 Ok(<$typ>::from(<$inner>::from_bin(stream)?))
             }
         }
@@ -120,11 +119,11 @@ macro_rules! impl_array_serialization {
     ($typ:ty, $size:literal) => {
         impl ABISerializable for $typ {
             #[inline]
-            fn to_bin(&self, stream: &mut ByteStream) {
+            fn to_bin(&self, stream: &mut Bytes) {
                 stream.write_bytes(&self.0[..])
             }
             #[inline]
-            fn from_bin(stream: &mut ByteStream) -> Result<Self, SerializeError> {
+            fn from_bin(stream: &mut ByteStreamView) -> Result<Self, SerializeError> {
                 let arr: [u8; $size] = stream.read_bytes($size)?.try_into().unwrap();  // safe unwrap
                 Ok(<$typ>::from(arr))
             }
@@ -139,14 +138,14 @@ macro_rules! impl_array_serialization {
 
 impl ABISerializable for bool {
     #[inline]
-    fn to_bin(&self, stream: &mut ByteStream) {
+    fn to_bin(&self, stream: &mut Bytes) {
         stream.write_byte(match *self {
             true => 1u8,
             false => 0u8,
         })
     }
     #[inline]
-    fn from_bin(stream: &mut ByteStream) -> Result<Self, SerializeError> {
+    fn from_bin(stream: &mut ByteStreamView) -> Result<Self, SerializeError> {
         match stream.read_byte()? {
             1 => Ok(true),
             0 => Ok(false),
@@ -157,11 +156,11 @@ impl ABISerializable for bool {
 
 impl ABISerializable for i8 {
     #[inline]
-    fn to_bin(&self, stream: &mut ByteStream) {
+    fn to_bin(&self, stream: &mut Bytes) {
         stream.write_byte(*self as u8)
     }
     #[inline]
-    fn from_bin(stream: &mut ByteStream) -> Result<Self, SerializeError> {
+    fn from_bin(stream: &mut ByteStreamView) -> Result<Self, SerializeError> {
         Ok(stream.read_byte()? as i8)
     }
 }
@@ -173,11 +172,11 @@ impl_pod_serialization!(i128, 16);
 
 impl ABISerializable for u8 {
     #[inline]
-    fn to_bin(&self, stream: &mut ByteStream) {
+    fn to_bin(&self, stream: &mut Bytes) {
         stream.write_byte(*self)
     }
     #[inline]
-    fn from_bin(stream: &mut ByteStream) -> Result<Self, SerializeError> {
+    fn from_bin(stream: &mut ByteStreamView) -> Result<Self, SerializeError> {
         Ok(stream.read_byte()?)
     }
 }
@@ -192,33 +191,33 @@ impl_pod_serialization!(f64, 8);
 
 impl ABISerializable for Float128 {
     #[inline]
-    fn to_bin(&self, stream: &mut ByteStream) {
+    fn to_bin(&self, stream: &mut Bytes) {
         stream.write_bytes(self.to_bin_repr())
     }
     #[inline]
-    fn from_bin(stream: &mut ByteStream) -> Result<Self, SerializeError> {
+    fn from_bin(stream: &mut ByteStreamView) -> Result<Self, SerializeError> {
         Ok(Float128::from_bin_repr(stream.read_bytes(16)?.try_into().unwrap()))  // safe unwrap
     }
 }
 
 impl ABISerializable for VarInt32 {
     #[inline]
-    fn to_bin(&self, stream: &mut ByteStream) {
+    fn to_bin(&self, stream: &mut Bytes) {
         stream.write_var_i32(i32::from(*self))
     }
     #[inline]
-    fn from_bin(stream: &mut ByteStream) -> Result<Self, SerializeError> {
+    fn from_bin(stream: &mut ByteStreamView) -> Result<Self, SerializeError> {
         Ok(stream.read_var_i32()?.into())
     }
 }
 
 impl ABISerializable for VarUint32 {
     #[inline]
-    fn to_bin(&self, stream: &mut ByteStream) {
+    fn to_bin(&self, stream: &mut Bytes) {
         stream.write_var_u32(u32::from(*self))
     }
     #[inline]
-    fn from_bin(stream: &mut ByteStream) -> Result<Self, SerializeError> {
+    fn from_bin(stream: &mut ByteStreamView) -> Result<Self, SerializeError> {
         Ok(stream.read_var_u32()?.into())
     }
 }
@@ -229,11 +228,11 @@ impl ABISerializable for VarUint32 {
 // -----------------------------------------------------------------------------
 
 impl ABISerializable for Bytes {
-    fn to_bin(&self, stream: &mut ByteStream) {
-        stream.write_var_u32(self.0.len() as u32);
-        stream.write_bytes(&self.0[..]);
+    fn to_bin(&self, stream: &mut Bytes) {
+        stream.write_var_u32(self.as_bytes().len() as u32);
+        stream.write_bytes(self.as_bytes());
     }
-    fn from_bin(stream: &mut ByteStream) -> Result<Self, SerializeError> {
+    fn from_bin(stream: &mut ByteStreamView) -> Result<Self, SerializeError> {
         let len = stream.read_var_u32()? as usize;
         Ok(Bytes::from(stream.read_bytes(len)?))
     }
@@ -241,21 +240,21 @@ impl ABISerializable for Bytes {
 
 // convenience implementation to avoid allocating when encoding a &[u8]
 impl ABISerializable for &[u8] {
-    fn to_bin(&self, stream: &mut ByteStream) {
+    fn to_bin(&self, stream: &mut Bytes) {
         stream.write_var_u32(self.len() as u32);
         stream.write_bytes(self);
     }
-    fn from_bin(_stream: &mut ByteStream) -> Result<Self, SerializeError> {
+    fn from_bin(_stream: &mut ByteStreamView) -> Result<Self, SerializeError> {
         unimplemented!();
     }
 }
 
 impl ABISerializable for String {
-    fn to_bin(&self, stream: &mut ByteStream) {
+    fn to_bin(&self, stream: &mut Bytes) {
         stream.write_var_u32(self.len() as u32);
         stream.write_bytes(self.as_bytes());
     }
-    fn from_bin(stream: &mut ByteStream) -> Result<Self, SerializeError> {
+    fn from_bin(stream: &mut ByteStreamView) -> Result<Self, SerializeError> {
         let len = stream.read_var_u32()? as usize;
         from_utf8(stream.read_bytes(len)?).context(Utf8Snafu).map(|s| s.to_owned())
     }
@@ -263,11 +262,11 @@ impl ABISerializable for String {
 
 // convenience implementation to avoid allocating encoding a &str
 impl ABISerializable for &str {
-    fn to_bin(&self, stream: &mut ByteStream) {
+    fn to_bin(&self, stream: &mut Bytes) {
         stream.write_var_u32(self.len() as u32);
         stream.write_bytes(self.as_bytes());
     }
-    fn from_bin(_stream: &mut ByteStream) -> Result<Self, SerializeError> {
+    fn from_bin(_stream: &mut ByteStreamView) -> Result<Self, SerializeError> {
         unimplemented!()
     }
 }
@@ -297,12 +296,12 @@ impl_array_serialization!(Checksum512, 64);
 
 impl ABISerializable for Name {
     #[inline]
-    fn to_bin(&self, stream: &mut ByteStream) {
+    fn to_bin(&self, stream: &mut Bytes) {
         self.as_u64().to_bin(stream)
     }
 
     #[inline]
-    fn from_bin(stream: &mut ByteStream) -> Result<Self, SerializeError> {
+    fn from_bin(stream: &mut ByteStreamView) -> Result<Self, SerializeError> {
         let n = u64::from_bin(stream)?;
         Ok(Name::from_u64(n))
     }
@@ -310,12 +309,12 @@ impl ABISerializable for Name {
 
 impl ABISerializable for Symbol {
     #[inline]
-    fn to_bin(&self, stream: &mut ByteStream) {
+    fn to_bin(&self, stream: &mut Bytes) {
         self.as_u64().to_bin(stream)
     }
 
     #[inline]
-    fn from_bin(stream: &mut ByteStream) -> Result<Self, SerializeError> {
+    fn from_bin(stream: &mut ByteStreamView) -> Result<Self, SerializeError> {
         let n = u64::from_bin(stream)?;
         Ok(Symbol::from_u64(n)?)
     }
@@ -323,24 +322,24 @@ impl ABISerializable for Symbol {
 
 impl ABISerializable for SymbolCode {
     #[inline]
-    fn to_bin(&self, stream: &mut ByteStream) {
+    fn to_bin(&self, stream: &mut Bytes) {
         self.as_u64().to_bin(stream)
     }
 
     #[inline]
-    fn from_bin(stream: &mut ByteStream) -> Result<Self, SerializeError> {
+    fn from_bin(stream: &mut ByteStreamView) -> Result<Self, SerializeError> {
         let n = u64::from_bin(stream)?;
         Ok(SymbolCode::from_u64(n))
     }
 }
 
 impl ABISerializable for Asset {
-    fn to_bin(&self, stream: &mut ByteStream) {
+    fn to_bin(&self, stream: &mut Bytes) {
         self.amount().to_bin(stream);
         self.symbol().to_bin(stream);
     }
 
-    fn from_bin(stream: &mut ByteStream) -> Result<Self, SerializeError> {
+    fn from_bin(stream: &mut ByteStreamView) -> Result<Self, SerializeError> {
         let amount = i64::from_bin(stream)?;
         let symbol = Symbol::from_bin(stream)?;
         Ok(Asset::new(amount, symbol)?)
@@ -348,12 +347,12 @@ impl ABISerializable for Asset {
 }
 
 impl ABISerializable for ExtendedAsset {
-    fn to_bin(&self, stream: &mut ByteStream) {
+    fn to_bin(&self, stream: &mut Bytes) {
         self.quantity.to_bin(stream);
         self.contract.to_bin(stream);
     }
 
-    fn from_bin(stream: &mut ByteStream) -> Result<Self, SerializeError> {
+    fn from_bin(stream: &mut ByteStreamView) -> Result<Self, SerializeError> {
         let quantity = Asset::from_bin(stream)?;
         let contract = Name::from_bin(stream)?;
         Ok(ExtendedAsset { quantity, contract })
@@ -361,12 +360,12 @@ impl ABISerializable for ExtendedAsset {
 }
 
 impl<T: CryptoDataType, const DATA_SIZE: usize> ABISerializable for CryptoData<T, DATA_SIZE> {
-    fn to_bin(&self, stream: &mut ByteStream) {
+    fn to_bin(&self, stream: &mut Bytes) {
         stream.write_byte(self.key_type().index());
         stream.write_bytes(self.data());
     }
 
-    fn from_bin(stream: &mut ByteStream) -> Result<Self, SerializeError> {
+    fn from_bin(stream: &mut ByteStreamView) -> Result<Self, SerializeError> {
         let key_type = KeyType::from_index(stream.read_byte()?)?;
         let data = stream.read_bytes(DATA_SIZE)?.try_into().unwrap();  // safe unwrap
         Ok(Self::with_key_type(key_type, data))
@@ -375,12 +374,12 @@ impl<T: CryptoDataType, const DATA_SIZE: usize> ABISerializable for CryptoData<T
 
 // this, coupled with the blanket impl for Vec, gives us the impl for the `Extensions` type
 impl ABISerializable for (u16, Bytes) {
-    fn to_bin(&self, stream: &mut ByteStream) {
+    fn to_bin(&self, stream: &mut Bytes) {
         self.0.to_bin(stream);
         self.1.to_bin(stream);
     }
 
-    fn from_bin(stream: &mut ByteStream) -> Result<Self, SerializeError> {
+    fn from_bin(stream: &mut ByteStreamView) -> Result<Self, SerializeError> {
         let id = u16::from_bin(stream)?;
         let data = Bytes::from_bin(stream)?;
         Ok((id, data))
@@ -399,14 +398,14 @@ impl ABISerializable for (u16, Bytes) {
 // -----------------------------------------------------------------------------
 
 impl<T: ABISerializable + Debug, const N: usize> ABISerializable for [T; N] {
-    fn to_bin(&self, stream: &mut ByteStream) {
+    fn to_bin(&self, stream: &mut Bytes) {
         stream.write_var_u32(self.len() as u32);
         for elem in self {
             elem.to_bin(stream);
         }
     }
 
-    fn from_bin(stream: &mut ByteStream) -> Result<Self, SerializeError> {
+    fn from_bin(stream: &mut ByteStreamView) -> Result<Self, SerializeError> {
         let len: u32 = VarUint32::from_bin(stream)?.into();
         let mut result = Vec::with_capacity(len as usize);
         for _ in 0..len {
@@ -427,14 +426,14 @@ impl<T: ABISerializable + Debug, const N: usize> ABISerializable for [T; N] {
 //  - optimized impl for Vec<u8>, but we have to manually implement
 //    (possibly with the help of a macro) all the other needed types
 impl<T: ABISerializable> ABISerializable for Vec<T> {
-    fn to_bin(&self, stream: &mut ByteStream) {
+    fn to_bin(&self, stream: &mut Bytes) {
         stream.write_var_u32(self.len() as u32);
         for elem in self {
             elem.to_bin(stream);
         }
     }
 
-    fn from_bin(stream: &mut ByteStream) -> Result<Self, SerializeError> {
+    fn from_bin(stream: &mut ByteStreamView) -> Result<Self, SerializeError> {
         let len: u32 = VarUint32::from_bin(stream)?.into();
         let mut result = Vec::with_capacity(len as usize);
         for _ in 0..len {
@@ -449,7 +448,7 @@ impl<T: ABISerializable> ABISerializable for Vec<T> {
 // -----------------------------------------------------------------------------
 
 impl<T: ABISerializable> ABISerializable for Option<T> {
-    fn to_bin(&self, stream: &mut ByteStream) {
+    fn to_bin(&self, stream: &mut Bytes) {
         match self {
             Some(v) => {
                 true.to_bin(stream);
@@ -461,7 +460,7 @@ impl<T: ABISerializable> ABISerializable for Option<T> {
         }
     }
 
-    fn from_bin(stream: &mut ByteStream) -> Result<Self, SerializeError> {
+    fn from_bin(stream: &mut ByteStreamView) -> Result<Self, SerializeError> {
         Ok(match bool::from_bin(stream)? {
             true => Some(T::from_bin(stream)?),
             false => None,
@@ -474,11 +473,11 @@ impl<T: ABISerializable> ABISerializable for Option<T> {
 // -----------------------------------------------------------------------------
 
 impl<T: ABISerializable> ABISerializable for Box<T> {
-    fn to_bin(&self, stream: &mut ByteStream) {
+    fn to_bin(&self, stream: &mut Bytes) {
         self.as_ref().to_bin(stream);
     }
 
-    fn from_bin(stream: &mut ByteStream) -> Result<Self, SerializeError> {
+    fn from_bin(stream: &mut ByteStreamView) -> Result<Self, SerializeError> {
         Ok(Box::new(T::from_bin(stream)?))
    }
 }
@@ -488,14 +487,14 @@ impl<T: ABISerializable> ABISerializable for Box<T> {
 // -----------------------------------------------------------------------------
 
 impl<T: ABISerializable + Ord> ABISerializable for BTreeSet<T> {
-    fn to_bin(&self, stream: &mut ByteStream) {
+    fn to_bin(&self, stream: &mut Bytes) {
         stream.write_var_u32(self.len() as u32);
         for v in self {
             v.to_bin(stream);
         }
     }
 
-    fn from_bin(stream: &mut ByteStream) -> Result<Self, SerializeError> {
+    fn from_bin(stream: &mut ByteStreamView) -> Result<Self, SerializeError> {
         let len: u32 = VarUint32::from_bin(stream)?.into();
         let mut result = BTreeSet::new();
         for _ in 0..len {
@@ -514,7 +513,7 @@ where
     K: ABISerializable + Ord,
     V: ABISerializable,
 {
-    fn to_bin(&self, stream: &mut ByteStream) {
+    fn to_bin(&self, stream: &mut Bytes) {
         stream.write_var_u32(self.len() as u32);
         for (k, v) in self {
             k.to_bin(stream);
@@ -522,7 +521,7 @@ where
         }
     }
 
-    fn from_bin(stream: &mut ByteStream) -> Result<Self, SerializeError> {
+    fn from_bin(stream: &mut ByteStreamView) -> Result<Self, SerializeError> {
         let len: u32 = VarUint32::from_bin(stream)?.into();
         let mut result = BTreeMap::new();
         for _ in 0..len {

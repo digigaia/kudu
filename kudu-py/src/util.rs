@@ -61,7 +61,7 @@ fn _gen_bytes_conversion(struct_name: String) {
         #[pymethods]
         impl {{struct_name}} {
             pub fn __bytes__(&self) -> Vec<u8> {
-                let mut b = ByteStream::new();
+                let mut b = ::kudu::Bytes::new();
                 self.0.to_bin(&mut b);
                 b.into()
             }

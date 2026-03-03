@@ -5,7 +5,7 @@ use clap::{Parser, Subcommand};
 use color_eyre::{Result, eyre::{eyre, OptionExt, WrapErr}};
 use serde_json::Value;
 
-use kudu::{abi, ByteStream, ABI};
+use kudu::{abi, Bytes, ABI};
 
 
 #[derive(Parser)]
@@ -93,27 +93,28 @@ pub fn main() -> Result<()> {
             let abi = get_abi(abi, &typename)?;
 
             // create a byte stream for storing the bin representation
-            let mut ds = ByteStream::new();
+            let mut ds = Bytes::new();
 
             // perform the json->hex conversion
             let v: Value = json.parse()?;
             abi.encode_variant(&mut ds, &typename,  &v)?;
 
-            println!("{}", ds.hex_data());
+            println!("{}", ds.to_hex());
         }
 
         Commands::FromHex { abi, typename, hex } => {
             let abi = get_abi(abi, &typename)?;
 
             // create a byte stream from the given hex representation
-            let mut bin = ByteStream::from_hex(&hex)?;
+            let bin = Bytes::from_hex(&hex)?;
+            let mut view = bin.view();
 
             // perform the hex->json conversion
-            let v = abi.decode_variant(&mut bin, &typename)?;
+            let v = abi.decode_variant(&mut view, &typename)?;
 
-            if !bin.leftover().is_empty() {
+            if !view.leftover().is_empty() {
                 return Err(eyre!("Trailing input, {} bytes haven't been consumed. Decoded object: {:?}",
-                                 bin.leftover().len(), &v));
+                                 view.leftover().len(), &v));
             }
 
             println!("{}", v);

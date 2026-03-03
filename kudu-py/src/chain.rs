@@ -12,7 +12,7 @@ pub mod kudu_chain {
 
     use kudu::chain::{Action, PermissionLevel, SignedTransaction, Transaction};
     use kudu::{
-        ABISerializable, AccountName, ActionName, Bytes, ByteStream, JsonValue, Name, PermissionName,
+        ABISerializable, AccountName, ActionName, Bytes, JsonValue, Name, PermissionName,
     };
 
     use crate::api::kudu_api::PyAPIClient;
@@ -191,7 +191,7 @@ pub mod kudu_chain {
 
         #[getter]
         fn get_data(&self) -> &[u8] {
-            &self.0.data.0[..]
+            self.0.data.as_bytes()
         }
 
         fn decode_data<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
@@ -275,7 +275,7 @@ pub mod kudu_chain {
             let exts: Vec<Bound<'py, PyTuple>> = self.0
                 .transaction_extensions
                 .iter()
-                .map(|(ext_type, data)| (ext_type, PyBytes::new(py, data.as_ref())).into_pyobject(py).unwrap())  // unwrap should be safe
+                .map(|(ext_type, data)| (ext_type, PyBytes::new(py, data.as_bytes())).into_pyobject(py).unwrap())  // unwrap should be safe
                 .collect();
             PyList::new(py, exts).unwrap()  // unwrap should be safe
         }

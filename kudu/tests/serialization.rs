@@ -8,7 +8,7 @@ use serde::{Serialize, Deserialize};
 use serde_json::json;
 
 use kudu::{
-    ABI, ByteStream, ABISerializable,
+    ABI, ABISerializable,
     AntelopeType, AntelopeValue, Asset, Bytes, BlockTimestamp, ExtendedAsset,
     Name, Symbol, SymbolCode, TimePoint, TimePointSec, VarInt32, VarUint32, PublicKey, PrivateKey, Signature,
     Checksum160, Checksum256, Checksum512,
@@ -43,11 +43,11 @@ fn test_encode<T>(obj: T, repr: &str)
 where
     T: ABISerializable + Debug + PartialEq,
 {
-    let mut stream = ByteStream::new();
+    let mut stream = Bytes::new();
 
     // abi.encode(&mut stream, &obj);
     obj.to_bin(&mut stream);
-    assert_eq!(stream.hex_data(), repr,
+    assert_eq!(stream.to_hex(), repr,
                "wrong ABI serialization for: {obj:?}");
 }
 
@@ -56,14 +56,14 @@ fn test_roundtrip<T>(obj: T, repr: &str)
 where
     T: ABISerializable + Debug + PartialEq,
 {
-    let mut stream = ByteStream::new();
+    let mut stream = Bytes::new();
 
     // abi.encode(&mut stream, &obj);
     obj.to_bin(&mut stream);
-    assert_eq!(stream.hex_data(), repr,
+    assert_eq!(stream.to_hex(), repr,
                "wrong serialization for: {obj:?}");
 
-    let decoded = T::from_bin(&mut stream).unwrap();
+    let decoded = T::from_bin(&mut stream.view()).unwrap();
     assert_eq!(decoded, obj,
                "deserialized object `{:?}` is not the same as original one `{:?}`",
                decoded, obj);
@@ -71,13 +71,13 @@ where
 
 #[track_caller]
 fn test_roundtrip_variant(obj: AntelopeValue, repr: &str) {
-    let mut stream = ByteStream::new();
+    let mut stream = Bytes::new();
 
     obj.to_bin(&mut stream);
-    assert_eq!(stream.hex_data(), repr, "wrong serialization for: {obj:?}");
+    assert_eq!(stream.to_hex(), repr, "wrong serialization for: {obj:?}");
 
     let typename: AntelopeType = AntelopeType::from_str(obj.as_ref()).unwrap();
-    let decoded = AntelopeValue::from_bin(typename, &mut stream).unwrap();
+    let decoded = AntelopeValue::from_bin(typename, &mut stream.view()).unwrap();
     assert_eq!(decoded, obj,
                "deserialized object `{:?}` is not the same as original one `{:?}`",
                decoded, obj);
@@ -425,19 +425,19 @@ fn test_bytes() {
 fn test_serialize_array() {
     let a = ["foo", "bar", "baz"];
     let abi = ABI::new();
-    let mut ds = ByteStream::new();
+    let mut ds = Bytes::new();
 
     abi.encode_variant(&mut ds, "string[]", &json!(a)).unwrap();
-    assert_eq!(ds.hex_data().to_uppercase(), "0303666F6F036261720362617A");
+    assert_eq!(ds.to_hex().to_uppercase(), "0303666F6F036261720362617A");
 
     ds.clear();
     abi.encode_variant(&mut ds, "string[][]", &json!([a])).unwrap();
-    assert_eq!(ds.hex_data().to_uppercase(), "010303666F6F036261720362617A");
+    assert_eq!(ds.to_hex().to_uppercase(), "010303666F6F036261720362617A");
 
     ds.clear();
     let v = vec!["foo", "bar", "baz"];
     abi.encode_variant(&mut ds, "string[]", &json!(v)).unwrap();
-    assert_eq!(ds.hex_data().to_uppercase(), "0303666F6F036261720362617A");
+    assert_eq!(ds.to_hex().to_uppercase(), "0303666F6F036261720362617A");
 }
 
 

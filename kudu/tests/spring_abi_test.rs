@@ -188,8 +188,6 @@ fn duplicate_types() -> Result<()> {
 fn nested_types() -> Result<()> {
     init();
 
-    use kudu::ByteStream;
-
     let indirectly_nested_abi = r#"
     {
         "version": "eosio::abi/1.0",
@@ -207,12 +205,12 @@ fn nested_types() -> Result<()> {
     }
     "#;
     let abi = ABI::from_str(indirectly_nested_abi)?;
-    let mut ds = ByteStream::new();
+    let mut ds = Bytes::new();
 
     let value = json!([["a", "b"],["c", "d"]]);
     abi.encode_variant(&mut ds, "name_matrix", &value)?;
 
-    let decoded = abi.decode_variant(&mut ds, "name_matrix")?;
+    let decoded = abi.decode_variant(&mut ds.view(), "name_matrix")?;
     println!("{:?}", decoded);
 
     assert_eq!(value, decoded);
@@ -481,7 +479,7 @@ fn abi_large_array() -> Result<()> {
 
     let data = b"\xff\xff\xff\xff\x08";
 
-    let result = abi.binary_to_variant("hi[]", Bytes(data.to_vec()));
+    let result = abi.binary_to_variant("hi[]", Bytes::from(data));
     check_error!(result, ABIError::DecodeError { .. }, "stream ended unexpectedly; unable to unpack field 'a' of struct 'hi'");
 
     Ok(())
@@ -596,10 +594,10 @@ fn variants() -> Result<()> {
 
     // round-trip abi through multiple formats
     // json -> variant -> abi_def -> bin
-    let mut stream = ByteStream::new();
+    let mut stream = Bytes::new();
     ABIDefinition::from_str(variant_abi)?.to_bin(&mut stream);
     // bin -> abi_def -> variant -> abi_def
-    let abi = ABI::from_str(&json!(ABIDefinition::from_bin(&mut stream)?).to_string())?;
+    let abi = ABI::from_str(&json!(ABIDefinition::from_bin(&mut stream.view())?).to_string())?;
 
     // expected array containing variant
     let result = abi.variant_to_binary("v1", &json!(9));
@@ -646,10 +644,10 @@ fn aliased_variants() -> Result<()> {
 
     // round-trip abi through multiple formats
     // json -> variant -> abi_def -> bin
-    let mut stream = ByteStream::new();
+    let mut stream = Bytes::new();
     ABIDefinition::from_str(aliased_variant)?.to_bin(&mut stream);
     // bin -> abi_def -> variant -> abi_def
-    let abi = ABI::from_str(&json!(ABIDefinition::from_bin(&mut stream)?).to_string())?;
+    let abi = ABI::from_str(&json!(ABIDefinition::from_bin(&mut stream.view())?).to_string())?;
 
     verify_round_trip(&abi, "foo", &json!(["int8",21]), "0015")
 }

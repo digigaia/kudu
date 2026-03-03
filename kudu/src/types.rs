@@ -58,71 +58,7 @@ pub use float128::Float128;
 //     Bytes and String types
 // -----------------------------------------------------------------------------
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash, Default)]
-pub struct Bytes(pub Vec<u8>);
-
-impl Bytes {
-    pub fn new() -> Self { Bytes(vec![]) }
-    pub fn from_hex<T: AsRef<[u8]>>(data: T) -> Result<Bytes, FromHexError> {
-        Ok(Bytes(hex::decode(data)?))
-    }
-    pub fn to_hex(&self) -> String {
-        hex::encode(&self.0)
-    }
-}
-
-impl From<Vec<u8>> for Bytes {
-    fn from(v: Vec<u8>) -> Bytes {
-        Bytes(v)
-    }
-}
-
-impl From<&[u8]> for Bytes {
-    fn from(s: &[u8]) -> Bytes {
-        Bytes(s.to_vec())
-    }
-}
-
-// This should probably be using Bytes::from_hex if we define it, however this
-// conversion is probably prone to error so we don't define it for now unless
-// a good reason comes up that we should
-// impl From<&str> for Bytes {
-//     fn from(s: &str) -> Bytes {
-//         Bytes(s.as_bytes().to_vec())
-//     }
-// }
-
-impl From<Bytes> for Vec<u8> {
-    fn from(b: Bytes) -> Vec<u8> {
-        b.0
-    }
-}
-
-impl AsRef<[u8]> for Bytes {
-    fn as_ref(&self) -> &[u8] {
-        &self.0
-    }
-}
-
-impl Serialize for Bytes {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer
-    {
-        self.to_hex().serialize(serializer)
-    }
-}
-
-impl<'de> Deserialize<'de> for Bytes {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let hex_repr: &str = <&str>::deserialize(deserializer)?;
-        Bytes::from_hex(hex_repr).map_err(|e| de::Error::custom(e.to_string()))
-    }
-}
-
+pub use crate::bytestream::Bytes;
 pub type String = std::string::String;
 
 

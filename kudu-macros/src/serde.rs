@@ -54,12 +54,12 @@ fn derive_abiserializable_struct(input: &DeriveInput, fields: &FieldsNamed) -> R
         #[doc(hidden)]
         const _: () = {
             impl kudu::ABISerializable for #ident {
-                fn to_bin(&self, s: &mut kudu::ByteStream) {
+                fn to_bin(&self, s: &mut kudu::Bytes) {
                     #(
                         self.#fieldname.to_bin(s);
                     )*
                 }
-                fn from_bin(s: &mut kudu::ByteStream) -> ::core::result::Result<Self, kudu::SerializeError> {
+                fn from_bin(s: &mut kudu::ByteStreamView) -> ::core::result::Result<Self, kudu::SerializeError> {
                     Ok(Self {
                         #(
                             #fieldname: <#fieldtype>::from_bin(s)?,
@@ -112,7 +112,7 @@ fn derive_abiserializable_enum(input: &DeriveInput, enumeration: &DataEnum) -> R
         #[doc(hidden)]
         const _: () = {
             impl kudu::ABISerializable for #ident {
-                fn to_bin(&self, s: &mut kudu::ByteStream) {
+                fn to_bin(&self, s: &mut kudu::Bytes) {
                     match *self {
                         #(
                             #ident::#var_idents(ref __field0) => {
@@ -122,7 +122,7 @@ fn derive_abiserializable_enum(input: &DeriveInput, enumeration: &DataEnum) -> R
                         )*
                     }
                 }
-                fn from_bin(s: &mut kudu::ByteStream) -> ::core::result::Result<Self, kudu::SerializeError> {
+                fn from_bin(s: &mut kudu::ByteStreamView) -> ::core::result::Result<Self, kudu::SerializeError> {
                     Ok(match kudu::VarUint32::from_bin(s)?.0 {
                         #(
                             #index => #ident::#var_idents(<#var_type>::from_bin(s)?),
