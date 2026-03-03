@@ -27,6 +27,9 @@ pub struct PermissionLevel {
     pub permission: PermissionName,
 }
 
+// NOTE: we need this trait and cannot use `impl From<T> for Vec<PermissionLevel>`
+//       if T is not part of this package (because of the orphan rule)
+// NOTE: we could fix it by defining a new type PermissionVec = Vec<PermissionLevel>
 pub trait IntoPermissionVec {
     fn into_permission_vec(self) -> Vec<PermissionLevel>;
 }
