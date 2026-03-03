@@ -20,5 +20,3 @@
 - make sure we can generate a decent documentation
 
 - try to follow guidelines from <https://clig.dev>
-
-- try to optimize docker image using `dive` or `xray-tui` to check it

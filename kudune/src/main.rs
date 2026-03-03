@@ -259,7 +259,7 @@ fn main() -> Result<()> {
             let home = env::var("HOME").expect("$HOME variable should be set");
             let ports = cli.ports.split(",").map(parse_mapping).collect();
             let mut dune = Dune::new(
-                cli.container,
+                cli.container.clone(),
                 cli.image.clone(),
                 ports,
                 home,
@@ -297,7 +297,7 @@ fn main() -> Result<()> {
 
                     info!("Kudune version: {kudune_version}");
                     info!("");
-                    info!("On image: {}", cli.image);
+                    info!("On container: {}", cli.container);
                     info!("- Spring version: {spring_version}");
                     info!("- CDT version: {cdt_version}");
                     info!("- System contracts version: {system_contracts_version}");

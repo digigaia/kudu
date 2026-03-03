@@ -76,12 +76,14 @@ def install_base_packages():
     # note: install `libcurl4-gnutls-dev` instead of `libcurl4-openssl-dev` as
     #       the CDT package depends on it
     apt.update()
-    apt.packages(['tzdata', 'zip', 'unzip', 'libncurses5', 'wget', 'git',
-                  'build-essential', 'cmake', 'curl',
+    apt.packages(['tzdata', 'zip', 'unzip', 'time', 'jq',
+                  # 'libncurses5', 'libusb-1.0-0-dev', 'libzstd-dev', 'nginx',
+                  'wget',  'curl', 'git',
+                  'build-essential', 'cmake', 'pkg-config',
                   #'libboost-all-dev',  # no need for boost as we have it as a submodule
-                  'libcurl4-gnutls-dev', 'libssl-dev', 'libgmp-dev',
-                  'libusb-1.0-0-dev', 'libzstd-dev', 'time', 'pkg-config',
-                  'llvm-11-dev', 'nginx', 'jq', 'gdb', 'lldb'])
+                  'llvm-11-dev', 'libcurl4-gnutls-dev', 'libssl-dev', 'libgmp-dev',
+                  # 'gdb', 'lldb',
+                  ])
 
     # make sure our base folder to install the app exists
     files.directory('/app')
@@ -112,21 +114,6 @@ def git_repo(src, dest, git_ref=None):
         'git submodule update --init --recursive',
     ]
     server.shell(commands=commands, _chdir=dest)
-
-
-@deploy('Install NodeJS and Webpack')
-def deploy_nodejs(major_version=18):
-    # install recent version of Node
-    files.download(src=f'https://deb.nodesource.com/setup_{major_version}.x',
-                   dest='/tmp/nodesource_setup.sh',
-                   mode='755')
-    server.shell(['/tmp/nodesource_setup.sh'])
-
-    apt.packages(['nodejs'])  # TODO: do we need yarnpkg? where do we get it from?
-    server.shell(['npm install -D webpack-cli',
-                  'npm install -D webpack',
-                  'npm install -D webpack-dev-server'],
-                  _chdir='/root')
 
 
 @deploy('Compile Antelope Spring')
@@ -265,7 +252,13 @@ def install_reaper_script_for_zombies():
 
 def cleanup():
     server.shell(commands=['rm -fr /app/spring',
-                           'rm -fr /app/cdt'])
+                           'rm -fr /app/cdt',
+                           'rm -fr /tmp/pyinfra-*'])
+
+    # remove build dependencies
+    apt.packages(['libgmp-dev', 'llvm-11-dev'], present=False)
+    server.shell(commands=['apt -y autoremove'])
+
 
 
 ################################################################################
@@ -276,18 +269,18 @@ def cleanup():
 
 install_base_packages()
 
-#deploy_nodejs(major_version=18)
-
 if COMPILE_SPRING_CDT:
     compile_spring(git_ref=SPRING_VERSION)
     compile_cdt(git_ref=CDT_VERSION)
 else:
     deploy_spring(version=SPRING_VERSION)
     deploy_cdt(version=CDT_VERSION)
+
 deploy_system_contracts(version=SYSTEM_CONTRACTS_VERSION)
 deploy_fees_system_contract()
 deploy_vaulta_contract()
 create_default_wallet()
 install_reaper_script_for_zombies()
+
 if CLEANUP:
     cleanup()
