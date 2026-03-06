@@ -10,19 +10,19 @@ pub use crate::command::{DockerCommand, DockerCommandJson};
 
 pub struct Docker {
     /// the container name in which we run the docker commands
-    container: String,
+    pub container: String,
 
     /// the list of network port mappings, from outward-facing port to inward-facing one
-    ports: Vec<(u16, u16)>,
+    pub ports: Vec<(u16, u16)>,
 
     /// the image used to build the container if we haven't one already
-    image: String,
+    pub image: String,
 
     /// host folder that we want to bind mount inside the container
     /// Ideally we would make this simply "/" but it seems that creates
     /// issues with recursively mounting the overlay folder inside the container
     /// so you should pick a path that doesn't containe the docker data dir
-    host_mount: String,
+    pub host_mount: String,
 }
 
 const HOST_MOUNT_PATH: &str = "/host";

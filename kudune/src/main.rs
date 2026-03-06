@@ -2,7 +2,6 @@ use std::{env, fs, io, process};
 
 use clap::{Parser, Subcommand, CommandFactory};
 use color_eyre::eyre::Result;
-use regex::Regex;
 use tracing::{error, info, trace, warn, Level};
 use tracing_subscriber::{EnvFilter, filter::LevelFilter};
 
@@ -280,38 +279,7 @@ fn main() -> Result<()> {
 
             match cmd {
                 Commands::Info => {
-                    let get_apt_version = |package| -> String {
-                        let pkg_info = String::from_utf8(
-                            dune.command(&["apt-cache", "show", package])
-                                .capture_output(true)
-                                .run()
-                                .stdout
-                        ).unwrap();
-                        let version_re = Regex::new(r"Version: (.*)\n").unwrap();
-                        let caps = version_re.captures(&pkg_info).unwrap();
-                        caps.get(1).unwrap().as_str().to_string()
-                    };
-                    let get_git_version = |folder| -> String {
-                        String::from_utf8(
-                            dune.command(&["git", "-C", folder, "describe", "--tags"])
-                                .capture_output(true)
-                                .run()
-                                .stdout
-                        ).unwrap()
-                    };
-                    let kudune_version = kudu::config::VERSION;
-                    let spring_version = get_apt_version("antelope-spring");
-                    let cdt_version = get_apt_version("cdt");
-                    let system_contracts_version = get_git_version("/app/system_contracts/");
-                    let vaulta_contract_version = get_git_version("/app/vaulta_system_contract/");
-
-                    info!("Kudune version: {kudune_version}");
-                    info!("");
-                    info!("On container: {}", cli.container);
-                    info!("- Spring version: {spring_version}");
-                    info!("- CDT version: {cdt_version}");
-                    info!("- System contracts version: {system_contracts_version}");
-                    info!("- Vaulta contract version: {vaulta_contract_version}");
+                    dune.info()?;
                 }
                 Commands::WalletPassword => {
                     info!("Wallet password is:");
