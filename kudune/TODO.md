@@ -5,9 +5,6 @@
 - review the configuration of the network ports in the kudune CLI, it seems something is not properly
   matched between all the ports, the http_addr in the config.ini file, the one in the Dune instance, etc.
 
-- check with <https://github.com/AntelopeIO/spring/blob/main/tutorials/bios-boot-tutorial/bios-boot-tutorial.py>
-  that `kudune bootstrap` is correct and complete. Pay special attention to the vaulta transition.
-
 - better error handling instead of unwrap, esp. on docker commands
   -> bubble up errors and display then with color_eyre?
 
