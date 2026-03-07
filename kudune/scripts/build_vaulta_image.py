@@ -219,7 +219,7 @@ def deploy_fees_system_contract(version=None):
 @deploy('Deploy Vaulta system contract')
 def deploy_vaulta_contract():
     work_dir = '/app/vaulta_system_contract'
-    git_repo(src='https://github.com/VaultaFoundation/vaulta-system-contract', dest=work_dir, branch='main')
+    git_repo(src='https://github.com/VaultaFoundation/vaulta-system-contract', dest=work_dir, git_ref='main')
 
     build_dir = f'{work_dir}/build'
     files.directory(build_dir)
