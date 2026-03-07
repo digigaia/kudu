@@ -579,21 +579,23 @@ impl Dune {
         // -----------------------------------------------------------------------------
 
         info!("Creating accounts needed for system contracts");
-        self.create_account("eosio.msig", Some("eosio"));
-        self.create_account("eosio.token", Some("eosio"));
         self.create_account("eosio.bpay", Some("eosio"));
+        self.create_account("eosio.msig", Some("eosio"));
         self.create_account("eosio.names", Some("eosio"));
         self.create_account("eosio.ram", Some("eosio"));
         self.create_account("eosio.ramfee", Some("eosio"));
         self.create_account("eosio.saving", Some("eosio"));
         self.create_account("eosio.stake", Some("eosio"));
+        self.create_account("eosio.token", Some("eosio"));
         self.create_account("eosio.vpay", Some("eosio"));
+        self.create_account("eosio.wrap", Some("eosio"));
         self.create_account("eosio.rex", Some("eosio"));
-        self.create_account("eosio.fees", Some("eosio"));  // added in system-contracts v3.4.0
-        self.create_account("eosio.powup", Some("eosio")); // added in system-contracts v3.4.0
+        self.create_account("eosio.fees", Some("eosio"));
+        self.create_account("eosio.reward", Some("eosio"));
+        self.create_account("eosio.wram", Some("eosio"));
+        self.create_account("eosio.reserv", Some("eosio"));
+        self.create_account("eosio.powup", Some("eosio"));
         self.create_account("core.vaulta", Some("eosio"));
-
-        // TODO: missing: eosio.{reward, wram, reserv}, what are they needed for?
 
         // -----------------------------------------------------------------------------
         //     install system contracts
