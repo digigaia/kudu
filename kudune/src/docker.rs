@@ -10,16 +10,19 @@ pub use crate::command::{DockerCommand, DockerCommandJson};
 
 pub struct Docker {
     /// the container name in which we run the docker commands
-    container: String,
+    pub container: String,
+
+    /// the list of network port mappings, from outward-facing port to inward-facing one
+    pub ports: Vec<(u16, u16)>,
 
     /// the image used to build the container if we haven't one already
-    image: String,
+    pub image: String,
 
     /// host folder that we want to bind mount inside the container
     /// Ideally we would make this simply "/" but it seems that creates
     /// issues with recursively mounting the overlay folder inside the container
     /// so you should pick a path that doesn't containe the docker data dir
-    host_mount: String,
+    pub host_mount: String,
 }
 
 const HOST_MOUNT_PATH: &str = "/host";
@@ -28,8 +31,8 @@ impl Docker {
     // the Docker constructor is pretty barebones and doesn't ensure
     // anything is running. You have to call the `start()` method yourself
     // if you need to ensure the container is running
-    pub fn new(container: String, image: String, host_mount: String) -> Docker {
-        Docker { container, image, host_mount }
+    pub fn new(container: String, ports: Vec<(u16, u16)>, image: String, host_mount: String) -> Docker {
+        Docker { container, ports, image, host_mount }
     }
 
     /// Return a `DockerCommand` builder that you can later run.
@@ -120,19 +123,24 @@ impl Docker {
         if log { info!("Starting container..."); }
         let src = &self.host_mount;
         let dest = HOST_MOUNT_PATH;
-        Self::docker_command(&[
-            "run",
-            "-p", "127.0.0.1:8888:8888/tcp",
-            "-p", "127.0.0.1:9876:9876/tcp",
-            // "-p", "127.0.0.1:8080:8080/tcp",
-            // "-p", "127.0.0.1:3000:3000/tcp",
-            // "-p", "127.0.0.1:8000:8000/tcp",
-            "--mount", &format!("type=bind,source={},target={}", src, dest),
+        let ports: Vec<_> = self.ports.iter().map(|(pout, pin)| format!("127.0.0.1:{pout}:{pin}/tcp")).collect();
+        let mount = format!("type=bind,source={},target={}", src, dest);
+        let cname = format!("--name={}", &self.container);
+
+        let mut args = vec!["run"];
+        #[allow(clippy::needless_range_loop)]  // we want a & that outlives the for loop
+        for i in 0..ports.len() {
+            args.push("-p");
+            args.push(&ports[i]);
+        }
+        args.extend_from_slice(&[
+            "--mount", &mount,
             "--detach",
-            &format!("--name={}", &self.container),
+            &cname,
             &self.image,
             "/sbin/my_init",
-        ]).run();
+        ]);
+        Self::docker_command(&args[..]).run();
     }
 
     fn find_container(name: &str) -> Option<Value> {

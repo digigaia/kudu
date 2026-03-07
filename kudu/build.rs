@@ -12,7 +12,7 @@ fn get_git_version() -> Result<String, String> {
 
 fn get_version() -> String {
     let cargo_version = env::var("CARGO_PKG_VERSION").unwrap();
-    get_git_version().unwrap_or(cargo_version)
+    get_git_version().unwrap_or(cargo_version).trim().to_string()
 }
 
 fn main() {

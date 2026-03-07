@@ -6,16 +6,21 @@ pub mod kudu_chain {
     use std::string::ToString;
 
     use pyo3::prelude::*;
-    use pyo3::types::{PyBytes, PyDict, PyList, PyString};
+    use pyo3::exceptions::PyValueError;
+    use pyo3::types::{PyBytes, PyDict, PyList, PyString, PyTuple};
     use pythonize::{depythonize, pythonize};
 
     use kudu::chain::{Action, PermissionLevel, SignedTransaction, Transaction};
-    use kudu::{ABISerializable, AccountName, ActionName, Bytes, ByteStream, JsonValue, PermissionName};
+    use kudu::{
+        ABISerializable, AccountName, ActionName, Bytes, ByteStream, JsonValue, Name, PermissionName,
+    };
 
     use crate::api::kudu_api::PyAPIClient;
     use crate::crypto::kudu_crypto::PyPrivateKey;
+    use crate::time::kudu_time::PyTimePointSec;
     use crate::util::{
-        gen_bytes_conversion, gen_default_repr, gen_default_str, gen_dict_conversion, gen_string_getters, runtime_err, value_err
+        gen_bytes_conversion, gen_default_repr, gen_default_str, gen_dict_conversion,
+        gen_int_getters, gen_string_getters, runtime_err, value_err
     };
 
     // -----------------------------------------------------------------------------
@@ -44,8 +49,7 @@ pub mod kudu_chain {
         #[staticmethod]
         fn from_py<'py>(other: &Bound<'py, PyAny>) -> PyResult<Self> {
             // other object is of the same type
-            let perm: Result<&Bound<'py, PyPermissionLevel>, _> = other.cast();
-            if let Ok(perm) = perm {
+            if let Ok(perm) = other.cast::<PyPermissionLevel>() {
                 return Ok(Self(perm.borrow().0))
             }
             // other object is a tuple (actor, permission)
@@ -53,7 +57,7 @@ pub mod kudu_chain {
                 return Self::new(actor, permission);
             }
 
-            Err(value_err(format!("Cannot create PermissionLevel from object: {} [{}]", other, other.get_type())))
+            Err(PyValueError::new_err(format!("Cannot create PermissionLevel from object: {} [{}]", other, other.get_type())))
         }
 
         fn __eq__<'py>(&self, other: &Bound<'py, PyAny>) -> bool {
@@ -62,8 +66,7 @@ pub mod kudu_chain {
                 return self.0.actor == actor && self.0.permission == permission
             }
             // compare using a dict of named args
-            let d: Result<&Bound<'py, PyDict>, _> = other.cast();
-            if let Ok(d) = d {
+            if let Ok(d) = other.cast::<PyDict>() {
                 return d.len() == 2 && d.contains("actor").unwrap() && d.contains("permission").unwrap() && {
                     let actor: Result<String, _> = depythonize(&d.get_item("actor").unwrap().unwrap());
                     let permission: Result<String, _> = depythonize(&d.get_item("permission").unwrap().unwrap());
@@ -75,8 +78,7 @@ pub mod kudu_chain {
                 };
             }
             // compare using an object of the same type
-            let p: Result<&Bound<'py, PyPermissionLevel>, _> = other.cast();
-            if let Ok(p) = p {
+            if let Ok(p) = other.cast::<PyPermissionLevel>() {
                 return self.0 == p.borrow().0;
             }
             false
@@ -115,7 +117,7 @@ pub mod kudu_chain {
                 }
             }
             else {
-                return Err(value_err(format!("invalid value for PermissionLevel: {}", 23)));
+                return Err(PyValueError::new_err(format!("invalid value for PermissionLevel: {}", 23)));
             }
 
             let action = if let Ok(data) = data.cast::<PyBytes>() {
@@ -135,7 +137,7 @@ pub mod kudu_chain {
                     authorization: auth,
                     data: Bytes::new(),
                 }
-                .with_data(&args)
+                .with_data(&args).map_err(value_err)?
             };
 
             Ok(Self(action))
@@ -169,8 +171,7 @@ pub mod kudu_chain {
             }
 
             // compare using an object of the same type
-            let p: Result<&Bound<'py, PyAction>, _> = other.cast();
-            if let Ok(p) = p {
+            if let Ok(p) = other.cast::<PyAction>() {
                 return self.0 == p.borrow().0;
             }
 
@@ -188,7 +189,6 @@ pub mod kudu_chain {
             Ok(result)
         }
 
-        // TODO: do we want to return a Bytes object or a str with decoded hex data?
         #[getter]
         fn get_data(&self) -> &[u8] {
             &self.0.data.0[..]
@@ -207,6 +207,26 @@ pub mod kudu_chain {
         }
     }
 
+    #[pyfunction]
+    fn push_action<'py>(
+        client: &Bound<'py, PyAPIClient>,
+        actor: &str,
+        signing_key: &Bound<'py, PyPrivateKey>,
+        contract: &str,
+        action: &str,
+        args: &Bound<'py, PyAny>,
+    ) -> PyResult<()> {
+        let args: JsonValue = depythonize(args)?;
+        kudu::chain::push_action(
+            client.borrow().0.clone(),
+            Name::new(actor).map_err(value_err)?,
+            &signing_key.borrow().0,
+            Name::new(contract).map_err(value_err)?,
+            Name::new(action).map_err(value_err)?,
+            &args,
+        ).map_err(value_err)
+    }
+
     // -----------------------------------------------------------------------------
     //     Transaction
     // -----------------------------------------------------------------------------
@@ -216,6 +236,9 @@ pub mod kudu_chain {
 
     gen_bytes_conversion!("PyTransaction");
     gen_dict_conversion!("PyTransaction");
+    gen_int_getters!("PyTransaction", "u16", ["ref_block_num"]);
+    gen_int_getters!("PyTransaction", "u32", ["ref_block_prefix", "max_net_usage_words", "delay_sec"]);
+    gen_int_getters!("PyTransaction", "u8", ["max_cpu_usage_ms"]);
 
     #[pymethods]
     impl PyTransaction {
@@ -231,14 +254,30 @@ pub mod kudu_chain {
         }
 
         #[getter]
-        fn get_ref_block_num(&self) -> u16 {
-            self.0.ref_block_num
+        fn get_expiration(&self) -> PyTimePointSec {
+            PyTimePointSec(self.0.expiration)
+        }
+
+        #[getter]
+        fn get_context_free_actions<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyList>> {
+            let elements: Vec<PyAction> = self.0.context_free_actions.iter().map(|a| PyAction(a.clone())).collect();
+            PyList::new(py, elements)
         }
 
         #[getter]
         fn get_actions<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyList>> {
             let elements: Vec<PyAction> = self.0.actions.iter().map(|a| PyAction(a.clone())).collect();
             PyList::new(py, elements)
+        }
+
+        #[getter]
+        fn get_transaction_extensions<'py>(&self, py: Python<'py>) -> Bound<'py, PyList> {
+            let exts: Vec<Bound<'py, PyTuple>> = self.0
+                .transaction_extensions
+                .iter()
+                .map(|(ext_type, data)| (ext_type, PyBytes::new(py, data.as_ref())).into_pyobject(py).unwrap())  // unwrap should be safe
+                .collect();
+            PyList::new(py, exts).unwrap()  // unwrap should be safe
         }
 
         fn link(&mut self, client: &PyAPIClient) -> PyResult<()> {
@@ -259,7 +298,6 @@ pub mod kudu_chain {
     #[pyclass(name = "SignedTransaction", module = "kudu.chain")]
     struct PySignedTransaction(pub SignedTransaction);
 
-    // gen_bytes_conversion!("PySignedTransaction");
     gen_dict_conversion!("PySignedTransaction");
 
     #[pymethods]
@@ -272,10 +310,6 @@ pub mod kudu_chain {
             let trace = self.0.send().map_err(runtime_err)?;
             Ok(pythonize(py, &trace)?)
         }
-
-        // fn to_json(&self) -> JsonValue {
-        //     self.0.to_json()
-        // }
     }
 
 }

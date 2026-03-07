@@ -22,3 +22,6 @@ clap = { version = "4.4", features = ["derive"] }
 duct = "1"
 regex = "1"
 tempfile = "3.13.0"
+ratatui = "0.30.0"
+crossterm = "0.29.0"
+ratatui-macros = "0.7.0"

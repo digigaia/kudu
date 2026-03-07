@@ -3,12 +3,21 @@ use std::sync::Arc;
 use bytemuck::cast_ref;
 use chrono::ParseError as ChronoParseError;
 use hex::FromHexError;
-use serde::{Deserialize, Serialize};
+use serde::{
+    Deserialize, Serialize,
+    ser::{Serializer, SerializeMap}
+};
 use sha2::{Sha256, Digest};
 use snafu::{ResultExt, Snafu, ensure};
 
 use crate::{
-    ABISerializable, APIClient, Action, ActionError, BlockId, ByteStream, Bytes, ChainId, Checksum256, Extensions, JsonValue, PrivateKey, Signature, TimePointSec, TransactionId, VarUint32, api::HttpError, bitops::endian_reverse_u32, convert::{ConversionError,  variant_to_object, variant_to_str, variant_to_uint}, impl_auto_error_conversion, json, with_location
+    ABISerializable, APIClient, Action, ActionError, BlockId, ByteStream, Bytes, ChainId,
+    Checksum256, Extensions, JsonValue, PrivateKey, Signature, TimePointSec, TransactionId,
+    VarUint32,
+    api::HttpError,
+    bitops::endian_reverse_u32,
+    convert::{ConversionError,  variant_to_object, variant_to_str, variant_to_uint},
+    impl_auto_error_conversion, json, with_location
 };
 
 // this is needed to be able to call the `ABISerializable` derive macro, which needs
@@ -17,7 +26,6 @@ extern crate self as kudu;
 
 #[with_location]
 #[derive(Debug, Snafu)]
-// TODO: rename to `InvalidAction` for consistency?
 pub enum TransactionError {
     #[snafu(display("unknown field: '{field}'"))]
     UnknownField { field: String },
@@ -42,6 +50,9 @@ pub enum TransactionError {
 
     #[snafu(display("could not match JSON object to transaction"))]
     FromJson { source: serde_json::Error },
+
+    #[snafu(display("Nodeos error: {message}"))]
+    NodeosError { message: String },
 }
 
 impl_auto_error_conversion!(ChronoParseError, TransactionError, DateTimeParseSnafu);
@@ -82,8 +93,6 @@ pub struct Transaction {
     //       these do not get serialized
     // -----------------------------------------------------------------------------
 
-    // FIXME!!: we need to implement the `hash` trait manually to ignore the next fields
-
     #[serde(skip)]
     pub chain_id: Option<ChainId>,
 
@@ -91,7 +100,6 @@ pub struct Transaction {
     pub client: Option<Arc<APIClient>>,
 }
 
-// type DigestType = GenericArray<u8, U32>;
 type DigestType = Checksum256;
 
 
@@ -141,11 +149,11 @@ impl Transaction {
         Ok(result)
     }
 
-    pub fn sig_digest(&self, context_free_data: &[u8]) -> DigestType {
+    pub fn sig_digest(&self, context_free_data: &[u8]) -> Result<DigestType, TransactionError> {
         let mut hasher = Sha256::new();
         match &self.chain_id {
             Some(chain_id) => hasher.update(chain_id),
-            None => panic!("signing without a chain id!"),   // FIXME: don't panic here
+            None => UnlinkedTransactionSnafu { message: "you need a chain ID to be set to compute the tx digest".to_string() }.fail()?,
         }
 
         let mut ds = ByteStream::new();
@@ -160,21 +168,14 @@ impl Transaction {
         }
 
         let r: [u8; 32] = hasher.finalize().into();
-        r.into()
+        Ok(r.into())
     }
 
-    pub fn get_tapos_info(block: &BlockId) -> (u16, u32) {
+    fn get_tapos_info(block: &BlockId) -> (u16, u32) {
         let hash = cast_ref::<[u8; 32], [u64; 4]>(&block.0);
         let ref_block_num = endian_reverse_u32((hash[0] & 0xFFFFFFFF) as u32) as u16;
         let ref_block_prefix = hash[1] as u32;
         (ref_block_num, ref_block_prefix)
-    }
-
-    // FIXME: pass by ref or value here?
-    pub fn set_reference_block(&mut self, block: &BlockId) {
-        let (ref_block_num, ref_block_prefix) = Self::get_tapos_info(block);
-        self.ref_block_num = ref_block_num;
-        self.ref_block_prefix = ref_block_prefix;
     }
 
     pub fn link(&mut self, client: Arc<APIClient>) -> Result<&mut Self, TransactionError> {
@@ -203,15 +204,15 @@ impl Transaction {
         Ok(self)
     }
 
-    pub fn get_signature(&self, signing_key: &PrivateKey) -> Result<Signature, TransactionError> {
-        ensure!(self.chain_id.is_some(),
-                UnlinkedTransactionSnafu { message: "cannot sign transaction" });
-
-        let context_free_data = b"";
-        Ok(signing_key.sign_digest(self.sig_digest(context_free_data)))
+    fn get_signature(&self, signing_key: &PrivateKey) -> Result<Signature, TransactionError> {
+        let context_free_data = b"";  // TODO: support this
+        Ok(signing_key.sign_digest(self.sig_digest(context_free_data)?))
     }
 
     pub fn sign(&self, signing_key: &PrivateKey) -> Result<SignedTransaction, TransactionError> {
+        ensure!(self.chain_id.is_some(),
+                UnlinkedTransactionSnafu { message: "cannot sign transaction" });
+
         let sig = self.get_signature(signing_key)?;
         Ok(SignedTransaction {
             tx: self.clone(),
@@ -223,8 +224,8 @@ impl Transaction {
 
 }
 
-// FIXME: we implement this manually as we don't have a way yet to ignore fields using the derive macro
-// FIXME: implement this, using #[serde(skip)] to decide whether to skip fields
+// TODO: we implement this manually as we don't have a way yet to ignore fields using the derive macro
+// TODO: implement this, using #[serde(skip)] to decide whether to skip fields
 impl kudu::ABISerializable for Transaction {
     fn to_bin(&self, s: &mut kudu::ByteStream) {
         // transaction header
@@ -260,8 +261,7 @@ impl kudu::ABISerializable for Transaction {
     }
 }
 
-// FIXME!! implement Serialize properly, we can't really derive it
-#[derive(Eq, Hash, PartialEq, Debug, Clone, Serialize, Deserialize)]
+#[derive(Eq, Hash, PartialEq, Debug, Clone)]
 pub struct SignedTransaction {
     pub tx: Transaction,
     pub signatures: Vec<Signature>,
@@ -271,7 +271,7 @@ pub struct SignedTransaction {
 
 impl SignedTransaction {
     pub fn send(&self) -> Result<JsonValue, TransactionError> {
-        let signed_tx = self.to_json();
+        let signed_tx = json!(self);
         let result = self.tx.client.as_ref().unwrap()
             .call("/v1/chain/push_transaction", &signed_tx)
             .context(NetworkSnafu { message: format!("Could not push transaction: {}", &signed_tx) })?;
@@ -279,18 +279,34 @@ impl SignedTransaction {
         Ok(result)
     }
 
-    // FIXME: implement `Serialize` instead!!
-    fn to_json(&self) -> JsonValue {
-        // FIXME: this transcode is not an ergonomic API
-        let tx_json = json::to_string(&self.tx).unwrap();
-        let mut signed_tx: JsonValue = json::from_str(&tx_json).unwrap();
-        signed_tx["signatures"] = json!(&self.signatures);
-        signed_tx["compression"] = json!(self.compression);
-        signed_tx["packed_content_free_data"] = json!(self.packed_content_free_data);  // FIXME! review
+    pub fn send_unchecked(&self) -> Result<JsonValue, TransactionError> {
+        let signed_tx = json!(self);
+        let result = self.tx.client.as_ref().unwrap()
+            .call_unchecked("/v1/chain/push_transaction", &signed_tx)
+            .context(NetworkSnafu { message: format!("Could not push transaction: {}", &signed_tx) })?;
+
+        Ok(result)
+    }
+}
+
+// NOTE: we implement `Serialize` manually but we can't implement `Deserialize` as we
+//       haven't serialized the `chain_id` field and so can't restore it.
+impl Serialize for SignedTransaction {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer
+    {
+        let mut map = serializer.serialize_map(Some(9 + 4))?;
+        // transaction header
+        map.serialize_entry("signatures", &self.signatures)?;
+        map.serialize_entry("compression", &self.compression)?;
+        map.serialize_entry("packed_content_free_data", &self.packed_content_free_data)?;
+
         let mut s = ByteStream::new();
         self.tx.to_bin(&mut s);
-        signed_tx["packed_trx"] = JsonValue::String(s.hex_data());
-        signed_tx
+        map.serialize_entry("packed_trx", &s.hex_data())?;
+
+        map.end()
     }
 }
 
@@ -298,9 +314,11 @@ impl SignedTransaction {
 #[cfg(test)]
 mod tests {
     use color_eyre::eyre::Result;
-    use crate::{json, Bytes, IntoPermissionVec, Name, PrivateKey};
 
+    use crate::{chain::Transfer, Name};
     use super::*;
+
+
 
     #[test]
     fn test_tapos() -> Result<()> {
@@ -312,49 +330,60 @@ mod tests {
     }
 
     #[test]
-    #[ignore]
-    fn test_signing() -> Result<()> {
-        let client = Arc::new(APIClient::local());
-        let action = Action {
-            account: Name::new("eosio.token")?,
-            name: Name::new("transfer")?,
-            authorization: ("alice", "active").into_permission_vec(),
-            data: Bytes::new(),
-        }.with_data(&json!({
-            "from": "alice",
-            "to": "bob",
-            "quantity": "1.000 SON",
-            "memo": "yep!",
+    fn test_sign_transaction() -> Result<()> {
+
+        let transfer = Transfer {
+            from: Name::new("useraaaaaaaa")?,
+            to: Name::new("useraaaaaaab")?,
+            quantity: "0.0001 SYS".try_into()?,
+            memo: "".into(),
+        };
+
+        let mut tx = Transaction {
+            expiration: "2009-02-13T23:31:31.000".parse()?,
+            ref_block_num: 1234,
+            ref_block_prefix: 5678,
+            actions: vec![
+                Action::new(("useraaaaaaaa", "active"), &transfer),
+            ],
+            ..Default::default()
+        };
+
+        assert_eq!(json!(tx), json!({
+            "ref_block_num": 1234,
+            "ref_block_prefix": 5678,
+            "expiration": "2009-02-13T23:31:31.000",
+            "max_net_usage_words": 0,
+            "max_cpu_usage_ms": 0,
+            "delay_sec": 0,
+            "context_free_actions": [],
+            "actions": [{
+                "account": "eosio.token",
+                "name": "transfer",
+                "authorization": [{"actor":"useraaaaaaaa","permission":"active"}],
+                "data": "608c31c6187315d6708c31c6187315d60100000000000000045359530000000000"
+            }],
+            "transaction_extensions": []
         }));
 
-        let mut tx = Transaction::new(vec![action]);
-        tx.link(client.clone())?;
-        println!("tx: {}", json::to_string(&tx)?);
+        let signing_key = PrivateKey::eosio_dev();
+        tx.chain_id = Some(Checksum256::from_hex(crate::config::JUNGLE_CHAIN_ID)?);
+        let sig = tx.get_signature(&signing_key)?;
 
+        let signed_tx = SignedTransaction {
+            tx: tx.clone(),
+            signatures: vec![sig],
+            compression: false,
+            packed_content_free_data: Bytes::new(),
+        };
 
-        let signing_key = PrivateKey::new("5JEc9CzLAx48Utvn7mo4y6hhmSVj7n4zgDNJx2KNZo3gSBr8Fet")?;
+        assert_eq!(json!(signed_tx), json!({
+            "signatures": ["SIG_K1_K18qEA2qTqVj153ZKriMnnRwHpLuENX7bp9UYs5AJsRWhgD6diPgMeoebwRRFQuvyicDsgwVYTt3g4GsG5FxCXM3WNZVN7"],
+            "compression": false,
+            "packed_content_free_data": "",
+            "packed_trx": "d3029649d2042e160000000000000100a6823403ea3055000000572d3ccdcd01608c31c6187315d600000000a8ed323221608c31c6187315d6708c31c6187315d6010000000000000004535953000000000000",
+        }));
 
-        let digest = tx.sig_digest(b"");
-        let sig = signing_key.sign_digest(digest);
-
-        // FIXME: this transcode is not an ergonomic API
-        let tx_json = json::to_string(&tx)?;
-        let mut signed_tx: JsonValue = json::from_str(&tx_json)?;
-        signed_tx["signatures"] = json!([sig]);
-        signed_tx["compression"] = json!(false);
-        signed_tx["packed_content_free_data"] = json!("");  // FIXME!
-        let mut s = ByteStream::new();
-        tx.to_bin(&mut s);
-        signed_tx["packed_trx"] = JsonValue::String(s.hex_data());
-
-
-
-        println!("signed_tx: {}", &signed_tx);
-
-        let result = client.call("/v1/chain/push_transaction", &signed_tx)?;
-
-        println!("result: {result}");
-        assert!(result["transaction_id"].as_str().is_some());
         Ok(())
     }
 }

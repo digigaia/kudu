@@ -19,6 +19,10 @@ It is subdivided into 3 main crates for now:
 - [`kudune`](https://docs.rs/kudune): is a CLI tool that helps you manage and run nodeos instances in Docker.
   It aims at replacing the deprecated [DUNES](https://github.com/AntelopeIO/DUNES) utility
 
+Kudu is also available as python bindings in the [`kudu-py`](./kudu-py/) folder.
+These bindings currently mostly cover those classes needed to be able to send transactions to a network client,
+so that means `Name`, `Action`, `Transaction`, `PrivateKey`, `TimePoint`, etc. are already implemented.
+
 
 ## License
 

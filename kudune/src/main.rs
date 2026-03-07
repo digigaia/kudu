@@ -27,6 +27,10 @@ struct Cli {
     #[arg(short, long, default_value="vaulta_nodeos")]
     container: String,
 
+    /// The network port mappings to be used when starting a new docker container, outside->inside
+    #[arg(short, long, default_value="8888:8888,8976:8976")]
+    ports: String,
+
     /// Do not print any logging messages.
     ///
     /// Normal output of the command is still available on stdout.
@@ -57,9 +61,21 @@ enum Commands {
         #[arg(default_value = "ubuntu:22.04")]
         base: String,
 
+        /// version of Antelope Spring to be installed
+        #[arg(long)]
+        spring: Option<String>,
+
+        /// version of CDT to be installed
+        #[arg(long)]
+        cdt: Option<String>,
+
+        /// version of system contracts to be installed
+        #[arg(long)]
+        system_contracts: Option<String>,
+
         /// whether to compile Spring and CDT or to download pre-built packages.
         /// WARNING: compiling can take a *long* time...
-        #[arg(short, long, default_value_t=false)]
+        #[arg(short, long, default_value_t = false)]
         compile: bool,
 
         /// max number of CPUs to be used in parallel for compilation. When not specified,
@@ -68,7 +84,7 @@ enum Commands {
         nproc: Option<i16>,
 
         /// do not cleanup image after finishing building it. This can be useful during dev
-        #[arg(long, default_value_t=false)]
+        #[arg(long, default_value_t = false)]
         no_cleanup: bool,
     },
 
@@ -77,6 +93,9 @@ enum Commands {
         /// The commands you want to execute and its arguments
         cmd: Vec<String>,
     },
+
+    /// Version of the installed components in the current container
+    Info,
 
     // -----------------------------------------------------------------------------
     //     Commands operating on a docker container
@@ -157,6 +176,16 @@ enum Commands {
         location: String,
     },
 
+    /// Retrieve table data
+    GetTable {
+        /// the account name with the token contract
+        account: String,
+        /// the user which we are looking up
+        scope: String,
+        /// the specific table for this user with the given name
+        table: String,
+    },
+
     /// Show the wallet password
     WalletPassword,
 
@@ -179,6 +208,12 @@ fn init_tracing(verbose_level: u8) {
         2 => tracing.with_max_level(Level::TRACE).init(),
         _ => panic!("too many -v flags, 2 max allowed"),
     };
+}
+
+fn parse_mapping(s: &str) -> (u16, u16) {
+     // FIXME: return Err
+    let (a, b) = s.split_once(':').unwrap();
+    (a.parse().unwrap(), b.parse().unwrap())
 }
 
 fn main() -> Result<()> {
@@ -206,7 +241,7 @@ fn main() -> Result<()> {
                 println!("Container: {:20} ({})", name, status);
             }
         },
-        Commands::BuildImage { base, compile, nproc, no_cleanup } => {
+        Commands::BuildImage { base, spring, cdt, system_contracts, compile, nproc, no_cleanup } => {
             let compile_info = match compile {
                 true => "(compiled)",
                 false => "(packaged)",
@@ -215,6 +250,9 @@ fn main() -> Result<()> {
             let opts = BuildOpts {
                 name: cli.image.clone(),
                 base_image: base.clone(),
+                spring,
+                cdt,
+                system_contracts,
                 compile,
                 nproc,
                 cleanup: !no_cleanup,
@@ -228,13 +266,21 @@ fn main() -> Result<()> {
         // all the other commands need a `Dune` instance, get one now and keep matching
         _ => {
             let home = env::var("HOME").expect("$HOME variable should be set");
+            let ports = cli.ports.split(",").map(parse_mapping).collect();
             let mut dune = Dune::new(
-                cli.container,
-                cli.image,
+                cli.container.clone(),
+                cli.image.clone(),
+                ports,
                 home,
             )?;
 
+            // unlock our wallet pre-emptively to be able to perform operations
+            dune.unlock_wallet();
+
             match cmd {
+                Commands::Info => {
+                    dune.info()?;
+                }
                 Commands::WalletPassword => {
                     info!("Wallet password is:");
                     println!("{}", &dune.get_wallet_password());
@@ -297,6 +343,11 @@ fn main() -> Result<()> {
                 Commands::CmakeBuild { location } => {
                     let location = dune.host_to_container_path(&location)?;
                     dune.cmake_build(&location);
+                },
+                Commands::GetTable { account, scope, table } => {
+                    let output = String::from_utf8(dune.cleos_cmd(&["get", "table", &account, &scope, &table]).stdout)?;
+                    info!("{}", &output);
+
                 },
                 Commands::Exec { cmd } => {
                     let cmd: Vec<_> = cmd.iter().map(String::as_str).collect();

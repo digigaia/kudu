@@ -4,20 +4,29 @@ use std::time::Duration;
 use std::{process, thread};
 
 use color_eyre::eyre::{eyre, Result};
+use ratatui::layout::Alignment;
+use ratatui::{
+    prelude::Modifier,
+    widgets::Paragraph,
+};
+use ratatui_macros::{line, span};
 use regex::Regex;
 use tracing::{debug, info, warn, trace};
-use serde_json::Value;
+use serde_json::{json, Value};
 
 use kudu::config::VAULTA_FEATURES;
 use crate::docker::{Docker, DockerCommand};
 use crate::nodeconfig::NodeConfig;
 use crate::util::eyre_from_output;
+use crate::ratatui::{make_block, make_table, render, terminal_size};
 
 
 const DEFAULT_BASE_IMAGE: &str = "ubuntu:22.04";
-const DEFAULT_HTTP_ADDR: &str = "0.0.0.0:8888";
+const DEFAULT_NODEOS_HTTP_PORT: u16 = 8888;
 const CONFIG_PATH: &str = "/app/config.ini";
 const TEMP_FOLDER: &str = "/tmp/scratch";
+
+const SYS_TOKEN_SYMBOL: &str = "EOS";
 
 
 fn unpack_scripts<P: AsRef<Path>>(scripts: P) -> Result<()> {
@@ -40,6 +49,9 @@ fn replace_line<P: AsRef<Path>>(filename: P, line: &str, replace: &str) {
 pub struct BuildOpts {
     pub name: String,
     pub base_image: String,
+    pub spring: Option<String>,
+    pub cdt: Option<String>,
+    pub system_contracts: Option<String>,
     pub compile: bool,
     pub nproc: Option<i16>,
     pub cleanup: bool,
@@ -51,6 +63,9 @@ impl Default for BuildOpts {
         Self {
             name: "".to_string(),
             base_image: DEFAULT_BASE_IMAGE.to_string(),
+            spring: None,
+            cdt: None,
+            system_contracts: None,
             compile: false,
             nproc: None,
             cleanup: true,
@@ -72,6 +87,8 @@ impl Default for BuildOpts {
 pub struct Dune {
     docker: Docker,
 
+    /// the internal (to the container) http address where to connect to nodeos
+    /// FIXME: this should be replaced just by the port, the addr inside the container will always be localhost:{port}
     http_addr: String,
 }
 
@@ -80,7 +97,7 @@ impl Dune {
     /// properly, and getting an instance fully created means we have a running
     /// container
     /// In contrast, the Docker constructor is barebones and doesn't perform additional actions
-    pub fn new(container: String, image: String, host_mount: String) -> Result<Dune> {
+    pub fn new(container: String, image: String, port_mapping: Vec<(u16, u16)>, host_mount: String) -> Result<Dune> {
         // make sure we have a docker image ready in case we need one to build
         // a new container off of it2
         let vaulta_image = duct::cmd!("docker", "images", "-q", &image).read().unwrap();
@@ -89,10 +106,10 @@ impl Dune {
             Self::build_image(&BuildOpts { name: image.clone(), ..Default::default() })?;
         }
 
-        let docker = Docker::new(container, image, host_mount);
+        let docker = Docker::new(container, port_mapping, image, host_mount);
         docker.start(true);
 
-        let mut result = Dune { docker, http_addr: DEFAULT_HTTP_ADDR.to_string() };
+        let mut result = Dune { docker, http_addr: format!("0.0.0.0:{DEFAULT_NODEOS_HTTP_PORT}") };
         result.sync_config();
 
         Ok(result)
@@ -106,6 +123,100 @@ impl Dune {
     /// Return a list of all Docker containers (running and stopped) on this machine.
     pub fn list_all_containers(&self) -> Vec<Value> {
         Docker::list_all_containers()
+    }
+
+    pub fn info(&self) -> Result<()> {
+        let get_apt_version = |package| -> String {
+            let pkg_info = String::from_utf8(
+                self.command(&["apt-cache", "show", package])
+                    .capture_output(true)
+                    .run()
+                    .stdout
+            ).unwrap();
+            let version_re = Regex::new(r"Version: (.*)\n").unwrap();
+            let caps = version_re.captures(&pkg_info).unwrap();
+            caps.get(1).unwrap().as_str().to_string()
+        };
+        let get_git_version = |folder| -> String {
+            String::from_utf8(
+                self.command(&["git", "-C", folder, "describe", "--tags"])
+                    .capture_output(true)
+                    .run()
+                    .stdout
+            ).unwrap().trim().to_string()
+        };
+        let kudune_version = kudu::config::VERSION;
+
+        let (mut width, _height) = terminal_size();
+        width = width.min(100);
+
+        // -----------------------------------------------------------------------------
+        //     print kudune version
+        // -----------------------------------------------------------------------------
+
+        let kudune_version = render(width, 1, |f| {
+            f.render_widget(Paragraph::new(format!("Kudune version: {kudune_version}"))
+                            .alignment(Alignment::Center),
+                            f.area());
+        });
+
+        println!("{}", kudune_version);
+
+        // -----------------------------------------------------------------------------
+        //     print vaulta images
+        // -----------------------------------------------------------------------------
+
+        let images: Vec<_> = Docker::list_images().into_iter()
+            .filter(|image| image["Repository"] == "vaulta")
+            .collect();
+
+        let images_output = render(width, (images.len() as u16) + 6, |f| {
+            let block = make_block("Vaulta images");
+            let table = make_table(&images, &["Repository", "Tag", "ID", "CreatedSince", "Size"]);
+            f.render_widget(table.block(block), f.area());
+        });
+
+        println!("{}", images_output);
+
+        // -----------------------------------------------------------------------------
+        //     print vaulta containers
+        // -----------------------------------------------------------------------------
+
+        let containers = Docker::list_running_containers();
+        let containers_output = render(width, (containers.len() as u16) + 6, |f| {
+            let block = make_block("Running containers");
+            let table = make_table(&containers, &["ID", "Image", "RunningFor", "Ports", "Names"]);
+            f.render_widget(table.block(block), f.area());
+        });
+
+        println!("{}", containers_output);
+
+        // -----------------------------------------------------------------------------
+        //     print version of the components inside the main container
+        // -----------------------------------------------------------------------------
+
+        let spring_version = get_apt_version("antelope-spring");
+        let cdt_version = get_apt_version("cdt");
+        let system_contracts_version = get_git_version("/app/system_contracts/");
+        let vaulta_contract_version = get_git_version("/app/vaulta_system_contract/");
+
+        let main_container_output = render(width, 8, |f| {
+            // let title = format!("Container: {}", self.docker.container);
+            let title = line!["Container: ", span!(Modifier::BOLD; self.docker.container)];
+            let block = make_block(title);
+            let paragraph = Paragraph::new(format!(concat!(
+                "- Spring version: {}\n",
+                "- CDT version: {}\n",
+                "- System contracts version: {}\n",
+                "- Vaulta contract version: {}\n"
+            ),
+            spring_version, cdt_version, system_contracts_version, vaulta_contract_version));
+            f.render_widget(paragraph.block(block), f.area());
+        });
+
+        println!("{}", main_container_output);
+
+        Ok(())
     }
 
     /// Given a path to a file or dir on the host, return the equivalent path as
@@ -139,6 +250,24 @@ impl Dune {
 
         // build image using pyinfra
         const CAPTURE_OUTPUT: bool = false;
+
+        if let Some(version) = &opts.spring {
+            replace_line(scripts_folder.join("build_vaulta_image.py"),
+                         r"SPRING_VERSION = .+",
+                         &format!("SPRING_VERSION = '{}'", version));
+        }
+
+        if let Some(version) = &opts.cdt {
+            replace_line(scripts_folder.join("build_vaulta_image.py"),
+                         r"CDT_VERSION = .+",
+                         &format!("CDT_VERSION = '{}'", version));
+        }
+
+        if let Some(version) = &opts.system_contracts {
+            replace_line(scripts_folder.join("build_vaulta_image.py"),
+                         r"SYSTEM_CONTRACTS_VERSION = .+",
+                         &format!("SYSTEM_CONTRACTS_VERSION = '{}'", version));
+        }
 
         replace_line(scripts_folder.join("build_vaulta_image.py"),
                      r"COMPILE_SPRING_CDT = [A-Za-z]+",
@@ -226,9 +355,8 @@ impl Dune {
         self.docker.color_command(args).capture_output(false)
     }
 
-    fn cleos_cmd(&self, cmd: &[&str]) -> process::Output {
+    pub fn cleos_cmd(&self, cmd: &[&str]) -> process::Output {
         trace!("Running cleos command: {:?}", cmd);
-        self.unlock_wallet();
         let url = format!("http://{}", self.http_addr);
         let mut cleos_cmd = vec!["cleos", "--verbose", "-u", &url];
         cleos_cmd.extend_from_slice(cmd);
@@ -442,21 +570,13 @@ impl Dune {
     /// <https://github.com/AntelopeIO/spring/blob/main/tutorials/bios-boot-tutorial/bios-boot-tutorial.py>
     pub fn bootstrap_system(&self) {
         // TODO: check tests/eosio.system_tester.hpp in system-contracts
-        let currency = "SYS";
+        let currency = SYS_TOKEN_SYMBOL;
         let max_value     = "10000000000.0000";
         let initial_value =  "1000000000.0000";
 
-        self.preactivate_features(); // required for boot contract
-
-        // wait a little bit for feature to be activated (one block should be enough?)
-        // FIXME: use a retry wrapper instead of actively waiting
-        thread::sleep(Duration::from_millis(500));
-
-        info!("Deploying boot contract");
-        self.deploy_contract("/app/system_contracts/build/contracts/eosio.boot", "eosio");
-
-        info!("Activating features");
-        self.activate_features();
+        // -----------------------------------------------------------------------------
+        //     create system accounts
+        // -----------------------------------------------------------------------------
 
         info!("Creating accounts needed for system contracts");
         self.create_account("eosio.msig", Some("eosio"));
@@ -471,44 +591,80 @@ impl Dune {
         self.create_account("eosio.rex", Some("eosio"));
         self.create_account("eosio.fees", Some("eosio"));  // added in system-contracts v3.4.0
         self.create_account("eosio.powup", Some("eosio")); // added in system-contracts v3.4.0
+        self.create_account("core.vaulta", Some("eosio"));
+
+        // TODO: missing: eosio.{reward, wram, reserv}, what are they needed for?
+
+        // -----------------------------------------------------------------------------
+        //     install system contracts
+        // -----------------------------------------------------------------------------
 
         info!("Deploying system contracts");
         self.deploy_contract("/app/system_contracts/build/contracts/eosio.msig", "eosio.msig");
         self.deploy_contract("/app/system_contracts/build/contracts/eosio.token", "eosio.token");
-        self.deploy_contract("/app/system_contracts/build/contracts/eosio.system", "eosio");
-        self.deploy_contract("/app/eosio.fees", "eosio.fees");
+        // TODO: not in bios tutorial, is it needed?
+        // self.deploy_contract("/app/eosio.fees", "eosio.fees");
+
+        // -----------------------------------------------------------------------------
+        //     install system token (SYS)
+        // -----------------------------------------------------------------------------
 
         info!("Setting up `{currency}` token");
         self.setup_token(currency, max_value, initial_value);
+
+        // -----------------------------------------------------------------------------
+        //     set system contract
+        // -----------------------------------------------------------------------------
+
+        self.preactivate_features(); // required for boot contract
+
+        // wait a little bit for feature to be activated (one block should be enough?)
+        // TODO: use a retry wrapper on `deploy_contract()` instead of actively waiting
+        thread::sleep(Duration::from_millis(500));
+
+        info!("Deploying boot contract");
+        self.deploy_contract("/app/system_contracts/build/contracts/eosio.boot", "eosio");
+
+        info!("Activating features");
+        self.activate_features();
+
+        info!("Deploying main system contracts");
+        thread::sleep(Duration::from_millis(500));
+        self.deploy_contract("/app/system_contracts/build/contracts/eosio.system", "eosio");
+
+        self.send_action("eosio", "setpriv", json!(["eosio.msig", 1]),  "eosio@active");
+        self.send_action("eosio", "setpriv", json!(["core.vaulta", 1]), "eosio@active");
+
+        self.deploy_contract("/app/system_contracts/build/contracts/core.vaulta", "core.vaulta");
+
+        // -----------------------------------------------------------------------------
+        //     init system contract
+        // -----------------------------------------------------------------------------
+
+        info!("Initialize system contract");
+        // Initialize the system account with code zero (needed at initialization time)
+        // and currency / token with precision 4
+        self.send_action("eosio", "init", json!(["0", format!("4,{currency}")]), "eosio@active");
+
+        // -----------------------------------------------------------------------------
+        //     issue `A` token
+        // -----------------------------------------------------------------------------
+
+        info!("Initialize `core.vaulta` contract and issue `A` token");
+        // Initialize the core.vaulta account contract
+        // see: https://github.com/VaultaFoundation/vaulta-system-contract/blob/main/tests/eosio.system_tester.hpp#L330
+        self.send_action("core.vaulta", "init", json!(["2100000000.0000 A"]), "core.vaulta@active");
     }
 
     fn setup_token(&self, currency: &str, max_value: &str, initial_value: &str) {
         // Create the currency with a maximum value of max_value tokens
-        self.send_action(
-            "create",
-            "eosio.token",
-            &format!(r#"[ "eosio", "{max_value} {currency}" ]"#),
-            "eosio.token@active"
-        );
+        self.send_action("eosio.token", "create", json!(["eosio", format!("{max_value} {currency}")]),
+                         "eosio.token@active");
 
         // Issue initial_value tokens (Remaining tokens not in circulation can be
         // considered to be held in reserve.)
-        self.send_action(
-            "issue",
-            "eosio.token",
-            &format!(r#"[ "eosio", "{initial_value} {currency}", "memo" ]"#),
-            "eosio@active"
-        );
-
-        // Initialize the system account with code zero (needed at initialization time)
-        // and currency / token with precision 4
-        self.send_action(
-            "init",
-            "eosio",
-            &format!(r#"["0", "4,{currency}"]"#),
-            "eosio@active"
-        );
-
+        self.send_action("eosio.token", "issue", json!(["eosio", format!("{initial_value} {currency}"), "memo"]),
+                         "eosio@active");
     }
 
     /// TODO: use builder pattern like so:
@@ -536,14 +692,13 @@ impl Dune {
     fn activate_features(&self) {
         for (feature, addr) in VAULTA_FEATURES.iter() {
             debug!("Activating blockchain feature: {feature}");
-            let features = format!(r#"["{addr}"]"#);
-            self.send_action("activate", "eosio", &features, "eosio@active");
+            self.send_action("eosio", "activate", json!([addr]), "eosio@active");
         }
     }
 
-    fn send_action(&self, action: &str, account: &str, data: &str, permission: &str) {
-        // FIXME: do not use an external 'cleos' subprocess to send it but our own kudu::APIClient
-        self.cleos_cmd(&["push", "action", account, action, data, "-p", permission]);
+    fn send_action(&self, account: &str, action: &str, data: Value, permission: &str) {
+        // TODO: do not use an external 'cleos' subprocess to send it but our own kudu::APIClient
+        self.cleos_cmd(&["push", "action", account, action, &data.to_string(), "-p", permission]);
     }
 
     /// Deploy a (previously compiled) contract located in `container_dir` to
@@ -573,8 +728,8 @@ impl Dune {
         self.cleos_cmd(&[
             "system", "newaccount",
             "--transfer",
-            "--stake-net", "1.0000 SYS",
-            "--stake-cpu", "1.0000 SYS",
+            "--stake-net", &format!("1.0000 {SYS_TOKEN_SYMBOL}"),
+            "--stake-cpu", &format!("1.0000 {SYS_TOKEN_SYMBOL}"),
             "--buy-ram-kbytes", "512",
             creator, account, &public,
         ]);

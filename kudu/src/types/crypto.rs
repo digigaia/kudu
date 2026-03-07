@@ -24,6 +24,8 @@ use kudu_macros::with_location;
 //       give us better compatibility with the Rust crypto world as they use it as base array type
 //       crypto libs used to use `generic-array` but it looks like they are all moving to `hybrid_array`
 
+// TODO: add more unittests. See: https://github.com/wharfkit/antelope/blob/master/test/crypto.ts
+
 #[with_location]
 #[derive(Debug, Snafu)]
 pub enum InvalidCryptoData {
@@ -305,29 +307,11 @@ fn key_data_to_string<const N: usize>(k: &[u8; N], prefix: &str) -> String {
     format!("{}_{}", prefix, enc_data)
 }
 
-/*
 
-def _is_canonical(signature):
-    canonical = all(
-        [
-            not (signature[1] & 0x80),
-            not (signature[1] == 0 and not (signature[2] & 0x80)),
-            not (signature[33] & 0x80),
-            not (signature[33] == 0 and not (signature[34] & 0x80)),
-        ]
-    )
-    return canonical
-
-    bool public_key::is_canonical( const compact_signature& c ) {
-        return !(c.data[1] & 0x80)
-               && !(c.data[1] == 0 && !(c.data[2] & 0x80))
-               && !(c.data[33] & 0x80)
-               && !(c.data[33] == 0 && !(c.data[34] & 0x80));
-    }
-
-
-*/
-
+// notes about the canonical-ness defined by EOS/Vaulta
+// - https://github.com/EOSIO/eos/issues/6699
+// - https://github.com/AntelopeIO/spring/issues/1106
+// - https://github.com/steemit/steem/issues/1944
 impl Signature {
     /// Return whether this signature is an EOS-canonical signature
     pub fn is_canonical(&self) -> bool {
@@ -403,6 +387,9 @@ impl PrivateKey {
         unimplemented!("WIF key format is deprecated, use `key.to_string()` instead");
     }
 
+    pub fn eosio_dev() -> Self {
+        PrivateKey::new("5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3").unwrap()
+    }
 }
 
 impl PublicKey {
@@ -466,7 +453,7 @@ mod tests {
 
     #[test]
     fn test_keys() -> Result<()> {
-        let priv_key = PrivateKey::new("5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3")?;
+        let priv_key = PrivateKey::eosio_dev();
         let pub_key = PublicKey::from_private_key(&priv_key);
 
         assert_eq!(pub_key.to_string(), "PUB_K1_6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5BoDq63");
@@ -476,7 +463,7 @@ mod tests {
 
     #[test]
     fn test_sign() -> Result<()> {
-        let key = PrivateKey::new("5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3")?;
+        let key = PrivateKey::eosio_dev();
         let input = b"a";
         let sig = key.sign_bytes(input);
         assert_eq!(sig.to_string(), "SIG_K1_JvyUh5EJU7xS3QJSszNKdxGTkQNoo1PUcaQUAjpGTa64Sihf7R6tyiiAjoiZVkoDcfFpEokJPMVqyKYUFmgSvW1MvcRhrM");

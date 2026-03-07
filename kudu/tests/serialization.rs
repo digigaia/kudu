@@ -6,7 +6,6 @@ use color_eyre::eyre::Result;
 use chrono::{NaiveDate, TimeZone, Utc};
 use serde::{Serialize, Deserialize};
 use serde_json::json;
-use tracing_subscriber::EnvFilter;
 
 use kudu::{
     ABI, ByteStream, ABISerializable,
@@ -31,13 +30,7 @@ use kudu::{
 static TRACING_INIT: Once = Once::new();
 
 fn init() {
-    TRACING_INIT.call_once(|| {
-        tracing_subscriber::fmt()
-            .with_env_filter(EnvFilter::from_default_env())
-            // .with_span_events(FmtSpan::ACTIVE)
-            // .pretty()
-            .init();
-    });
+    TRACING_INIT.call_once(kudu::tracing_init);
 }
 
 

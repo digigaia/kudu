@@ -1,8 +1,18 @@
+from datetime import datetime, timezone
+
 import pytest
 
 from kudu.chain import Action, PermissionLevel, Transaction
 from kudu.crypto import PrivateKey, PublicKey
 import kudu
+
+# NOTE: test template for API coverage
+#
+# - test constructors and all ways to build a new instance, make sure they are equivalent
+# - test special functions: str, repr, bytes, eq, cmp, hash
+# - test basic API coverage: getters, setters, other methods
+# - test errors when building or calling other methods, make sure they fail with an
+#   informative message
 
 
 def test_submodule():
@@ -17,6 +27,7 @@ def test_name():
     assert repr(name) == '<kudu.Name: eosio>'
     assert bytes(name).hex() == '0000000000ea3055'
 
+    assert name == kudu.Name('eosio')
     assert name == 'eosio'
 
     with pytest.raises(ValueError, match='normalized'):
@@ -24,6 +35,75 @@ def test_name():
 
     with pytest.raises(ValueError, match='longer than 13 characters'):
         kudu.Name('123456789012345')
+
+
+def test_timepointsec():
+    tp = kudu.TimePointSec((2018, 6, 15, 19, 17, 47))
+
+    assert str(tp) == '2018-06-15T19:17:47.000'
+    assert repr(tp) == '<kudu.TimePointSec: 2018-06-15T19:17:47.000>'
+    assert bytes(tp).hex() == 'db10245b'
+
+    dt = datetime(2018, 6, 15, 19, 17, 47, tzinfo=timezone.utc)
+    tp2 = kudu.TimePointSec(dt)                         # build from python datetime
+    tp3 = kudu.TimePointSec('2018-06-15T19:17:47.000')  # build from string
+    assert tp == tp2
+    assert tp == tp3
+
+    assert tp == dt
+    # we also allow datetime without a timezone by assuming they are UTC
+    assert tp == datetime(2018, 6, 15, 19, 17, 47)
+
+    assert isinstance(tp.to_datetime(), datetime)
+    assert tp.to_datetime() == dt
+
+    assert tp.year == 2018
+    assert tp.month == 6
+    assert tp.day == 15
+    assert tp.hour == 19
+    assert tp.minute == 17
+    assert tp.second == 47
+
+    with pytest.raises(ValueError, match='Invalid year-month-day'):
+        kudu.TimePointSec((2018, 6, 45, 19, 17, 47))
+
+    with pytest.raises(ValueError, match='input contains invalid characters'):
+        kudu.TimePointSec('this is not a date')
+
+
+def test_timepoint():
+    tp = kudu.TimePoint((2018, 6, 15, 19, 17, 47, 999))
+
+    assert str(tp) == '2018-06-15T19:17:47.999'
+    assert repr(tp) == '<kudu.TimePoint: 2018-06-15T19:17:47.999>'
+    assert bytes(tp).hex() == '18eb4012b36e0500'
+
+    dt = datetime(2018, 6, 15, 19, 17, 47, 999000, tzinfo=timezone.utc)
+    tp2 = kudu.TimePoint(dt)                         # build from python datetime
+    tp3 = kudu.TimePoint('2018-06-15T19:17:47.999')  # build from string
+    assert tp == tp2
+    assert tp == tp3
+
+    assert tp == dt
+    # we also allow datetime without a timezone by assuming they are UTC
+    assert tp == datetime(2018, 6, 15, 19, 17, 47, 999000)
+
+    assert isinstance(tp.to_datetime(), datetime)
+    assert tp.to_datetime() == dt
+
+    assert tp.year == 2018
+    assert tp.month == 6
+    assert tp.day == 15
+    assert tp.hour == 19
+    assert tp.minute == 17
+    assert tp.second == 47
+    assert tp.milli == 999
+
+    with pytest.raises(ValueError, match='Invalid year-month-day'):
+        kudu.TimePoint((2018, 6, 45, 19, 17, 47, 999))
+
+    with pytest.raises(ValueError, match='input contains invalid characters'):
+        kudu.TimePoint('this is not a date')
 
 
 def test_crypto():
@@ -41,7 +121,7 @@ def test_permission_level():
     perm = kudu.chain.PermissionLevel('eosio', 'active')
 
     assert str(perm) == 'eosio@active'
-    assert repr(perm) == '<kudu.chain.PermissionLevel: eosio@active>'
+    assert repr(perm) == '<kudu.PermissionLevel: eosio@active>'
     assert bytes(perm).hex() == '0000000000ea305500000000a8ed3232'
 
     assert perm.actor == 'eosio'
@@ -83,8 +163,22 @@ TX_HEX = 'b2f4335b0bb10e87af9c000000000100a6823403ea3055000000572d3ccdcd01608c31
 def test_action():
     action = Action('eosio.token', 'transfer', PermissionLevel('eosio', 'active'), bytes.fromhex(
         '608c31c6187315d6708c31c6187315d6010000000000000004535953000000000974657374206d656d6f'))
-    # assert str(action) == '...'  # FIXME: implement me
-    # assert repr, bytes
+
+    args = {
+        'from': 'useraaaaaaaa',
+        'to': 'useraaaaaaab',
+        'quantity': '0.0001 SYS',
+        'memo': 'test memo'
+    }
+    action2 = Action('eosio.token', 'transfer', PermissionLevel('eosio', 'active'), args)
+
+    assert action == action2
+    assert action.data == action2.data
+
+    assert repr(action) == '<kudu.Action: eosio.token::transfer(...) [eosio@active]>'
+    assert str(action) == '<kudu.Action: eosio.token::transfer(...) [eosio@active]>'
+    assert bytes(action).hex() == '00a6823403ea3055000000572d3ccdcd010000000000ea305500000000a8ed32322a608c31c6187315d6708c31c6187315d6010000000000000004535953000000000974657374206d656d6f'
+
     assert action.account == 'eosio.token'
     assert action.name == 'transfer'
     assert action.authorization == [('eosio', 'active')]
@@ -103,12 +197,7 @@ def test_action():
     }
     decoded_data = {'from': 'useraaaaaaaa', 'to': 'useraaaaaaab', 'quantity': '0.0001 SYS', 'memo': 'test memo'}
     decoded = encoded.copy()
-    decoded['data'] = {
-        'from': 'useraaaaaaaa',
-        'to': 'useraaaaaaab',
-        'quantity': '0.0001 SYS',
-        'memo': 'test memo'
-    }
+    decoded['data'] = args
 
     # we can decode encoded data
     data = action.decode_data()
@@ -124,22 +213,29 @@ def test_action():
 
     with pytest.raises(AttributeError):
         action.authorization = 'forbidden'
-    # assert str(action) == ""
 
 
 def test_transaction():
-    transaction = Transaction(TX)
-    assert transaction.ref_block_num == 45323
-    assert transaction.to_dict() == TX
-    # assert transaction == TX   # FIXME: implement me!
-    # assert str(transaction) == '...'
+    tx = Transaction(TX)
 
-    assert len(transaction.actions) == 1
-    assert isinstance(transaction.actions[0], Action)
-    assert transaction.actions[0].name == 'transfer'
-    assert transaction.actions[0] == ACTION
+    assert repr(tx) == '<kudu.Transaction: [Action(eosio.token::transfer [useraaaaaaaa@active] data=608c31c6187315d6708c31c6187315d60100000000000000045359530000000000]>'
+    assert str(tx) == '<kudu.Transaction: [Action(eosio.token::transfer [useraaaaaaaa@active] data=608c31c6187315d6708c31c6187315d60100000000000000045359530000000000]>'
+    assert bytes(tx).hex() == TX_HEX
 
-    assert bytes(transaction).hex() == TX_HEX
+    assert tx.expiration == kudu.TimePointSec((2018, 6, 27, 20, 33, 54))
+    assert tx.ref_block_num == 45323
+    assert tx.ref_block_prefix == 2628749070
+    assert tx.max_net_usage_words == 0
+    assert tx.delay_sec == 0
+    assert tx.context_free_actions == []
+    assert tx.transaction_extensions == []
+
+    assert len(tx.actions) == 1
+    assert isinstance(tx.actions[0], Action)
+    assert tx.actions[0].name == 'transfer'
+    assert tx.actions[0] == ACTION
+
+    assert tx.to_dict() == TX
 
     with pytest.raises(ValueError):
         Transaction('this should fail gracefully')

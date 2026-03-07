@@ -5,6 +5,7 @@ mod api;
 mod chain;
 mod crypto;
 mod util;
+mod time;
 
 // TODO: investigate https://github.com/Jij-Inc/serde-pyobject, pros/cons vs pythonize?
 
@@ -32,6 +33,8 @@ mod util;
 #[pymodule]
 mod kudu {
     use pyo3::prelude::*;
+    use pyo3::types::PyString;
+
     use kudu::{ABISerializable, ByteStream, Name};
 
     #[pymodule_export]
@@ -46,7 +49,12 @@ mod kudu {
     #[pymodule_export]
     use crate::crypto::kudu_crypto;
 
-    use crate::util::{gen_default_repr, gen_default_str, gen_bytes_conversion, value_err};
+    #[pymodule_export]
+    use crate::time::kudu_time;
+
+    use crate::util::{
+        gen_default_repr, gen_default_str, gen_bytes_conversion, value_err
+    };
 
     // -----------------------------------------------------------------------------
     //     Name
@@ -72,8 +80,7 @@ mod kudu {
                 return self.0 == name
             }
             // compare using an object of the same type
-            let p: Result<&Bound<'py, PyName>, _> = other.cast();
-            if let Ok(p) = p {
+            if let Ok(p) = other.cast::<PyName>() {
                 return self.0 == p.borrow().0;
             }
             false
@@ -91,6 +98,8 @@ mod kudu {
         // There is also some further python code that is run, it can be
         // found in `../python/kudu/__init__.py`
 
+        m.add("__version__", PyString::new(m.py(), kudu::config::VERSION))?;
+
         // properly declare submodules as packages
         // see: https://github.com/PyO3/pyo3/discussions/5397
         let modules = PyModule::import(m.py(), "sys")?.getattr("modules")?;
@@ -98,6 +107,7 @@ mod kudu {
         modules.set_item("kudu.api", m.getattr("api")?)?;
         modules.set_item("kudu.chain", m.getattr("chain")?)?;
         modules.set_item("kudu.crypto", m.getattr("crypto")?)?;
+        modules.set_item("kudu.time", m.getattr("time")?)?;
 
         // create some useful global variables
         let api_client = m.getattr("api")?.getattr("APIClient")?;

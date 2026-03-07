@@ -9,6 +9,7 @@ pub mod command;
 pub mod docker;
 pub mod dune;
 pub mod nodeconfig;
+mod ratatui;
 pub mod util;
 
 pub use command::{DockerCommand, DockerCommandJson};

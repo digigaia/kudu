@@ -9,6 +9,8 @@ classifiers = [
 dynamic = ["version"]
 
 dependencies = [
+    # TODO: we should be able to get rid of the maturin dep here, but then we can't run `uv run maturin develop`
+    # without installing it manually every time our venv re-syncs. Find a way to do this properly.
     "maturin>=1.11,<2.0",
     "duct",
     "loguru",

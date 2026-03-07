@@ -21,6 +21,7 @@ categories = ["command-line-utilities", "cryptography::cryptocurrencies", "encod
 
 [workspace.dependencies]
 base64 = "0.22.0"
+chrono = { version = "0.4", features = ["serde"] }
 color-eyre = "0.6.3"
 hex = "0.4.3"
 serde = { version = "1.0.200", features = ["derive"] }
