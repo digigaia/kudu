@@ -76,7 +76,7 @@ def install_base_packages():
     # note: install `libcurl4-gnutls-dev` instead of `libcurl4-openssl-dev` as
     #       the CDT package depends on it
     apt.update()
-    apt.packages(['tzdata', 'zip', 'unzip', 'time', 'jq',
+    apt.packages(['tzdata', 'zip', 'unzip', 'time', 'jq', 'python3',
                   # 'libncurses5', 'libusb-1.0-0-dev', 'libzstd-dev', 'nginx',
                   'wget',  'curl', 'git',
                   'build-essential', 'cmake', 'pkg-config',
@@ -257,7 +257,8 @@ def cleanup():
 
     # remove build dependencies
     apt.packages(['libgmp-dev', 'llvm-11-dev'], present=False)
-    server.shell(commands=['apt -y autoremove'])
+    server.shell(commands=['apt-get -y autoremove',
+                           'apt-get clean'])
 
 
 
