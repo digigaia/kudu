@@ -241,6 +241,9 @@ fn main() -> Result<()> {
                 println!("Container: {:20} ({})", name, status);
             }
         },
+        Commands::Info => {
+            Docker::info(&cli.container)?;
+        }
         Commands::BuildImage { base, spring, cdt, system_contracts, compile, nproc, no_cleanup } => {
             let compile_info = match compile {
                 true => "(compiled)",
@@ -278,9 +281,6 @@ fn main() -> Result<()> {
             dune.unlock_wallet();
 
             match cmd {
-                Commands::Info => {
-                    dune.info()?;
-                }
                 Commands::WalletPassword => {
                     info!("Wallet password is:");
                     println!("{}", &dune.get_wallet_password());
