@@ -16,21 +16,21 @@ use crate::config;
 #[derive(Debug, Snafu)]
 pub enum InvalidTimePoint {
     #[snafu(display("Invalid year-month-day: {year}-{month}-{day}"))]
-    YMD {
+    Ymd {
         year: i32,
         month: u32,
         day: u32,
     },
 
     #[snafu(display("Invalid hour:minute:second: {hour}:{min}:{sec}"))]
-    HMS {
+    Hms {
         hour: u32,
         min: u32,
         sec: u32,
     },
 
     #[snafu(display("Invalid hour:minute:second.milli: {hour}:{min}:{sec}.{milli}"))]
-    HMSMilli {
+    HmsMilli {
         hour: u32,
         min: u32,
         sec: u32,
@@ -38,7 +38,7 @@ pub enum InvalidTimePoint {
     },
 
     #[snafu(display("Invalid hour:minute:second.micro: {hour}:{min}:{sec}.{micro}"))]
-    HMSMicro {
+    HmsMicro {
         hour: u32,
         min: u32,
         sec: u32,
@@ -131,14 +131,14 @@ pub struct TimePoint(i64);
 impl TimePoint {
     pub fn new(year: i32, month: u32, day: u32, hour: u32, min: u32, sec: u32, milli: u32) -> Result<Self, InvalidTimePoint> {
         Ok(TimePoint::from_datetime(
-            NaiveDate::from_ymd_opt(year, month, day).context(YMDSnafu { year, month, day })?
-                .and_hms_milli_opt(hour, min, sec, milli).context(HMSMilliSnafu { hour, min, sec, milli })?
+            NaiveDate::from_ymd_opt(year, month, day).context(YmdSnafu { year, month, day })?
+                .and_hms_milli_opt(hour, min, sec, milli).context(HmsMilliSnafu { hour, min, sec, milli })?
                 .and_utc()))
     }
     pub fn from_ymd_hms_micro(year: i32, month: u32, day: u32, hour: u32, min: u32, sec: u32, micro: u32) -> Result<Self, InvalidTimePoint> {
         Ok(TimePoint::from_datetime(
-            NaiveDate::from_ymd_opt(year, month, day).context(YMDSnafu { year, month, day })?
-                .and_hms_micro_opt(hour, min, sec, micro).context(HMSMicroSnafu { hour, min, sec, micro })?
+            NaiveDate::from_ymd_opt(year, month, day).context(YmdSnafu { year, month, day })?
+                .and_hms_micro_opt(hour, min, sec, micro).context(HmsMicroSnafu { hour, min, sec, micro })?
                 .and_utc()))
     }
     pub fn from_datetime(dt: DateTime<Utc>) -> Self {
@@ -176,8 +176,8 @@ pub struct TimePointSec(u32);
 impl TimePointSec {
     pub fn new(year: i32, month: u32, day: u32, hour: u32, min: u32, sec: u32) -> Result<Self, InvalidTimePoint> {
         Ok(TimePointSec::from_datetime(
-            NaiveDate::from_ymd_opt(year, month, day).context(YMDSnafu { year, month, day })?
-                .and_hms_opt(hour, min, sec).context(HMSSnafu { hour, min, sec })?
+            NaiveDate::from_ymd_opt(year, month, day).context(YmdSnafu { year, month, day })?
+                .and_hms_opt(hour, min, sec).context(HmsSnafu { hour, min, sec })?
                 .and_utc()))
     }
     pub fn from_datetime(dt: DateTime<Utc>) -> Self {
