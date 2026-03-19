@@ -70,4 +70,7 @@ file once they are implemented.
 
 - implement `Debug` and `Display` trait for all basic types
 
+- implement `Deref` for newtypes, this way we automatically expose most of the API of the underlying type.
+  We still need to implement `Display`, `From`, etc. manually
+
 - document everything, also use boxes to show structure in source code files (ie: trait impls, etc. see: Symbol.rs as an example)

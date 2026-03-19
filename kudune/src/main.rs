@@ -1,7 +1,7 @@
 use std::{env, fs, io, process};
 
 use clap::{Parser, Subcommand, CommandFactory};
-use color_eyre::eyre::Result;
+use color_eyre::eyre::{OptionExt, Result};
 use tracing::{error, info, trace, warn, Level};
 use tracing_subscriber::{EnvFilter, filter::LevelFilter};
 
@@ -210,10 +210,9 @@ fn init_tracing(verbose_level: u8) {
     };
 }
 
-fn parse_mapping(s: &str) -> (u16, u16) {
-     // FIXME: return Err
-    let (a, b) = s.split_once(':').unwrap();
-    (a.parse().unwrap(), b.parse().unwrap())
+fn parse_mapping(s: &str) -> Result<(u16, u16)> {
+    let (a, b) = s.split_once(':').ok_or_eyre("port mapping missing colon ':' char")?;
+    Ok((a.parse()?, b.parse()?))
 }
 
 fn main() -> Result<()> {
@@ -269,11 +268,11 @@ fn main() -> Result<()> {
         // all the other commands need a `Dune` instance, get one now and keep matching
         _ => {
             let home = env::var("HOME").expect("$HOME variable should be set");
-            let ports = cli.ports.split(",").map(parse_mapping).collect();
+            let ports: Result<Vec<_>> = cli.ports.split(",").map(parse_mapping).collect();
             let mut dune = Dune::new(
                 cli.container.clone(),
                 cli.image.clone(),
-                ports,
+                ports?,
                 home,
             )?;
 
