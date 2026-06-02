@@ -12,7 +12,7 @@ use kudu::{
     abi::data::{
         PACKED_TRANSACTION_ABI, TEST_ABI, TOKEN_HEX_ABI, TRANSACTION_ABI
     },
-    ABIDefinition, Asset, Bytes, ByteStream, ExtendedAsset, InvalidValue, JsonValue, Name,
+    ABIDefinition, Asset, Bytes, ByteStreamView, ExtendedAsset, InvalidValue, JsonValue, Name,
     Symbol, SymbolCode, TimePoint, TimePointSec, TypeName, VarInt32, VarUint32, ABI,
     Checksum160, Checksum256, Checksum512, PublicKey, PrivateKey, Signature,
     Transaction, Action, AccountName, Transfer, BlockTimestamp, PackedTransactionV0
@@ -73,7 +73,7 @@ fn transaction_abi() -> &'static ABI {
 // =============================================================================
 
 #[instrument(skip(ds, abi))]
-fn try_encode_stream(ds: &mut ByteStream, abi: &ABI, typename: TypeName, data: &str) -> Result<()> {
+fn try_encode_stream(ds: &mut Bytes, abi: &ABI, typename: TypeName, data: &str) -> Result<()> {
     let value: JsonValue = kudu::json::from_str(data).map_err(InvalidValue::from)?;
     info!("{:?}", &value);
     abi.encode_variant(ds, typename, &value)?;
@@ -81,31 +81,31 @@ fn try_encode_stream(ds: &mut ByteStream, abi: &ABI, typename: TypeName, data: &
 }
 
 fn try_encode(abi: &ABI, typename: &str, data: &str) -> Result<()> {
-    let mut ds = ByteStream::new();
+    let mut ds = Bytes::new();
     try_encode_stream(&mut ds, abi, typename.into(), data)
 }
 
-fn try_decode_stream(ds: &mut ByteStream, abi: &ABI, typename: TypeName) -> Result<JsonValue> {
+fn try_decode_stream(ds: &mut ByteStreamView, abi: &ABI, typename: TypeName) -> Result<JsonValue> {
     let decoded = abi.decode_variant(ds, typename)?;
     assert!(ds.leftover().is_empty(), "leftover data in stream after decoding");
     Ok(decoded)
 }
 
 fn try_decode<T: AsRef<[u8]>>(abi: &ABI, typename: &str, data: T) -> Result<JsonValue> {
-    let mut ds = ByteStream::from(hex::decode(data).map_err(InvalidValue::from)?);
-    try_decode_stream(&mut ds, abi, typename.into())
+    let ds = Bytes::from_hex(data)?;
+    try_decode_stream(&mut ds.view(), abi, typename.into())
 }
 
 /// check roundtrip JSON -> variant -> bin -> variant -> JSON
 #[track_caller]
 fn check_round_trip(abi: &ABI, typename: &str, data: &str, hex: &str, expected: &str) -> Result<()> {
     debug!(r#"==== round-tripping type "{typename}" with value {data}"#);
-    let mut ds = ByteStream::new();
+    let mut ds = Bytes::new();
 
     try_encode_stream(&mut ds, abi, typename.into(), data)?;
-    assert_eq!(ds.hex_data(), hex, "variant to binary");
+    assert_eq!(ds.to_hex(), hex, "variant to binary");
 
-    let decoded = try_decode_stream(&mut ds, abi, typename.into())?;
+    let decoded = try_decode_stream(&mut ds.view(), abi, typename.into())?;
     let repr = kudu::json::to_string(&decoded)?;
 
     assert_eq!(repr, expected, "variant to JSON");
@@ -489,7 +489,7 @@ fn roundtrip_float128() -> Result<()> {
 
     let check_f128 = |hex: &str| {
         let repr = format!(r#""{hex}""#);
-        let value = Float128::from_bin_repr(Bytes::from_hex(hex).unwrap().as_ref().try_into().unwrap());
+        let value = Float128::from_bin_repr(Bytes::from_hex(hex).unwrap().as_bytes().try_into().unwrap());
         check_cross_conversion!(abi, value, Float128, "float128", &repr, hex, &repr, NO_SERDE);
     };
 

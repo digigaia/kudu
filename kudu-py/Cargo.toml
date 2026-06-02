@@ -11,7 +11,7 @@ crate-type = ["cdylib"]
 [dependencies]
 chrono             = { workspace = true }
 kudu = { path = "../kudu" }
-pyo3 = { version = "0.27.0", features = ["multiple-pymethods", "chrono"] }
-pythonize = "0.27.0"
+pyo3 = { version = "0.28.0", features = ["multiple-pymethods", "chrono"] }
+pythonize = "0.28.0"
 serde = { version = "1.0.200", features = ["derive"] }
 crabtime = "1.1.4"

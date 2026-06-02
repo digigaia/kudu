@@ -9,7 +9,7 @@ use crate::{
     AccountName, ActionName, Contract,
     PermissionName, Name, ABISerializable,
     abiserializable::to_bin, Bytes, JsonValue,
-    ByteStream, ABI, ABIError, InvalidName,
+    ByteStreamView, ABI, ABIError, InvalidName,
     abi, with_location, impl_auto_error_conversion,
 };
 
@@ -27,6 +27,9 @@ pub struct PermissionLevel {
     pub permission: PermissionName,
 }
 
+// NOTE: we need this trait and cannot use `impl From<T> for Vec<PermissionLevel>`
+//       if T is not part of this package (because of the orphan rule)
+// NOTE: we could fix it by defining a new type PermissionVec = Vec<PermissionLevel>
 pub trait IntoPermissionVec {
     fn into_permission_vec(self) -> Vec<PermissionLevel>;
 }
@@ -157,9 +160,9 @@ impl Action {
             // otherwise, we need an ABI to encode the data into a binary string
             let data = &action["data"];
             let abi = abi::registry::get_abi(account)?;
-            let mut ds = ByteStream::new();
+            let mut ds = Bytes::new();
             abi.encode_variant(&mut ds, action_name, data)?;
-            ds.into()
+            ds
         };
 
         Ok(Action {
@@ -182,16 +185,15 @@ impl Action {
     }
 
     pub fn decode_data_with_abi(&self, abi: &ABI) -> Result<JsonValue, ABIError> {
-        // FIXME: this .clone() is unnecessary once we fix deserializing from bytestream
-        let mut ds = ByteStream::from(self.data.clone());
+        let mut ds = ByteStreamView::from(&self.data);
         abi.decode_variant(&mut ds, &self.name.to_string())
     }
 
     pub fn with_data(mut self, value: &JsonValue) -> Result<Self, ActionError> {
-        let mut ds = ByteStream::new();
+        let mut ds = Bytes::new();
         let abi = abi::registry::get_abi(&self.account.to_string())?;
         abi.encode_variant(&mut ds, &self.name.to_string(), value)?;
-        self.data = ds.into();
+        self.data = ds;
         Ok(self)
     }
 

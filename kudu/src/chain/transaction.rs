@@ -11,7 +11,7 @@ use sha2::{Sha256, Digest};
 use snafu::{ResultExt, Snafu, ensure};
 
 use crate::{
-    ABISerializable, APIClient, Action, ActionError, BlockId, ByteStream, Bytes, ChainId,
+    ABISerializable, APIClient, Action, ActionError, BlockId, Bytes, ChainId,
     Checksum256, Extensions, JsonValue, PrivateKey, Signature, TimePointSec, TransactionId,
     VarUint32,
     api::HttpError,
@@ -120,9 +120,9 @@ impl Transaction {
         }
     }
     pub fn id(&self) -> TransactionId {
-        let mut ds = ByteStream::new();
-        self.to_bin(&mut ds);
-        let hash = sha2::Sha256::digest(ds.data());
+        let mut data = Bytes::new();
+        self.to_bin(&mut data);
+        let hash = sha2::Sha256::digest(&data);
         let r: [u8; 32] = hash.into();
         r.into()
     }
@@ -156,9 +156,9 @@ impl Transaction {
             None => UnlinkedTransactionSnafu { message: "you need a chain ID to be set to compute the tx digest".to_string() }.fail()?,
         }
 
-        let mut ds = ByteStream::new();
+        let mut ds = Bytes::new();
         self.to_bin(&mut ds);
-        hasher.update(ds.data());
+        hasher.update(&ds);
 
         if !context_free_data.is_empty() {
             hasher.update(Sha256::digest(context_free_data));
@@ -227,7 +227,7 @@ impl Transaction {
 // TODO: we implement this manually as we don't have a way yet to ignore fields using the derive macro
 // TODO: implement this, using #[serde(skip)] to decide whether to skip fields
 impl kudu::ABISerializable for Transaction {
-    fn to_bin(&self, s: &mut kudu::ByteStream) {
+    fn to_bin(&self, s: &mut kudu::Bytes) {
         // transaction header
         self.expiration.to_bin(s);
         self.ref_block_num.to_bin(s);
@@ -240,7 +240,7 @@ impl kudu::ABISerializable for Transaction {
         self.actions.to_bin(s);
         self.transaction_extensions.to_bin(s);
     }
-    fn from_bin(s: &mut kudu::ByteStream) -> ::core::result::Result<Self, kudu::SerializeError> {
+    fn from_bin(s: &mut kudu::ByteStreamView) -> ::core::result::Result<Self, kudu::SerializeError> {
         Ok(Self {
             // transaction header
             expiration: TimePointSec::from_bin(s)?,
@@ -302,9 +302,9 @@ impl Serialize for SignedTransaction {
         map.serialize_entry("compression", &self.compression)?;
         map.serialize_entry("packed_content_free_data", &self.packed_content_free_data)?;
 
-        let mut s = ByteStream::new();
+        let mut s = Bytes::new();
         self.tx.to_bin(&mut s);
-        map.serialize_entry("packed_trx", &s.hex_data())?;
+        map.serialize_entry("packed_trx", &s.to_hex())?;
 
         map.end()
     }

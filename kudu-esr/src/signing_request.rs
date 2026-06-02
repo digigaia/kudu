@@ -12,9 +12,7 @@ use flate2::read::DeflateDecoder;
 use serde::{Serialize, Serializer, ser::SerializeStruct};
 
 use kudu::{
-    ABIDefinition, ABIError, Action, Bytes, ByteStream, Checksum256, JsonValue, Name,
-    SerializeEnum, SerializeError, Transaction, ABI, PermissionLevel,
-    json, with_location,
+    json, with_location, ABIDefinition, ABIError, Action, ByteStreamView, Bytes, Checksum256, JsonValue, Name, PermissionLevel, SerializeEnum, SerializeError, Transaction, ABI
 };
 
 use tracing::{trace, debug, warn};
@@ -202,8 +200,8 @@ impl SigningRequest {
 
 
         let abi = get_signing_request_abi();
-        let mut ds = ByteStream::from(dec2);
-        abi.decode_variant(&mut ds, "signing_request").context(ABISnafu)
+        let mut view = ByteStreamView::from(&dec2);
+        abi.decode_variant(&mut view, "signing_request").context(ABISnafu)
     }
 
     pub fn decode<T>(esr: T) -> Result<Self, SigningRequestError>
@@ -236,7 +234,7 @@ impl SigningRequest {
     // TODO: `SigningRequest` should be `ABISerializable` instead of having to go through
     //       its JSON representation first
     pub fn encode(&self) -> Bytes {
-        let mut ds = ByteStream::new();
+        let mut ds = Bytes::new();
         let abi = get_signing_request_abi();
 
         // self.encode_actions();
@@ -244,7 +242,7 @@ impl SigningRequest {
 
         let sr = json!(self);
         abi.encode_variant(&mut ds, "signing_request", &sr).unwrap(); // FIXME: remove this `unwrap`
-        ds.into()
+        ds
     }
 }
 

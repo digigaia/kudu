@@ -7,7 +7,7 @@ use snafu::{ensure, ResultExt};
 
 use crate::abiserializable::{ABISerializable, ABISnafu};
 use crate::{
-    ByteStream, SerializeError, JsonValue, ActionName, TableName,
+    Bytes, ByteStreamView, SerializeError, JsonValue, ActionName, TableName,
     abi::serializer::ABI,
     abi::error::{ABIError, JsonSnafu, DeserializeSnafu, VersionSnafu, IncompatibleVersionSnafu},
     abi::data::{ABI_SCHEMA, CONTRACT_ABI}
@@ -129,7 +129,7 @@ impl ABIDefinition {
         ABIDefinition::from_str(&v.to_string())
     }
 
-    pub fn decode(data: &mut ByteStream) -> Result<Self> {
+    pub fn decode(data: &mut ByteStreamView) -> Result<Self> {
         // FIXME: check how to deserialize properly the different versions: 1.0, 1.1, 1.2, ...
         let version = String::from_bin(data).context(DeserializeSnafu { what: "version" })?;
 
@@ -165,7 +165,7 @@ impl ABIDefinition {
         Self::from_variant(&abi)
     }
 
-    pub fn encode(&self, stream: &mut ByteStream) -> Result<()> {
+    pub fn encode(&self, stream: &mut Bytes) -> Result<()> {
         let parser = bin_abi_parser();
         parser.encode(stream, &self.version);
         parser.encode_variant(stream, "typedef[]", &json!(self.types))?;
@@ -226,10 +226,10 @@ impl Default for ABIDefinition {
 
 // FIXME: review this, can't we have a single `to_bin`/`encode` method instead of this duplication?
 impl ABISerializable for ABIDefinition {
-    fn to_bin(&self, stream: &mut ByteStream) {
+    fn to_bin(&self, stream: &mut Bytes) {
         self.encode(stream).unwrap()  // safe unwrap
     }
-    fn from_bin(stream: &mut ByteStream) -> Result<Self, SerializeError> {
+    fn from_bin(stream: &mut ByteStreamView) -> Result<Self, SerializeError> {
         ABIDefinition::decode(stream).context(ABISnafu)
     }
 }
@@ -299,12 +299,12 @@ mod tests {
         });
 
         let abi = ABI::from_definition(&abi).unwrap();  // safe unwrap
-        let mut ds = ByteStream::new();
+        let mut ds = Bytes::new();
         abi.encode_variant(&mut ds, "bar", &obj).unwrap();
 
-        assert_eq!(&ds.hex_data().to_uppercase(), "036F6E65020100000000000028CF01040166016F01750172");
+        assert_eq!(&ds.to_hex().to_uppercase(), "036F6E65020100000000000028CF01040166016F01750172");
 
-        let dec = abi.decode_variant(&mut ds, "bar")?;
+        let dec = abi.decode_variant(&mut ds.view(), "bar")?;
         assert_eq!(dec.to_string(), r#"{"one":"one","two":2,"three":"two","four":["f","o","u","r"]}"#);
 
         Ok(())

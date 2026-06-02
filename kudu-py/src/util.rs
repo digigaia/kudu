@@ -28,16 +28,17 @@ fn _gen_default_repr(struct_name: String) {
     crabtime::output! {
         #[pymethods]
         impl {{struct_name}} {
-            pub fn __repr__(&self) -> String {
-                let mut module = <Self as ::pyo3::PyTypeInfo>::MODULE.unwrap_or("unknown").to_string();
+            pub fn __repr__<'py>(&self, py: Python<'py>) -> PyResult<String> {
+                let pytype = <Self as ::pyo3::PyTypeInfo>::type_object(py);
+                let pymodule = pytype.module()?;
+                let module = pymodule.to_str()?;
+                let classname = pytype.name()?;
                 // only keep the root module as we import all in it anyway
-                if let Some(idx) = module.find('.') {
-                    module.truncate(idx);
-                }
-                format!("<{}.{}: {}>",
-                        module,
-                        <Self as ::pyo3::PyTypeInfo>::NAME,
-                        self.0)
+                let module = match module.find('.') {
+                    Some(idx) => &module[..idx],
+                    None => module,
+                };
+                Ok(format!("<{}.{}: {}>", module, classname.to_str()?, self.0))
             }
         }
     }
@@ -61,7 +62,7 @@ fn _gen_bytes_conversion(struct_name: String) {
         #[pymethods]
         impl {{struct_name}} {
             pub fn __bytes__(&self) -> Vec<u8> {
-                let mut b = ByteStream::new();
+                let mut b = ::kudu::Bytes::new();
                 self.0.to_bin(&mut b);
                 b.into()
             }

@@ -24,7 +24,7 @@ pub enum InvalidAsset {
     #[snafu(display("amount overflow for: {amount}"))]
     AmountOverflow { amount: String },
 
-    #[snafu(display("ammount out of range, max is 2^62-1"))]
+    #[snafu(display("amount out of range, max is 2^62-1"))]
     AmountOutOfRange,
 
     #[snafu(display("could not parse symbol from asset string"))]

@@ -89,20 +89,25 @@ pub struct Transfer {
 
 
 // TODO: move this to api.rs (or not?)
+pub const DEBUG: usize = 0;
+pub const WARN: usize = 1;
 
-// TODO: make tracing level configurable so we can use it for both success and error logging
-pub fn nodeos_log(response: &JsonValue, console_output: &[String]) {
+pub fn nodeos_log<const N: usize>(response: &JsonValue, console_output: &[String]) {
     // this is a separate function (instead of inline) so it shows that the logs come from nodeos
-    if !console_output.is_empty() {
-        let tx_id = response["transaction_id"].as_str().unwrap();
-        debug!("Console output for tx: {}", tx_id);
-    }
+    if console_output.is_empty() { return; }
+
+    let tx_id = response["transaction_id"].as_str().unwrap();
+    if      N == DEBUG { debug!("Console output for tx: {}", tx_id); }
+    else if N == WARN  {  warn!("Console output for tx: {}", tx_id); }
+
     for output in console_output {
         for line in output.lines() {
-            debug!(line);
+            if      N == DEBUG { debug!(line); }
+            else if N == WARN  { warn!(line);  }
         }
     }
 }
+
 
 /// Parse a full JSON transaction trace and return the relevant message lines
 /// WARNING: this panics if the trace is malformed
@@ -143,18 +148,13 @@ pub fn parse_trace(response: &JsonValue) -> Result<Vec<String>, Vec<String>> {
 /// Log the results of a sent transaction.
 /// Return a `TransactionError` if there was an issue with the transaction.
 pub fn log_tx_trace(response: &JsonValue) -> Result<(), TransactionError> {
-    // TODO: use `nodeos_log()` instead
     match parse_trace(response) {
         Ok(lines) => {
-            for l in lines.iter() {
-                debug!("{}", l);
-            }
+            nodeos_log::<DEBUG>(response, &lines);
             Ok(())
         },
         Err(lines) => {
-            for l in lines.iter() {
-                warn!("{}", l);
-            }
+            nodeos_log::<WARN>(response, &lines);
             Err(TransactionError::NodeosError { message: lines.join("\n") })
         },
     }

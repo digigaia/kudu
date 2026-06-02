@@ -11,7 +11,7 @@ use tracing::{debug, warn, instrument};
 
 use crate::{
     AntelopeType, AntelopeValue, Bytes, Name, VarUint32, TypeName,
-    ABIDefinition, ByteStream, ABISerializable,
+    ABIDefinition, ByteStreamView, ABISerializable,
     abi::error::*,
     abi::definition::{
         TypeName as TypeNameOwned, Struct, Variant
@@ -69,7 +69,7 @@ impl ABI {
     }
 
     pub fn from_bin_abi(abi: &[u8]) -> Result<Self> {
-        let mut data = ByteStream::from(abi.to_owned());
+        let mut data = ByteStreamView::from(abi);
         let abi_def = ABIDefinition::decode(&mut data)?;
         Self::from_definition(&abi_def)
     }
@@ -243,18 +243,18 @@ impl ABI {
     where
         T: Into<TypeName<'a>>
     {
-        let mut ds = ByteStream::new();
+        let mut ds = Bytes::new();
         self.encode_variant(&mut ds, typename.into(), obj)?;
-        Ok(ds.into())
+        Ok(ds)
     }
 
     #[inline]
-    pub fn encode<T: ABISerializable>(&self, stream: &mut ByteStream, obj: &T) {
+    pub fn encode<T: ABISerializable>(&self, stream: &mut Bytes, obj: &T) {
         obj.to_bin(stream)
     }
 
     #[inline]
-    pub fn encode_variant<'a, T>(&self, ds: &mut ByteStream, typename: T, object: &JsonValue)
+    pub fn encode_variant<'a, T>(&self, ds: &mut Bytes, typename: T, object: &JsonValue)
                                  -> Result<(), ABIError>
     where
         T: Into<TypeName<'a>>
@@ -263,7 +263,7 @@ impl ABI {
     }
 
     #[instrument(skip(self, ctx, ds))]
-    fn encode_variant_(&self, ctx: &mut VariantToBinaryContext, ds: &mut ByteStream,
+    fn encode_variant_(&self, ctx: &mut VariantToBinaryContext, ds: &mut Bytes,
                        typename: TypeName, object: &JsonValue)
                        -> Result<(), ABIError> {
         // see C++ implementation here: https://github.com/AntelopeIO/spring/blob/main/libraries/chain/abi_serializer.cpp#L493
@@ -374,7 +374,7 @@ impl ABI {
         Ok(())
     }
 
-    fn encode_struct(&self, ctx: &mut VariantToBinaryContext, ds: &mut ByteStream,
+    fn encode_struct(&self, ctx: &mut VariantToBinaryContext, ds: &mut Bytes,
                      struct_def: &Struct, object: &JsonValue)
                      -> Result<(), ABIError> {
         // we want to serialize a struct...
@@ -463,13 +463,12 @@ impl ABI {
     where
         T: Into<TypeName<'a>>
     {
-        let mut ds = ByteStream::from(bytes);
-        self.decode_variant_(&mut ds, typename.into())
+        self.decode_variant_(&mut bytes.view(), typename.into())
     }
 
 
     #[inline]
-    pub fn decode_variant<'a, T>(&self, ds: &mut ByteStream, typename: T) -> Result<JsonValue, ABIError>
+    pub fn decode_variant<'a, T>(&self, ds: &mut ByteStreamView, typename: T) -> Result<JsonValue, ABIError>
     where
         T: Into<TypeName<'a>>
     {
@@ -477,7 +476,7 @@ impl ABI {
     }
 
     #[allow(clippy::collapsible_else_if)]
-    fn decode_variant_(&self, ds: &mut ByteStream, typename: TypeName) -> Result<JsonValue, ABIError> {
+    fn decode_variant_(&self, ds: &mut ByteStreamView, typename: TypeName) -> Result<JsonValue, ABIError> {
         let rtype = self.resolve_type(typename);
         let ftype = rtype.fundamental_type();
 
@@ -550,7 +549,7 @@ impl ABI {
         })
     }
 
-    fn decode_struct(&self, ds: &mut ByteStream, struct_def: &Struct) -> Result<JsonValue, ABIError> {
+    fn decode_struct(&self, ds: &mut ByteStreamView, struct_def: &Struct) -> Result<JsonValue, ABIError> {
         debug!(r#"reading struct with name "{}" and base "{}""#, struct_def.name, struct_def.base);
 
         let mut result: JsonMap<String, JsonValue> = JsonMap::new();
@@ -596,12 +595,12 @@ impl ABI {
     }
 }
 
-fn read_value(stream: &mut ByteStream, type_: AntelopeType, what: &str) ->  Result<JsonValue, ABIError> {
+fn read_value(stream: &mut ByteStreamView, type_: AntelopeType, what: &str) ->  Result<JsonValue, ABIError> {
     Ok(AntelopeValue::from_bin(type_, stream)
        .context(DeserializeSnafu { what })?.to_variant())
 }
 
-fn decode_usize(stream: &mut ByteStream, what: &str) -> Result<usize, ABIError> {
+fn decode_usize(stream: &mut ByteStreamView, what: &str) -> Result<usize, ABIError> {
     let n = VarUint32::from_bin(stream).context(DeserializeSnafu { what })?;
     Ok(n.into())
 }

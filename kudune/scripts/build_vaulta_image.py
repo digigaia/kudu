@@ -49,7 +49,7 @@ def nproc(required_gb_per_core=None):
 
 spring_cdt_source = 'compiled' if COMPILE_SPRING_CDT else 'from package'
 
-logger.warning(f"Installing on: {host.get_fact(LinuxDistribution)['release_meta']['PRETTY_NAME']} (arch: {ARCH})")
+logger.warning(f"Installing on: {DISTRO['PRETTY_NAME']} (arch: {ARCH})")
 logger.warning(f'Host has {SYS_NPROC} CPUs and {SYS_RAM} Gb RAM')
 logger.warning('Installing the following versions:')
 logger.warning(f' - Spring: {SPRING_VERSION} ({spring_cdt_source})')

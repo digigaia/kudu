@@ -7,6 +7,10 @@ NOTE: this should be fixed, or at least a resolution for this should be decided 
 
 - clean abi.rs
 
+- have a macro that reads an ABI definition from a json file and generates rust code
+  with statically-typed method names. This gives us auto-complete, and we can update it
+  easily by just downloading a new json abi definition.
+
 - the `ABISerializable` trait or the `ByteStream` struct needs to be revised:
   currently, `from_bin()` needs a `ByteStream` however the latter owns its data,
   meaning that if we only have a `&[u8]` we need to make a copy of the whole data
@@ -18,6 +22,7 @@ NOTE: this should be fixed, or at least a resolution for this should be decided 
   - a read-only `ByteStream` needs to be able to be cheaply created from `&[u8]`
   - (maybe?) we introduce a new `Cursor` struct (trait?) that can be created either from
     a `&[u8]` or by a `ByteStream`
+    BETTER: we introduce a `ByteStreamView` struct and pass this instead to `from_bin()`
 
 - find a way to declare extension fields on native Rust structs. We can easily
   annotate them using attributes that are recognized by the `derive(ABISerializable)`

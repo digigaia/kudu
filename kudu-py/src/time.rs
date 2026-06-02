@@ -11,7 +11,7 @@ pub mod kudu_time {
 
     use chrono::{DateTime, Datelike, NaiveDateTime, Timelike, Utc};
 
-    use kudu::{ABISerializable, ByteStream, TimePoint, TimePointSec};
+    use kudu::{ABISerializable, TimePoint, TimePointSec};
 
     use crate::util::{
         gen_bytes_conversion, gen_default_repr, gen_default_str, gen_convert_getters, value_err

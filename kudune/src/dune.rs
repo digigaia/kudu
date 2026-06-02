@@ -4,12 +4,6 @@ use std::time::Duration;
 use std::{process, thread};
 
 use color_eyre::eyre::{eyre, Result};
-use ratatui::layout::Alignment;
-use ratatui::{
-    prelude::Modifier,
-    widgets::Paragraph,
-};
-use ratatui_macros::{line, span};
 use regex::Regex;
 use tracing::{debug, info, warn, trace};
 use serde_json::{json, Value};
@@ -18,7 +12,6 @@ use kudu::config::VAULTA_FEATURES;
 use crate::docker::{Docker, DockerCommand};
 use crate::nodeconfig::NodeConfig;
 use crate::util::eyre_from_output;
-use crate::ratatui::{make_block, make_table, render, terminal_size};
 
 
 const DEFAULT_BASE_IMAGE: &str = "ubuntu:22.04";
@@ -123,100 +116,6 @@ impl Dune {
     /// Return a list of all Docker containers (running and stopped) on this machine.
     pub fn list_all_containers(&self) -> Vec<Value> {
         Docker::list_all_containers()
-    }
-
-    pub fn info(&self) -> Result<()> {
-        let get_apt_version = |package| -> String {
-            let pkg_info = String::from_utf8(
-                self.command(&["apt-cache", "show", package])
-                    .capture_output(true)
-                    .run()
-                    .stdout
-            ).unwrap();
-            let version_re = Regex::new(r"Version: (.*)\n").unwrap();
-            let caps = version_re.captures(&pkg_info).unwrap();
-            caps.get(1).unwrap().as_str().to_string()
-        };
-        let get_git_version = |folder| -> String {
-            String::from_utf8(
-                self.command(&["git", "-C", folder, "describe", "--tags"])
-                    .capture_output(true)
-                    .run()
-                    .stdout
-            ).unwrap().trim().to_string()
-        };
-        let kudune_version = kudu::config::VERSION;
-
-        let (mut width, _height) = terminal_size();
-        width = width.min(100);
-
-        // -----------------------------------------------------------------------------
-        //     print kudune version
-        // -----------------------------------------------------------------------------
-
-        let kudune_version = render(width, 1, |f| {
-            f.render_widget(Paragraph::new(format!("Kudune version: {kudune_version}"))
-                            .alignment(Alignment::Center),
-                            f.area());
-        });
-
-        println!("{}", kudune_version);
-
-        // -----------------------------------------------------------------------------
-        //     print vaulta images
-        // -----------------------------------------------------------------------------
-
-        let images: Vec<_> = Docker::list_images().into_iter()
-            .filter(|image| image["Repository"] == "vaulta")
-            .collect();
-
-        let images_output = render(width, (images.len() as u16) + 6, |f| {
-            let block = make_block("Vaulta images");
-            let table = make_table(&images, &["Repository", "Tag", "ID", "CreatedSince", "Size"]);
-            f.render_widget(table.block(block), f.area());
-        });
-
-        println!("{}", images_output);
-
-        // -----------------------------------------------------------------------------
-        //     print vaulta containers
-        // -----------------------------------------------------------------------------
-
-        let containers = Docker::list_running_containers();
-        let containers_output = render(width, (containers.len() as u16) + 6, |f| {
-            let block = make_block("Running containers");
-            let table = make_table(&containers, &["ID", "Image", "RunningFor", "Ports", "Names"]);
-            f.render_widget(table.block(block), f.area());
-        });
-
-        println!("{}", containers_output);
-
-        // -----------------------------------------------------------------------------
-        //     print version of the components inside the main container
-        // -----------------------------------------------------------------------------
-
-        let spring_version = get_apt_version("antelope-spring");
-        let cdt_version = get_apt_version("cdt");
-        let system_contracts_version = get_git_version("/app/system_contracts/");
-        let vaulta_contract_version = get_git_version("/app/vaulta_system_contract/");
-
-        let main_container_output = render(width, 8, |f| {
-            // let title = format!("Container: {}", self.docker.container);
-            let title = line!["Container: ", span!(Modifier::BOLD; self.docker.container)];
-            let block = make_block(title);
-            let paragraph = Paragraph::new(format!(concat!(
-                "- Spring version: {}\n",
-                "- CDT version: {}\n",
-                "- System contracts version: {}\n",
-                "- Vaulta contract version: {}\n"
-            ),
-            spring_version, cdt_version, system_contracts_version, vaulta_contract_version));
-            f.render_widget(paragraph.block(block), f.area());
-        });
-
-        println!("{}", main_container_output);
-
-        Ok(())
     }
 
     /// Given a path to a file or dir on the host, return the equivalent path as
@@ -579,21 +478,23 @@ impl Dune {
         // -----------------------------------------------------------------------------
 
         info!("Creating accounts needed for system contracts");
-        self.create_account("eosio.msig", Some("eosio"));
-        self.create_account("eosio.token", Some("eosio"));
         self.create_account("eosio.bpay", Some("eosio"));
+        self.create_account("eosio.msig", Some("eosio"));
         self.create_account("eosio.names", Some("eosio"));
         self.create_account("eosio.ram", Some("eosio"));
         self.create_account("eosio.ramfee", Some("eosio"));
         self.create_account("eosio.saving", Some("eosio"));
         self.create_account("eosio.stake", Some("eosio"));
+        self.create_account("eosio.token", Some("eosio"));
         self.create_account("eosio.vpay", Some("eosio"));
+        self.create_account("eosio.wrap", Some("eosio"));
         self.create_account("eosio.rex", Some("eosio"));
-        self.create_account("eosio.fees", Some("eosio"));  // added in system-contracts v3.4.0
-        self.create_account("eosio.powup", Some("eosio")); // added in system-contracts v3.4.0
+        self.create_account("eosio.fees", Some("eosio"));
+        self.create_account("eosio.reward", Some("eosio"));
+        self.create_account("eosio.wram", Some("eosio"));
+        self.create_account("eosio.reserv", Some("eosio"));
+        self.create_account("eosio.powup", Some("eosio"));
         self.create_account("core.vaulta", Some("eosio"));
-
-        // TODO: missing: eosio.{reward, wram, reserv}, what are they needed for?
 
         // -----------------------------------------------------------------------------
         //     install system contracts

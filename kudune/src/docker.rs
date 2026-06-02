@@ -2,11 +2,19 @@ use std::fs;
 use std::io::Write;
 
 use color_eyre::{Result, eyre::{eyre, WrapErr}};
+use ratatui::layout::Alignment;
+use ratatui::{
+    prelude::Modifier,
+    widgets::Paragraph,
+};
+use ratatui_macros::{line, span};
+use regex::Regex;
 use serde_json::Value;
 use tempfile::NamedTempFile;
 use tracing::{info, debug, trace, warn};
 
 pub use crate::command::{DockerCommand, DockerCommandJson};
+use crate::ratatui::{make_block, make_table, render, terminal_size};
 
 pub struct Docker {
     /// the container name in which we run the docker commands
@@ -28,9 +36,9 @@ pub struct Docker {
 const HOST_MOUNT_PATH: &str = "/host";
 
 impl Docker {
-    // the Docker constructor is pretty barebones and doesn't ensure
-    // anything is running. You have to call the `start()` method yourself
-    // if you need to ensure the container is running
+    /// the Docker constructor is pretty barebones and doesn't ensure
+    /// anything is running. You have to call the `start()` method yourself
+    /// if you need to ensure the container is running
     pub fn new(container: String, ports: Vec<(u16, u16)>, image: String, host_mount: String) -> Docker {
         Docker { container, ports, image, host_mount }
     }
@@ -46,15 +54,21 @@ impl Docker {
     }
 
     /// Return a `DockerCommand` builder that you can later run inside
-    /// the docker container
-    pub fn command(&self, args: &[&str]) -> DockerCommand {
+    /// the given docker container
+    pub fn docker_container_command(container: &str, args: &[&str]) -> DockerCommand {
         let mut docker_cmd = vec!["container", "exec"];
 
         docker_cmd.extend_from_slice(&["-w", "/app"]);
-        docker_cmd.push(&self.container);
+        docker_cmd.push(container);
         docker_cmd.extend_from_slice(args);
 
         Self::docker_command(&docker_cmd)
+    }
+
+    /// Return a `DockerCommand` builder that you can later run inside
+    /// the docker container
+    pub fn command(&self, args: &[&str]) -> DockerCommand {
+        Self::docker_container_command(&self.container, args)
     }
 
     /// Return a `DockerCommand` builder that you can later run inside
@@ -91,6 +105,105 @@ impl Docker {
     pub fn container_exists(container: &str) -> bool {
         Docker::list_all_containers().into_iter()
             .any(|c| c["Names"].as_str().unwrap() == container)
+    }
+
+    pub fn info(container: &str) -> Result<()> {
+        let get_apt_version = |package| -> String {
+            let pkg_info = String::from_utf8(
+                Self::docker_container_command(container, &["apt-cache", "show", package])
+                    .capture_output(true)
+                    .run()
+                    .stdout
+            ).unwrap();
+            let version_re = Regex::new(r"Version: (.*)\n").unwrap();
+            let caps = version_re.captures(&pkg_info).unwrap();
+            caps.get(1).unwrap().as_str().to_string()
+        };
+        let get_git_version = |folder| -> String {
+            String::from_utf8(
+                Self::docker_container_command(container, &["git", "-C", folder, "describe", "--tags"])
+                    .capture_output(true)
+                    .run()
+                    .stdout
+            ).unwrap().trim().to_string()
+        };
+        let kudune_version = kudu::config::VERSION;
+
+        let (mut width, _height) = terminal_size();
+        width = width.min(100);
+
+        // -----------------------------------------------------------------------------
+        //     print kudune version
+        // -----------------------------------------------------------------------------
+
+        let kudune_version = render(width, 1, |f| {
+            f.render_widget(Paragraph::new(format!("Kudune version: {kudune_version}"))
+                            .alignment(Alignment::Center),
+                            f.area());
+        });
+
+        println!("{}", kudune_version);
+
+        // -----------------------------------------------------------------------------
+        //     print vaulta images
+        // -----------------------------------------------------------------------------
+
+        let images: Vec<_> = Self::list_images().into_iter()
+            .filter(|image| image["Repository"] == "vaulta")
+            .collect();
+
+        let images_output = render(width, (images.len() as u16) + 6, |f| {
+            let block = make_block("Vaulta images");
+            let table = make_table(&images, &["Repository", "Tag", "ID", "CreatedSince", "Size"]);
+            f.render_widget(table.block(block), f.area());
+        });
+
+        println!("{}", images_output);
+
+        // -----------------------------------------------------------------------------
+        //     print vaulta containers
+        // -----------------------------------------------------------------------------
+
+        let containers = Self::list_running_containers();
+        let containers_output = render(width, (containers.len() as u16) + 6, |f| {
+            let block = make_block("Running containers");
+            let table = make_table(&containers, &["ID", "Image", "RunningFor", "Ports", "Names"]);
+            f.render_widget(table.block(block), f.area());
+        });
+
+        println!("{}", containers_output);
+
+        // -----------------------------------------------------------------------------
+        //     print version of the components inside the main container
+        // -----------------------------------------------------------------------------
+
+        if !Self::is_running(container) {
+            // only get info from container if it is running, otherwise exit here
+            return Ok(());
+        }
+
+        let spring_version = get_apt_version("antelope-spring");
+        let cdt_version = get_apt_version("cdt");
+        let system_contracts_version = get_git_version("/app/system_contracts/");
+        let vaulta_contract_version = get_git_version("/app/vaulta_system_contract/");
+
+        let main_container_output = render(width, 8, |f| {
+            // let title = format!("Container: {}", self.docker.container);
+            let title = line!["Container: ", span!(Modifier::BOLD; container)];
+            let block = make_block(title);
+            let paragraph = Paragraph::new(format!(concat!(
+                "- Spring version: {}\n",
+                "- CDT version: {}\n",
+                "- System contracts version: {}\n",
+                "- Vaulta contract version: {}\n"
+            ),
+            spring_version, cdt_version, system_contracts_version, vaulta_contract_version));
+            f.render_widget(paragraph.block(block), f.area());
+        });
+
+        println!("{}", main_container_output);
+
+        Ok(())
     }
 
     /// Start the docker container if needed. Show log output if `log=true`.
