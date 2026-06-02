@@ -1,3 +1,8 @@
+<!--
+SPDX-FileCopyrightText: 2024-2026 DigiGaia SCCL
+SPDX-License-Identifier: AGPL-3.0-or-later
+-->
+
 # README
 
 Here is a list of workflows that should be enabled by the `kudune` utility

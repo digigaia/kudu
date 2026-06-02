@@ -1,3 +1,8 @@
+<!--
+SPDX-FileCopyrightText: 2026 DigiGaia SCCL
+SPDX-License-Identifier: AGPL-3.0-or-later
+-->
+
 # TODO / FIXME
 
 - review the configuration of the network ports in the kudune CLI, it seems something is not properly

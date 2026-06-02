@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2023-2026 DigiGaia SCCL
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 use std::any::type_name_of_val;
 use std::fmt::Debug;
 use std::str::FromStr;

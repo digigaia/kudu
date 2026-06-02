@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2024-2026 DigiGaia SCCL
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt::Debug;
 use std::str::{from_utf8, Utf8Error};

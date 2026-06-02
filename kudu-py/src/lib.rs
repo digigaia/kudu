@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 DigiGaia SCCL
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 use pyo3::prelude::*;
 
 mod abi;

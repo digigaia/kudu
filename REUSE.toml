@@ -1,0 +1,36 @@
+# SPDX-FileCopyrightText: 2026 DigiGaia SCCL
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+version = 1
+
+# Generated files or hard-to-annotate files
+[[annotations]]
+path = [
+    "Cargo.lock",
+    "kudu-py/uv.lock",
+    "kudu/src/doc/antelope_data_model.*",
+]
+SPDX-FileCopyrightText = "DigiGaia SCCL"
+SPDX-License-Identifier = "AGPL-3.0-or-later"
+
+
+# External files or computer-generated, without a (known) license
+[[annotations]]
+path = [
+    "kudu/src/abi/data/*.json",
+    "kudu/tests/data/*.json",
+    "kudu-esr/src/*.json",
+    "kudu-py/.github/workflows/CI.yml",
+    "kudune/src/data/*.json",
+]
+SPDX-FileCopyrightText = "NONE"
+SPDX-License-Identifier = "CC0-1.0"
+
+
+# External files with a known license
+[[annotations]]
+path = [
+    "kudune/scripts/my_init",
+]
+SPDX-FileCopyrightText = "Phusion Holding B.V."
+SPDX-License-Identifier = "MIT"

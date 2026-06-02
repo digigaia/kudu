@@ -1,3 +1,8 @@
+<!--
+SPDX-FileCopyrightText: 2026 DigiGaia SCCL
+SPDX-License-Identifier: AGPL-3.0-or-later
+-->
+
 # README
 
 This folder contains the implementation of python bindings for the Kudu library.

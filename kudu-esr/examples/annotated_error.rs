@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2024-2026 DigiGaia SCCL
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 use kudu_macros::with_location;
 use color_eyre::Result;
 use snafu::prelude::*;

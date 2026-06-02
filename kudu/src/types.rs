@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2023-2026 DigiGaia SCCL
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! `Antelope` built-in types and other base types
 //!
 //! For the [built-in types][1] there are:

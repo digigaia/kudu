@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2023-2026 DigiGaia SCCL
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //!
 //! This library provides data types and functions to interact with
 //! [Antelope](https://antelope.io) blockchains.

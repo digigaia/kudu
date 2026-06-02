@@ -1,3 +1,8 @@
+<!--
+SPDX-FileCopyrightText: 2024-2026 DigiGaia SCCL
+SPDX-License-Identifier: AGPL-3.0-or-later
+-->
+
 # TODO / FIXME
 
 This is a general list that applies to the entire package. For crate specific items,
