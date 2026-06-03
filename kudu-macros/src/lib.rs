@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2024-2026 DigiGaia SCCL
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! This module contains macros to be used in the [`kudu`](https://docs.rs/kudu) crates.
 //!
 //! ## Feature flags

@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2024-2026 DigiGaia SCCL
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 use std::fs::{DirBuilder, read_to_string, write as write_file};
 use std::path::Path;
 use std::time::Duration;

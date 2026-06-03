@@ -1,3 +1,8 @@
+<!--
+SPDX-FileCopyrightText: 2023-2026 DigiGaia SCCL
+SPDX-License-Identifier: AGPL-3.0-or-later
+-->
+
 <div align="center">
 
 # Kudu
@@ -26,9 +31,4 @@ so that means `Name`, `Action`, `Transaction`, `PrivateKey`, `TimePoint`, etc. a
 
 ## License
 
-Licensed under either of
-
-- Apache License, Version 2.0 ([LICENSE-APACHE](LICENSE-APACHE) or <http://www.apache.org/licenses/LICENSE-2.0>)
-- MIT license ([LICENSE-MIT](LICENSE-MIT) or <http://opensource.org/licenses/MIT>)
-
-at your option.
+This project is licensed under the GNU Affero General Public License v3.0 or later - see the [LICENSE](LICENSES/AGPL-3.0-or-later.txt) file for details.

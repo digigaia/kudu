@@ -1,3 +1,5 @@
+// SPDX-FileCopyrightText: 2026 DigiGaia SCCL
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 #[allow(clippy::double_parens)]
 pub fn endian_reverse_u32(x: u32) -> u32 {

@@ -1,3 +1,5 @@
+// SPDX-FileCopyrightText: 2024-2026 DigiGaia SCCL
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 /// Define the `From` conversion from an error type to another, where the first
 /// is the source of the second. It will use the given `Snafu` context selector

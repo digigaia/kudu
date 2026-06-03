@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2024-2026 DigiGaia SCCL
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 pub const VERSION: &str = include_str!(concat!(env!("OUT_DIR"), "/version"));
 
 pub const BLOCK_INTERVAL_MS: u16 = 500;

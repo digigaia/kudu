@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2025, 2026 DigiGaia SCCL
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 use proc_macro2::TokenStream;
 use quote::quote;
 use syn::{Expr, ItemStruct, Lit, MetaNameValue, punctuated::Punctuated};

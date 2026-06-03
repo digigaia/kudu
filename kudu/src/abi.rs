@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2024-2026 DigiGaia SCCL
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //!
 //! This module provides tools to encode/decode `Antelope` types into/from an ABI.
 //!

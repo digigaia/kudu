@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025-2026 DigiGaia SCCL
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 set positional-arguments := true
 
 export RUST_BACKTRACE := "1"
@@ -100,6 +103,40 @@ publish:
         cargo publish -p kudu-esr
         cargo publish -p kudune
     fi
+
+# update the license headers for the given files
+[group('project management')]
+license *files:
+    #!/usr/bin/env bash
+    for files in "$@"; do
+        echo "Adding license header to files: $files"
+        git ls-files "$files" | while read file; do
+            # Get the year of the first commit for the file, following renames
+            FIRST_YEAR=$(git log --follow --date="format:%Y" --format="format:%cd" -- "$file" | tail -1)
+            CURRENT_YEAR=$(date +%Y)
+
+            # If the file isn't in git yet, or was created this year
+            if [ -z "$FIRST_YEAR" ] || [ "$FIRST_YEAR" = "$CURRENT_YEAR" ]; then
+                YEAR_RANGE="$CURRENT_YEAR"
+            else
+                YEAR_RANGE="${FIRST_YEAR}-${CURRENT_YEAR}"
+            fi
+
+            # echo "-- $file --"
+            reuse annotate --template=compact --merge-copyrights --year="$YEAR_RANGE" --copyright="DigiGaia SCCL" --license="AGPL-3.0-or-later" "$file"
+        done
+    done
+
+# update the license headers for all files in the project
+[group('project management')]
+license-all: \
+    (license "kudu/*.rs") \
+    (license "kudu-esr/*.rs") \
+    (license "kudu-macros/*.rs") \
+    (license "kudu-py/*.rs" "kudu-py/*.py") \
+    (license "kudune/*.rs" "kudune/scripts/*.py" "kudune/scripts/*.sh") \
+    (license "**/.gitignore" "*.md" "*.toml")
+    reuse lint
 
 
 hyperfine_opts := "--shell=none --warmup 10"

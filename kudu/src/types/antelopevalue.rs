@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2023-2026 DigiGaia SCCL
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 use std::array::TryFromSliceError;
 use std::convert::From;
 use std::num::TryFromIntError;

@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2024-2026 DigiGaia SCCL
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! This module provides the same functionality as `serde_json` but uses a
 //! specific formatter for `to_string` that tries to match the way the
 //! the C++ Antelope code outputs JSON.
