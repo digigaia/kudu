@@ -11,7 +11,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 [![Latest published Kudu version](https://img.shields.io/crates/v/kudu.svg)](https://crates.io/crates/kudu)
 [![Documentation build status](https://img.shields.io/docsrs/kudu.svg)](https://docs.rs/kudu)
-[![Apache 2.0 or MIT license](https://img.shields.io/badge/license-Apache--2.0_OR_MIT-blue.svg)](#license)
+[![AGPLv3+ license](https://img.shields.io/crates/l/kudu)](#license)
 
 </div>
 

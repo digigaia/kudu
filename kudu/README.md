@@ -11,7 +11,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 [![Latest published Kudu version](https://img.shields.io/crates/v/kudu.svg)](https://crates.io/crates/kudu)
 [![Documentation build status](https://img.shields.io/docsrs/kudu.svg)](https://docs.rs/kudu)
-[![Apache 2.0 or MIT license](https://img.shields.io/badge/license-Apache--2.0_OR_MIT-blue.svg)](#license)
+[![AGPLv3+ license](https://img.shields.io/crates/l/kudu)](#license)
 
 </div>
 
@@ -24,6 +24,7 @@ It is subdivided into 3 main crates for now:
 - [`kudune`](https://docs.rs/kudune): is a CLI tool that helps you manage and run nodeos instances in Docker.
   It aims at replacing the deprecated [DUNES](https://github.com/AntelopeIO/DUNES) utility
 
+
 ## Architecture
 
 See [ARCHITECTURE.md](./ARCHITECTURE.md) for details.
@@ -31,9 +32,4 @@ See [ARCHITECTURE.md](./ARCHITECTURE.md) for details.
 
 ## License
 
-Licensed under either of
-
-- Apache License, Version 2.0 ([LICENSE-APACHE](LICENSE-APACHE) or <http://www.apache.org/licenses/LICENSE-2.0>)
-- MIT license ([LICENSE-MIT](LICENSE-MIT) or <http://opensource.org/licenses/MIT>)
-
-at your option.
+This project is licensed under the GNU Affero General Public License v3.0 or later - see the [LICENSE](../LICENSES/AGPL-3.0-or-later.txt) file for details.
