@@ -11,7 +11,7 @@ use serde::{
     ser::{Serializer, SerializeMap}
 };
 use sha2::{Sha256, Digest};
-use snafu::{ResultExt, Snafu, ensure};
+use snafu::{OptionExt, ResultExt, Snafu, ensure};
 
 use crate::{
     ABISerializable, APIClient, Action, ActionError, BlockId, Bytes, ChainId,
@@ -184,8 +184,10 @@ impl Transaction {
     pub fn link(&mut self, client: Arc<APIClient>) -> Result<&mut Self, TransactionError> {
         let info = client.get("/v1/chain/get_info").context(NetworkSnafu { message: "cannot get chain info".to_string() })?;
 
-        let block_id = info["last_irreversible_block_id"].as_str().unwrap();
-        let block_id = BlockId::from_hex(block_id).unwrap();
+        let block_id = info["last_irreversible_block_id"].as_str()
+            .context(NodeosSnafu { message: "chain info 'last_irreversible_block_id' is not a string" })?;
+        let block_id = BlockId::from_hex(block_id)
+            .map_err(|_| NodeosSnafu { message: "chain info 'last_irreversible_block_id' is not an hex value" }.build())?;
 
         // set reference block info
         let (ref_block_num, ref_block_prefix) = Self::get_tapos_info(&block_id);
@@ -193,12 +195,15 @@ impl Transaction {
         self.ref_block_prefix = ref_block_prefix;
 
         // set chain id
-        let chain_id = info["chain_id"].as_str().unwrap().to_owned();
-        self.chain_id = Some(ChainId::from_hex(&chain_id).context(InvalidChainIdSnafu { chain_id })?);
+        let chain_id = info["chain_id"].as_str()
+            .context(NodeosSnafu { message:  "chain info 'chain_id' is not a string" })?;
+        self.chain_id = Some(ChainId::from_hex(chain_id).context(InvalidChainIdSnafu { chain_id })?);
 
         // set expiration time
         let expiration_delay_seconds = 120;
-        let head_block_time: TimePointSec = info["head_block_time"].as_str().unwrap().parse()?;
+        let head_block_time: TimePointSec = info["head_block_time"].as_str()
+            .context(NodeosSnafu { message:  "chain info 'head_block_time' is not a string" })?
+            .parse()?;
         self.expiration = head_block_time + expiration_delay_seconds;
 
         // save client for sending later

@@ -89,11 +89,14 @@ pub enum ActionError {
     #[snafu(display("invalid hex representation"))]
     FromHex { source: FromHexError },
 
-    #[snafu(display("could not match JSON object to transaction"))]
+    #[snafu(display("could not match JSON object to action"))]
     FromJson { source: serde_json::Error },
 
     #[snafu(display("ABI error"))]
     ABI { source: ABIError },
+
+    #[snafu(display("Invalid value: {message}"))]
+    InvalidValue { message: &'static str },
 }
 
 impl_auto_error_conversion!(InvalidName, ActionError, NameSnafu);
@@ -177,9 +180,11 @@ impl Action {
     }
 
     pub fn from_json_array(actions: &JsonValue) -> Result<Vec<Action>, ActionError> {
-        Ok(actions.as_array().unwrap().iter()
-            .map(|v| Action::from_json(v).unwrap())
-            .collect())
+        let array = actions.as_array()
+            .context(InvalidValueSnafu { message: "cannot create Vec<Action> from JSON value that is not an array" })?;
+        array.iter()
+            .map(Action::from_json)
+            .collect()
     }
 
     pub fn decode_data(&self) -> Result<JsonValue, ABIError> {

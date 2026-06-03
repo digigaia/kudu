@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2024-2026 DigiGaia SCCL
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use std::backtrace::Backtrace;
+use std::{backtrace::Backtrace, string::FromUtf8Error};
 use std::io::prelude::*;
 use std::sync::OnceLock;
 use std::fmt;
@@ -15,7 +15,9 @@ use flate2::read::DeflateDecoder;
 use serde::{Serialize, Serializer, ser::SerializeStruct};
 
 use kudu::{
-    json, with_location, ABIDefinition, ABIError, Action, ByteStreamView, Bytes, Checksum256, JsonValue, Name, PermissionLevel, SerializeEnum, SerializeError, Transaction, ABI
+    impl_auto_error_conversion, json, with_location,
+    ABI, ABIDefinition, ABIError, Action, ByteStreamView, Bytes, Checksum256, JsonValue, Name,
+    PermissionLevel, SerializeEnum, SerializeError, Transaction
 };
 
 use tracing::{trace, debug, warn};
@@ -375,7 +377,13 @@ pub enum SigningRequestError {
         source: ABIError,
     },
 
+    #[snafu(display("Invalid UTF-8 string"))]
+    FromUtf8 {
+        source: FromUtf8Error,
+    }
 }
+
+impl_auto_error_conversion!(FromUtf8Error, SigningRequestError, FromUtf8Snafu);
 
 pub fn conv_str(obj: &JsonValue) -> Result<&str, SigningRequestError> {
     obj.as_str().context(InvalidSnafu {

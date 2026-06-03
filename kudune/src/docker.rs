@@ -116,19 +116,24 @@ impl Docker {
                 Self::docker_container_command(container, &["apt-cache", "show", package])
                     .capture_output(true)
                     .run()
-                    .stdout
-            ).unwrap();
+                    .stdout  // safe to not check exit status, will return "" if apt-cache errors (eg: package doesn't exist)
+            ).unwrap();  // safe unwrap, we are confident apt-cache will not give us non-utf8 strings
             let version_re = Regex::new(r"Version: (.*)\n").unwrap();
-            let caps = version_re.captures(&pkg_info).unwrap();
-            caps.get(1).unwrap().as_str().to_string()
+            version_re.captures(&pkg_info)
+                .and_then(|caps| caps.get(1))
+                .map(|v| v.as_str().to_string())
+                .unwrap_or_else(|| "unknown".to_string())
         };
         let get_git_version = |folder| -> String {
-            String::from_utf8(
-                Self::docker_container_command(container, &["git", "-C", folder, "describe", "--tags"])
-                    .capture_output(true)
-                    .run()
-                    .stdout
-            ).unwrap().trim().to_string()
+            let output = Self::docker_container_command(container, &["git", "-C", folder, "describe", "--tags"])
+                .capture_output(true)
+                .run();
+            if output.status.success() {
+                String::from_utf8_lossy(&output.stdout).trim().to_string()
+            }
+            else {
+                "unknown".to_string()
+            }
         };
         let kudune_version = kudu::config::VERSION;
 

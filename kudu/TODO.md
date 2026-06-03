@@ -57,6 +57,9 @@ NOTE: this should be fixed, or at least a resolution for this should be decided 
 
 ## PERFORMANCE
 
+- check all instance of `.context()` and see which ones should be replaced by `.with_context()`
+  if they are expensive to compute or allocate
+
 - use a small string library so that ABIs have a much better cache locality
   eg: "german strings": <https://cedardb.com/blog/german_strings/>
 

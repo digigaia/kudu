@@ -16,8 +16,6 @@ file once they are implemented.
 
 - check <https://rust-lang.github.io/api-guidelines/checklist.html>
 
-- TimePointSec::new() should return Result<_>, not Option<_>
-
 
 ## DOCUMENTATION
 

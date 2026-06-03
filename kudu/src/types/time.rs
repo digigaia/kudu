@@ -223,10 +223,10 @@ impl Add<u32> for TimePointSec {
 pub struct BlockTimestamp(u32);
 
 impl BlockTimestamp {
-    pub fn new(year: i32, month: u32, day: u32, hour: u32, min: u32, sec: u32, milli: u32) -> Option<Self> {
-        Some(BlockTimestamp::from_datetime(
-            NaiveDate::from_ymd_opt(year, month, day)?
-                .and_hms_milli_opt(hour, min, sec, milli)?
+    pub fn new(year: i32, month: u32, day: u32, hour: u32, min: u32, sec: u32, milli: u32) -> Result<Self, InvalidTimePoint> {
+        Ok(BlockTimestamp::from_datetime(
+            NaiveDate::from_ymd_opt(year, month, day).context(YmdSnafu { year, month, day })?
+                .and_hms_milli_opt(hour, min, sec, milli).context(HmsMilliSnafu { hour, min, sec, milli })?
                 .and_utc()))
     }
     pub fn from_datetime(dt: DateTime<Utc>) -> Self {
