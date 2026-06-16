@@ -195,7 +195,7 @@ impl_pod_serialization!(f64, 8);
 impl ABISerializable for Float128 {
     #[inline]
     fn to_bin(&self, stream: &mut Bytes) {
-        stream.write_bytes(self.to_bin_repr())
+        stream.write_bytes(&self.to_bin_repr())
     }
     #[inline]
     fn from_bin(stream: &mut ByteStreamView) -> Result<Self, SerializeError> {

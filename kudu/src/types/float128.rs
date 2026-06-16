@@ -30,8 +30,8 @@ mod float128_impl {
             hex::encode(self.0)
         }
 
-        pub fn to_bin_repr(&self) -> &[u8; 16] {
-            &self.0
+        pub fn to_bin_repr(&self) -> [u8; 16] {
+            self.0
         }
 
         pub fn from_bin_repr(bin: &[u8; 16]) -> Self {
@@ -71,8 +71,6 @@ mod float128_impl {
 mod float128_impl {
     use super::*;
 
-    use bytemuck::{cast_ref, pod_read_unaligned};
-
     use crate::convert::str_to_float;
 
     #[derive(Copy, Clone, Debug, PartialEq, Default)]
@@ -84,15 +82,15 @@ mod float128_impl {
         }
 
         pub fn to_hex(&self) -> String {
-            hex::encode(self.0.to_ne_bytes())
+            hex::encode(self.0.to_le_bytes())
         }
 
-        pub fn to_bin_repr(&self) -> &[u8; 16] {
-            cast_ref::<f128, [u8; 16]>(&self.0)
+        pub fn to_bin_repr(&self) -> [u8; 16] {
+            self.0.to_le_bytes()
         }
 
         pub fn from_bin_repr(bin: &[u8; 16]) -> Self {
-            Float128(pod_read_unaligned(bin))
+            Float128(f128::from_le_bytes(*bin))
         }
     }
 
