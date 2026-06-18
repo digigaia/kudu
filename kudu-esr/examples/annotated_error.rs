@@ -9,9 +9,9 @@ use snafu::prelude::*;
 #[derive(Debug, Snafu)]
 #[snafu(visibility(pub))]
 pub enum MyError {
-    #[snafu(display(r#""{msg}""#))]
+    #[snafu(display(r#""{message}""#))]
     Invalid {
-        msg: String,
+        message: String,
     },
 
     #[snafu(display("unsupported ESR protocol version: {version}"))]
@@ -26,7 +26,7 @@ pub enum MyError {
 }
 
 pub fn test_fail() -> Result<()> {
-    InvalidSnafu { msg: "oops" }.fail()?
+    InvalidSnafu { message: "oops" }.fail()?
 }
 
 fn main() -> Result<()> {

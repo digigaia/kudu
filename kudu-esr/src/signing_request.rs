@@ -180,7 +180,7 @@ impl SigningRequest {
     pub fn decode_payload<T: AsRef<[u8]>>(esr: T) -> Result<JsonValue, SigningRequestError> {
         let content = String::from_utf8(esr.as_ref().to_vec()).unwrap();
         let dec = BASE64_URL_SAFE_NO_PAD.decode(esr).context(Base64DecodeSnafu { content: content.clone() })?;
-        ensure!(!dec.is_empty(), InvalidSnafu { msg: format!("base64-decoded payload {content} is empty") });
+        ensure!(!dec.is_empty(), InvalidSnafu { message: format!("base64-decoded payload {content} is empty") });
 
         // extract flags from payload
         let compression = (dec[0] >> 7) == 1u8;
@@ -334,9 +334,9 @@ impl SigningRequest {
 #[with_location]
 #[derive(Debug, Snafu)]
 pub enum SigningRequestError {
-    #[snafu(display("{msg}"))]
+    #[snafu(display("{message}"))]
     Invalid {
-        msg: String,
+        message: String,
         backtrace: Backtrace,
     },
 
@@ -387,12 +387,12 @@ impl_auto_error_conversion!(FromUtf8Error, SigningRequestError, FromUtf8Snafu);
 
 pub fn conv_str(obj: &JsonValue) -> Result<&str, SigningRequestError> {
     obj.as_str().context(InvalidSnafu {
-        msg: format!("Cannot convert object {:?} to str", obj)
+        message: format!("Cannot convert object {:?} to str", obj)
     })
 }
 
 pub fn conv_action_field_str<'a>(action: &'a JsonValue, field: &str) -> Result<&'a str, SigningRequestError> {
     action[field].as_str().context(InvalidSnafu {
-        msg: format!("Cannot convert action['{}'] to str, actual type: {:?}", field, action[field])
+        message: format!("Cannot convert action['{}'] to str, actual type: {:?}", field, action[field])
     })
 }

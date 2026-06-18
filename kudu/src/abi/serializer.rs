@@ -611,9 +611,9 @@ fn decode_usize(stream: &mut ByteStreamView, what: &str) -> Result<usize, ABIErr
     // note: do not gate this behind the `hardened` flag as the test is pretty inexpensive anyway
     // note: is is also called when deserializing a variant tag (index), which should even be much
     //       smaller so this condition also needs to hold (should even be tighter)
-    ensure!(n < config::MAX_ARRAY_SIZE, IntegritySnafu {
-        message: format!("deserializing array with size over max allowed size: {} > {}", n, config::MAX_ARRAY_SIZE)
-    });
+    ensure!(n < config::MAX_ARRAY_SIZE, IntegritySnafu { message: format!(
+        "deserializing array with size over max allowed size: {} > {}", n, config::MAX_ARRAY_SIZE
+    )});
     Ok(n)
 }
 

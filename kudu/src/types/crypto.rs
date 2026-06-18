@@ -35,11 +35,11 @@ pub enum InvalidCryptoData {
     #[snafu(display("invalid key type index: {index}"))]
     KeyTypeIndex { index: u8 },
 
-    #[snafu(display("not crypto data: {msg}"))]
-    NotCryptoData { msg: String },
+    #[snafu(display("not crypto data: {message}"))]
+    NotCryptoData { message: String },
 
-    #[snafu(display("{msg}"))]
-    InvalidDataSize { msg: String },
+    #[snafu(display("{message}"))]
+    InvalidDataSize { message: String },
 
     #[snafu(display("Hashes don't match: actual: {hash} - expected: {expected}"))]
     InvalidHash { hash: String, expected: String },
@@ -134,7 +134,7 @@ impl<T: CryptoDataType, const DATA_SIZE: usize> CryptoData<T, DATA_SIZE> {
             unimplemented!()
         }
         else {
-            NotCryptoDataSnafu { msg: s.to_owned() }.fail()
+            NotCryptoDataSnafu { message: s.to_owned() }.fail()
         }
     }
 
@@ -142,7 +142,7 @@ impl<T: CryptoDataType, const DATA_SIZE: usize> CryptoData<T, DATA_SIZE> {
         let input_len = v.len();
         let result = v.try_into();
         ensure!(result.is_ok(), InvalidDataSizeSnafu {
-            msg: format!("wrong size for {}, needs to be {} but is: {}", T::DISPLAY_NAME, DATA_SIZE, input_len)
+            message: format!("wrong size for {}, needs to be {} but is: {}", T::DISPLAY_NAME, DATA_SIZE, input_len)
         });
         Ok(result.unwrap())  // safe unwrap
     }
@@ -250,7 +250,7 @@ pub type Signature = CryptoData<SignatureType, 65>;
 fn string_to_key_data(enc_data: &str, prefix: Option<&str>) -> Result<Vec<u8>, InvalidCryptoData> {
     let data = bs58::decode(enc_data).into_vec().context(Base58Snafu)?;
 
-    ensure!(data.len() >= 5, NotCryptoDataSnafu { msg: format!(
+    ensure!(data.len() >= 5, NotCryptoDataSnafu { message: format!(
         "Invalid length for decoded base58 crypto data, needs to be at least 5, is {}",
         data.len())
     });
@@ -275,7 +275,7 @@ fn string_to_key_data(enc_data: &str, prefix: Option<&str>) -> Result<Vec<u8>, I
 fn from_wif(enc_data: &str) -> Result<Vec<u8>, InvalidCryptoData> {
     let data = bs58::decode(enc_data).into_vec().context(Base58Snafu)?;
 
-    ensure!(data.len() >= 5, NotCryptoDataSnafu { msg: format!(
+    ensure!(data.len() >= 5, NotCryptoDataSnafu { message: format!(
         "Invalid length for decoded base58 crypto data, needs to be at least 5, is {}",
         data.len())
     });

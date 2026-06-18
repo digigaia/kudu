@@ -42,8 +42,8 @@ pub enum SerializeError {
     #[snafu(display("invalid tag (discriminant): {tag} for variant type `{variant}`"), visibility(pub))]
     InvalidTag { tag: u32, variant: String },
 
-    #[snafu(display("{msg}"))]
-    InvalidData { msg: String },  // acts as a generic error type with a given message
+    #[snafu(display("{message}"))]
+    InvalidData { message: String },  // acts as a generic error type with a given message
 
     #[snafu(display("ABI error"), visibility(pub(crate)))]
     ABIError {
@@ -413,7 +413,7 @@ impl<T: ABISerializable + Debug, const N: usize> ABISerializable for [T; N] {
         let len: usize = VarUint32::from_bin(stream)?.into();
         // note: no need to check that `len` is bounded, it is covered by the next test
         ensure!(len == N, InvalidDataSnafu {
-            msg: format!("deserializing length of fixed-sized array doesn't match: got {}, expected {}", len, N)
+            message: format!("deserializing length of fixed-sized array doesn't match: got {}, expected {}", len, N)
         });
         let mut result = Vec::with_capacity(len);
         for _ in 0..len {
@@ -445,7 +445,7 @@ impl<T: ABISerializable> ABISerializable for Vec<T> {
         let len: usize = VarUint32::from_bin(stream)?.into();
         // note: do not gate this behind the `hardened` flag as the test is pretty inexpensive anyway
         ensure!(len < config::MAX_ARRAY_SIZE, InvalidDataSnafu {
-            msg: format!("deserializing vector with size over max allowed size: {} > {}", len, config::MAX_ARRAY_SIZE)
+            message: format!("deserializing vector with size over max allowed size: {} > {}", len, config::MAX_ARRAY_SIZE)
         });
         let mut result = Vec::with_capacity(len);
         for _ in 0..len {

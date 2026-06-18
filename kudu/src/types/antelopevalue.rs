@@ -374,7 +374,7 @@ impl TryFrom<AntelopeValue> for usize {
             AntelopeValue::Uint64(n) => n as usize,
             AntelopeValue::VarInt32(n) => i32::from(n).try_into().context(IntConversionSnafu { size: "usize" })?,
             AntelopeValue::VarUint32(n) => u32::from(n) as usize,
-            _ => return InvalidDataSnafu { msg: (format!("cannot convert {:?} to usize", n)) }.fail(),
+            _ => return InvalidDataSnafu { message: (format!("cannot convert {:?} to usize", n)) }.fail(),
         })
     }
 }
@@ -394,7 +394,7 @@ impl TryFrom<AntelopeValue> for i64 {
             AntelopeValue::Uint64(n) => n.try_into().context(IntConversionSnafu { size: "i64" })?,
             AntelopeValue::VarInt32(n) => i32::from(n) as i64,
             AntelopeValue::VarUint32(n) => u32::from(n) as i64,
-            _ => return InvalidDataSnafu { msg: format!("cannot convert {:?} to i64", n) }.fail(),
+            _ => return InvalidDataSnafu { message: format!("cannot convert {:?} to i64", n) }.fail(),
         })
     }
 }
@@ -409,7 +409,7 @@ impl TryFrom<AntelopeValue> for String {
             AntelopeValue::Name(s) => s.to_string(),
             AntelopeValue::Symbol(s) => s.to_string(),
             AntelopeValue::Asset(s) => s.to_string(),
-            _ => return InvalidDataSnafu { msg: format!("cannot convert {:?} to string", s) }.fail(),
+            _ => return InvalidDataSnafu { message: format!("cannot convert {:?} to string", s) }.fail(),
         })
     }
 }
@@ -499,8 +499,8 @@ pub enum InvalidValue {
         source: TryFromIntError
     },
 
-    #[snafu(display("{msg}"))]
-    InvalidData { msg: String },  // acts as a generic error type with a given message
+    #[snafu(display("{message}"))]
+    InvalidData { message: String },  // acts as a generic error type with a given message
 }
 
 impl_auto_error_conversion!(ConversionError, InvalidValue, ConversionSnafu);
