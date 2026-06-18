@@ -43,6 +43,10 @@ NOTE: this should be fixed, or at least a resolution for this should be decided 
 
 ## PERFORMANCE
 
+- `kuduconv` is now slower than `abieos` due to the common ABIs preloading. Add an option to
+  `kuduconv` to not preload ABIs (and thus force the user to specify one) in order to shave
+  off ~0.5ms
+
 - check all instance of `.context()` and see which ones should be replaced by `.with_context()`
   if they are expensive to compute or allocate
 
