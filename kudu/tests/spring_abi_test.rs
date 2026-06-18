@@ -483,7 +483,7 @@ fn abi_large_array() -> Result<()> {
     let data = b"\xff\xff\xff\xff\x08";
 
     let result = abi.binary_to_variant("hi[]", Bytes::from(data));
-    check_error!(result, ABIError::DecodeError { .. }, "stream ended unexpectedly; unable to unpack field 'a' of struct 'hi'");
+    check_error!(result, ABIError::IntegrityError { .. }, "integrity error: deserializing array with size over max allowed size");
 
     Ok(())
 }
@@ -493,7 +493,6 @@ fn abi_large_array() -> Result<()> {
 // will seemingly loop forever (as it is deserializing them it doesn't exhaust the stream
 // so can go on for a very long time)
 #[test]
-#[cfg(feature = "hardened")]
 fn abi_large_array_hardened() -> Result<()> {
     init();
 
@@ -517,8 +516,8 @@ fn abi_large_array_hardened() -> Result<()> {
 
     let data = b"\xff\xff\xff\xff\x08";
 
-    let result = abi.binary_to_variant("hi[]", data.to_vec());
-    check_error!(result, ABIError::DecodeError { .. }, "timeout or something like that");
+    let result = abi.binary_to_variant("hi[]", Bytes::from(data));
+    check_error!(result, ABIError::IntegrityError { .. }, "integrity error: deserializing array with size over max allowed size");
 
     Ok(())
 }

@@ -115,5 +115,7 @@ NOTE: this should be fixed, or at least a resolution for this should be decided 
 - add note that the execution time of the various methods is not time bounded and recursive
   functions do not have a max depth that is checked either.
   This could be something added at a later time via a feature flag (eg: `hardened`)
+  see constants in `kudu/src/config.rs`
+  we are already checking that arrays are bounded, should we do the same for strings?
 
 - think about `serde_json::Value::Number` size and whether we're good with it

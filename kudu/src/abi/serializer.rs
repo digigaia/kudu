@@ -19,6 +19,7 @@ use crate::{
     abi::definition::{
         TypeName as TypeNameOwned, Struct, Variant
     },
+    config,
 };
 
 type Result<T, E = ABIError> = core::result::Result<T, E>;
@@ -604,8 +605,16 @@ fn read_value(stream: &mut ByteStreamView, type_: AntelopeType, what: &str) ->  
 }
 
 fn decode_usize(stream: &mut ByteStreamView, what: &str) -> Result<usize, ABIError> {
-    let n = VarUint32::from_bin(stream).context(DeserializeSnafu { what })?;
-    Ok(n.into())
+    let n: usize = VarUint32::from_bin(stream).context(DeserializeSnafu { what })?.into();
+    // this function is called when deserializing the length of an array. Make sure this
+    // stays within reasonable limits.
+    // note: do not gate this behind the `hardened` flag as the test is pretty inexpensive anyway
+    // note: is is also called when deserializing a variant tag (index), which should even be much
+    //       smaller so this condition also needs to hold (should even be tighter)
+    ensure!(n < config::MAX_ARRAY_SIZE, IntegritySnafu {
+        message: format!("deserializing array with size over max allowed size: {} > {}", n, config::MAX_ARRAY_SIZE)
+    });
+    Ok(n)
 }
 
 

@@ -6,12 +6,13 @@ use std::fmt::Debug;
 use std::str::{from_utf8, Utf8Error};
 
 use bytemuck::{cast_ref, pod_read_unaligned};
-use snafu::{Snafu, ResultExt};
+use snafu::{Snafu, ResultExt, ensure};
 
 use kudu_macros::with_location;
 
 use crate::{
     ByteStreamView, StreamError, ABIError,
+    config,
     types::*,
     impl_auto_error_conversion,
 };
@@ -409,8 +410,12 @@ impl<T: ABISerializable + Debug, const N: usize> ABISerializable for [T; N] {
     }
 
     fn from_bin(stream: &mut ByteStreamView) -> Result<Self, SerializeError> {
-        let len: u32 = VarUint32::from_bin(stream)?.into();
-        let mut result = Vec::with_capacity(len as usize);
+        let len: usize = VarUint32::from_bin(stream)?.into();
+        // note: no need to check that `len` is bounded, it is covered by the next test
+        ensure!(len == N, InvalidDataSnafu {
+            msg: format!("deserializing length of fixed-sized array doesn't match: got {}, expected {}", len, N)
+        });
+        let mut result = Vec::with_capacity(len);
         for _ in 0..len {
             result.push(T::from_bin(stream)?);
         }
@@ -437,8 +442,12 @@ impl<T: ABISerializable> ABISerializable for Vec<T> {
     }
 
     fn from_bin(stream: &mut ByteStreamView) -> Result<Self, SerializeError> {
-        let len: u32 = VarUint32::from_bin(stream)?.into();
-        let mut result = Vec::with_capacity(len as usize);
+        let len: usize = VarUint32::from_bin(stream)?.into();
+        // note: do not gate this behind the `hardened` flag as the test is pretty inexpensive anyway
+        ensure!(len < config::MAX_ARRAY_SIZE, InvalidDataSnafu {
+            msg: format!("deserializing vector with size over max allowed size: {} > {}", len, config::MAX_ARRAY_SIZE)
+        });
+        let mut result = Vec::with_capacity(len);
         for _ in 0..len {
             result.push(T::from_bin(stream)?);
         }
