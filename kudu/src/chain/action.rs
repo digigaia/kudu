@@ -151,7 +151,6 @@ impl Action {
     }
 
     pub fn from_json(action: &JsonValue) -> Result<Action, ActionError> {
-        // FIXME: too many unwraps
         let account = Action::conv_action_field_str(action, "account")?;
         let action_name = Action::conv_action_field_str(action, "name")?;
 

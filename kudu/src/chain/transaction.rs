@@ -280,7 +280,7 @@ pub struct SignedTransaction {
 impl SignedTransaction {
     pub fn send(&self) -> Result<JsonValue, TransactionError> {
         let signed_tx = json!(self);
-        let result = self.tx.client.as_ref().unwrap()
+        let result = self.tx.client.as_ref().unwrap()  // safe unwrap: a SignedTransaction is necessarily linked
             .call("/v1/chain/push_transaction", &signed_tx)
             .context(NetworkSnafu { message: format!("Could not push transaction: {}", &signed_tx) })?;
 
@@ -289,7 +289,7 @@ impl SignedTransaction {
 
     pub fn send_unchecked(&self) -> Result<JsonValue, TransactionError> {
         let signed_tx = json!(self);
-        let result = self.tx.client.as_ref().unwrap()
+        let result = self.tx.client.as_ref().unwrap()  // safe unwrap: a SignedTransaction is necessarily linked
             .call_unchecked("/v1/chain/push_transaction", &signed_tx)
             .context(NetworkSnafu { message: format!("Could not push transaction: {}", &signed_tx) })?;
 

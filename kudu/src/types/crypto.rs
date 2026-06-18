@@ -12,7 +12,7 @@ use secp256k1::{Message, SecretKey};
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 use sha2::Sha256;
 use snafu::{ensure, ResultExt, Snafu};
-
+use tracing::debug;
 
 use kudu_macros::with_location;
 
@@ -43,6 +43,12 @@ pub enum InvalidCryptoData {
 
     #[snafu(display("Hashes don't match: actual: {hash} - expected: {expected}"))]
     InvalidHash { hash: String, expected: String },
+
+    #[snafu(display("invalid signature: {message}"))]
+    InvalidSignature { message: String },
+
+    #[snafu(display("invalid public key: {message}"))]
+    InvalidPublicKey { message: String },
 
     #[snafu(display("error while decoding base58 data"))]
     Base58Error { source: bs58::decode::Error },
@@ -339,10 +345,14 @@ impl From<secp256k1::ecdsa::RecoverableSignature> for Signature {
     }
 }
 
-impl From<&Signature> for secp256k1::ecdsa::RecoverableSignature {
-    fn from(value: &Signature) -> Self {
+impl TryFrom<&Signature> for secp256k1::ecdsa::RecoverableSignature {
+    type Error = InvalidCryptoData;
+
+    fn try_from(value: &Signature) -> Result<Self, Self::Error> {
         let recid = secp256k1::ecdsa::RecoveryId::from_u8_masked(value.data[0]);
-        Self::from_compact(&value.data[1..], recid).unwrap()
+        Self::from_compact(&value.data[1..], recid).map_err(|e| {
+            InvalidSignatureSnafu { message: e.to_string() }.build()
+        })
     }
 }
 
@@ -406,10 +416,15 @@ impl PublicKey {
     pub fn verify_signature(&self, input: &[u8], signature: &Signature) -> bool {
         let secp = secp256k1::global::SECP256K1;
         let message = Message::from_digest(Sha256::digest(input).into());
-        let public_key = secp256k1::PublicKey::from_byte_array_compressed(self.data).expect("65 bytes");
+        let Ok(public_key) = secp256k1::PublicKey::from_byte_array_compressed(self.data) else {
+            debug!("Expected 65 bytes for public key");
+            return false;
+        };
 
-
-        let sig = secp256k1::ecdsa::RecoverableSignature::from(signature);
+        let Ok(sig) = secp256k1::ecdsa::RecoverableSignature::try_from(signature) else {
+            debug!("Invalid recoverable signature");
+            return false;
+        };
         let sig = sig.to_standard();
 
 
@@ -427,9 +442,13 @@ impl From<secp256k1::PublicKey> for PublicKey {
     }
 }
 
-impl From<PublicKey> for secp256k1::PublicKey {
-    fn from(value: PublicKey) -> Self {
-        secp256k1::PublicKey::from_byte_array_compressed(value.data).expect("33 bytes")
+impl TryFrom<PublicKey> for secp256k1::PublicKey {
+    type Error = InvalidCryptoData;
+
+    fn try_from(value: PublicKey) -> Result<Self, Self::Error> {
+        secp256k1::PublicKey::from_byte_array_compressed(value.data).map_err(|e| {
+            InvalidPublicKeySnafu { message: format!("expecting 33 bytes for public key: {}", &e.to_string()) }.build()
+        })
     }
 }
 
