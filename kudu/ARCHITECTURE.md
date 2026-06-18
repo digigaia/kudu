@@ -81,41 +81,8 @@ for read operations that means that we panic if we reach the end of the stream,
 which is something that we could expect and that we currently account properly
 for with `StreamError`.
 
-### Open question on `ByteStream`
-
-We considered the possibility of having a `ByteStream` trait with the following
-methods:
-
-```
-pub trait ByteStream {
-    fn read_byte(&mut self) -> Result<u8, StreamError>;
-    fn read_bytes(&mut self, n: usize) -> Result<&[u8], StreamError>;
-
-    fn write_byte(&mut self, byte: u8);
-    fn write_bytes(&mut self, bytes: &[u8]);
-}
-```
-
-and have a `DataStream` class implementing those, leaving open the possibility
-for someone else to come with a better implementation that would fit this trait.
-
-However, we ran into the following issues:
-
-- `read_bytes()` returns a `&[u8]` with a lifetime bound to the one of the struct
-  implementing the trait; this is not always desirable.
-- `ABIDefinition::from_bin()` wants to call `leftover()` but that method is not
-  part of the trait and does not belong in there.
-
-So for now, `ByteStream` stays as a normal struct.
-
-### Possible alternatives to `ByteStream`
-
-- investigate the following as potential alternatives to the `ByteStream` struct:
-  - <https://graphallthethings.com/posts/better-buf-read>
-  - `std::io::Cursor`
-  - something based on the `bytes` crate?
-    - or this crate maybe: <https://github.com/wyfo/arc-slice> [[reddit](https://www.reddit.com/r/rust/comments/1j7sbwr/arcslice_a_generalized_implementation/)]
-  - <https://docs.rs/binary-stream/>
+So for now, we implement `ByteStream` as a normal struct with a `Vec<u8>` and
+a read position in it.
 
 
 ## Error handling

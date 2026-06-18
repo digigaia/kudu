@@ -248,7 +248,7 @@ impl kudu::ABISerializable for Transaction {
         self.actions.to_bin(s);
         self.transaction_extensions.to_bin(s);
     }
-    fn from_bin(s: &mut kudu::ByteStreamView) -> ::core::result::Result<Self, kudu::SerializeError> {
+    fn from_bin(s: &mut kudu::ByteStream) -> ::core::result::Result<Self, kudu::SerializeError> {
         Ok(Self {
             // transaction header
             expiration: TimePointSec::from_bin(s)?,

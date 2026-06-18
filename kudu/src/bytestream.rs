@@ -30,31 +30,26 @@ pub enum StreamError {
 
 /// Provide access to a byte stream along with a cursor to read into it.
 /// This is a non-owning type, the string type equivalent would be `&str`.
-///
-/// This is different that both `std::io::Read`/`std::io::Write` and the `bytes`
-/// crate as this is supposed to be used for reading from files/streams that have
-/// an end, so the `read` operation is fallible, but when writing we assume everything
-/// is fine (we usually write into memory) so the `write` operation is infallible.
 #[derive(Default)]
-pub struct ByteStreamView<'a> {
+pub struct ByteStream<'a> {
     data: &'a [u8],
 
     read_pos: usize,
 }
 
-impl<'a> From<&'a [u8]> for ByteStreamView<'a> {
+impl<'a> From<&'a [u8]> for ByteStream<'a> {
     fn from(data: &'a [u8]) -> Self {
-        ByteStreamView { data, read_pos: 0 }
+        ByteStream { data, read_pos: 0 }
     }
 }
 
-impl<'a> From<&'a Vec<u8>> for ByteStreamView<'a> {
+impl<'a> From<&'a Vec<u8>> for ByteStream<'a> {
     fn from(data: &'a Vec<u8>) -> Self {
-        ByteStreamView { data: data.as_ref(), read_pos: 0 }
+        ByteStream { data: data.as_ref(), read_pos: 0 }
     }
 }
 
-impl<'a> ByteStreamView<'a> {
+impl<'a> ByteStream<'a> {
     pub fn leftover(&self) -> &[u8] {
         &self.data[self.read_pos..]
     }
@@ -103,7 +98,7 @@ impl<'a> ByteStreamView<'a> {
 
 // FIXME: rename ByteStream to ByteBuffer
 //        actually: use Bytes instead of ByteStream for writing data, and only
-//                  ByteStreamView (rename to ByteStream then) for reading
+//                  ByteStream (rename to ByteStream then) for reading
 
 /// Provide access to a byte stream along with a cursor to read into it.
 /// This is an owning type, the string type equivalent would be `String`.
@@ -112,51 +107,51 @@ impl<'a> ByteStreamView<'a> {
 /// crate as this is supposed to be used for reading from files/streams that have
 /// an end, so the `read` operation is fallible, but when writing we assume everything
 /// is fine (we usually write into memory) so the `write` operation is infallible.
-#[derive(Default)]
-pub struct ByteStream {
-    data: Vec<u8>,
+// #[derive(Default)]
+// pub struct ByteStream {
+//     data: Vec<u8>,
 
-    read_pos: usize,
-}
+//     read_pos: usize,
+// }
 
-impl<'a> From<&'a ByteStream> for ByteStreamView<'a> {
-    fn from(stream: &'a ByteStream) -> ByteStreamView<'a> {
-        ByteStreamView { data: &stream.data, read_pos: stream.read_pos }
-    }
-}
+// impl<'a> From<&'a ByteStream> for ByteStream<'a> {
+//     fn from(stream: &'a ByteStream) -> ByteStream<'a> {
+//         ByteStream { data: &stream.data, read_pos: stream.read_pos }
+//     }
+// }
 
-impl From<ByteStream> for Vec<u8> {
-    fn from(stream: ByteStream) -> Vec<u8> {
-        stream.data
-    }
-}
+// impl From<ByteStream> for Vec<u8> {
+//     fn from(stream: ByteStream) -> Vec<u8> {
+//         stream.data
+//     }
+// }
 
-impl From<Vec<u8>> for ByteStream {
-    fn from(data: Vec<u8>) -> Self {
-        Self { data, read_pos: 0 }
-    }
-}
+// impl From<Vec<u8>> for ByteStream {
+//     fn from(data: Vec<u8>) -> Self {
+//         Self { data, read_pos: 0 }
+//     }
+// }
 
-impl From<Bytes> for ByteStream {
-    fn from(data: Bytes) -> Self {
-        Self { data: data.0, read_pos: 0 }
-    }
-}
+// impl From<Bytes> for ByteStream {
+//     fn from(data: Bytes) -> Self {
+//         Self { data: data.0, read_pos: 0 }
+//     }
+// }
 
-impl From<ByteStream> for Bytes {
-    fn from(stream: ByteStream) -> Bytes {
-        Bytes(stream.data)
-    }
-}
+// impl From<ByteStream> for Bytes {
+//     fn from(stream: ByteStream) -> Bytes {
+//         Bytes(stream.data)
+//     }
+// }
 
-impl ByteStream {
-    pub fn new() -> Self {
-        Self {
-            data: vec![],
-            read_pos: 0,
-        }
-    }
-}
+// impl ByteStream {
+//     pub fn new() -> Self {
+//         Self {
+//             data: vec![],
+//             read_pos: 0,
+//         }
+//     }
+// }
 
 
 
@@ -182,7 +177,7 @@ impl Bytes {
         &self.0
     }
 
-    pub fn view<'a>(&'a self) -> ByteStreamView<'a> {
+    pub fn view<'a>(&'a self) -> ByteStream<'a> {
         self.into()
     }
 
@@ -257,9 +252,9 @@ impl AsRef<[u8]> for Bytes {
     }
 }
 
-impl<'a> From<&'a Bytes> for ByteStreamView<'a> {
-    fn from(data: &'a Bytes) -> ByteStreamView<'a> {
-        ByteStreamView { data: data.as_bytes(), read_pos: 0 }
+impl<'a> From<&'a Bytes> for ByteStream<'a> {
+    fn from(data: &'a Bytes) -> ByteStream<'a> {
+        ByteStream { data: data.as_bytes(), read_pos: 0 }
     }
 }
 

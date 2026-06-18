@@ -134,7 +134,7 @@ pub use abi::{ABI, ABIError, ABIDefinition, TypeName};
 pub mod abiserializable;
 pub mod bytestream;
 
-pub use bytestream::{ByteStreamView, StreamError};
+pub use bytestream::{ByteStream, StreamError};
 pub use abiserializable::{ABISerializable, SerializeError, to_bin, to_hex, from_bin};
 
 /// Add a `location` field to all variants of a `Snafu` error enum

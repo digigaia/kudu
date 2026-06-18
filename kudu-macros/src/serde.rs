@@ -62,7 +62,7 @@ fn derive_abiserializable_struct(input: &DeriveInput, fields: &FieldsNamed) -> R
                         self.#fieldname.to_bin(s);
                     )*
                 }
-                fn from_bin(s: &mut kudu::ByteStreamView) -> ::core::result::Result<Self, kudu::SerializeError> {
+                fn from_bin(s: &mut kudu::ByteStream) -> ::core::result::Result<Self, kudu::SerializeError> {
                     Ok(Self {
                         #(
                             #fieldname: <#fieldtype>::from_bin(s)?,
@@ -125,7 +125,7 @@ fn derive_abiserializable_enum(input: &DeriveInput, enumeration: &DataEnum) -> R
                         )*
                     }
                 }
-                fn from_bin(s: &mut kudu::ByteStreamView) -> ::core::result::Result<Self, kudu::SerializeError> {
+                fn from_bin(s: &mut kudu::ByteStream) -> ::core::result::Result<Self, kudu::SerializeError> {
                     Ok(match kudu::VarUint32::from_bin(s)?.0 {
                         #(
                             #index => #ident::#var_idents(<#var_type>::from_bin(s)?),

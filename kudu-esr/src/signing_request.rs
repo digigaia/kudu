@@ -16,7 +16,7 @@ use serde::{Serialize, Serializer, ser::SerializeStruct};
 
 use kudu::{
     impl_auto_error_conversion, json, with_location,
-    ABI, ABIDefinition, ABIError, Action, ByteStreamView, Bytes, Checksum256, JsonValue, Name,
+    ABI, ABIDefinition, ABIError, Action, ByteStream, Bytes, Checksum256, JsonValue, Name,
     PermissionLevel, SerializeEnum, SerializeError, Transaction
 };
 
@@ -205,7 +205,7 @@ impl SigningRequest {
 
 
         let abi = get_signing_request_abi();
-        let mut view = ByteStreamView::from(&dec2);
+        let mut view = ByteStream::from(&dec2);
         abi.decode_variant(&mut view, "signing_request").context(ABISnafu)
     }
 

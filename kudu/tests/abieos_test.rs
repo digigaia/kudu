@@ -15,7 +15,7 @@ use kudu::{
     abi::data::{
         PACKED_TRANSACTION_ABI, TEST_ABI, TOKEN_HEX_ABI, TRANSACTION_ABI
     },
-    ABIDefinition, Asset, Bytes, ByteStreamView, ExtendedAsset, InvalidValue, JsonValue, Name,
+    ABIDefinition, Asset, Bytes, ByteStream, ExtendedAsset, InvalidValue, JsonValue, Name,
     Symbol, SymbolCode, TimePoint, TimePointSec, TypeName, VarInt32, VarUint32, ABI,
     Checksum160, Checksum256, Checksum512, PublicKey, PrivateKey, Signature,
     Transaction, Action, AccountName, Transfer, BlockTimestamp, PackedTransactionV0
@@ -88,7 +88,7 @@ fn try_encode(abi: &ABI, typename: &str, data: &str) -> Result<()> {
     try_encode_stream(&mut ds, abi, typename.into(), data)
 }
 
-fn try_decode_stream(ds: &mut ByteStreamView, abi: &ABI, typename: TypeName) -> Result<JsonValue> {
+fn try_decode_stream(ds: &mut ByteStream, abi: &ABI, typename: TypeName) -> Result<JsonValue> {
     let decoded = abi.decode_variant(ds, typename)?;
     assert!(ds.leftover().is_empty(), "leftover data in stream after decoding");
     Ok(decoded)

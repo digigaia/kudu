@@ -16,7 +16,7 @@ use tracing::instrument;
 use kudu_macros::with_location;
 
 use crate::{
-    json, JsonError, JsonValue, ByteStreamView, SerializeError, ABISerializable,
+    json, JsonError, JsonValue, ByteStream, SerializeError, ABISerializable,
     impl_auto_error_conversion,
 };
 
@@ -288,7 +288,7 @@ impl AntelopeValue {
     }
 
     #[instrument(skip(stream))]
-    pub fn from_bin(typename: AntelopeType, stream: &mut ByteStreamView) -> Result<Self, SerializeError> {
+    pub fn from_bin(typename: AntelopeType, stream: &mut ByteStream) -> Result<Self, SerializeError> {
         Ok(match typename {
             AntelopeType::Bool => Self::Bool(bool::from_bin(stream)?),
             AntelopeType::Int8 => Self::Int8(i8::from_bin(stream)?),

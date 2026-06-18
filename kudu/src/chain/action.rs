@@ -12,7 +12,7 @@ use crate::{
     AccountName, ActionName, Contract,
     PermissionName, Name, ABISerializable,
     abiserializable::to_bin, Bytes, JsonValue,
-    ByteStreamView, ABI, ABIError, InvalidName,
+    ByteStream, ABI, ABIError, InvalidName,
     abi, with_location, impl_auto_error_conversion,
 };
 
@@ -192,7 +192,7 @@ impl Action {
     }
 
     pub fn decode_data_with_abi(&self, abi: &ABI) -> Result<JsonValue, ABIError> {
-        let mut ds = ByteStreamView::from(&self.data);
+        let mut ds = ByteStream::from(&self.data);
         abi.decode_variant(&mut ds, &self.name.to_string())
     }
 
