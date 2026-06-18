@@ -367,7 +367,6 @@ impl ABI {
                 }
             }
             else if let Some(struct_def) = self.structs.get(rtype.as_str()) {
-                warn!(t=rtype.0, obj=object.to_string());
                 self.encode_struct(ctx, ds, struct_def, object)?;
             }
             else {

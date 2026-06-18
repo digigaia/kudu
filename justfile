@@ -5,7 +5,7 @@ set positional-arguments := true
 
 export RUST_BACKTRACE := "1"
 
-doc_modules := "-p 'kudu*' -p syn@2 -p ureq -p serde -p serde_json -p snafu -p strum -p tracing"
+doc_modules := "-p kudu -p kudu-macros -p kudu-esr -p kudune -p syn@2 -p ureq -p serde -p serde_json -p snafu -p strum -p tracing"
 open := if os() == "macos" { "open" } else { "xdg-open" }
 
 # list recipes
@@ -42,13 +42,11 @@ install-kudune:
 
 # generate documentation
 [group('documentation')]
-[working-directory: 'docs']
 doc:
     cargo doc --color always --no-deps {{doc_modules}}
 
 # generate documentation and open it
 [group('documentation')]
-[working-directory: 'docs']
 doc-open: doc
     {{open}} target/doc/kudu/index.html
 

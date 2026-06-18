@@ -43,10 +43,6 @@ NOTE: this should be fixed, or at least a resolution for this should be decided 
 
 ## PERFORMANCE
 
-- `kuduconv` is now slower than `abieos` due to the common ABIs preloading. Add an option to
-  `kuduconv` to not preload ABIs (and thus force the user to specify one) in order to shave
-  off ~0.5ms
-
 - check all instance of `.context()` and see which ones should be replaced by `.with_context()`
   if they are expensive to compute or allocate
 
@@ -78,7 +74,7 @@ NOTE: this should be fixed, or at least a resolution for this should be decided 
 - clean/properly order imports in all file (maybe wait for Rust 2024 edition and use rustfmt
   as it seems to correspond better to the style we like)
 
-- upgrade crypto crates once they have been released (see: https://github.com/RustCrypto/hashes)
+- upgrade crypto crates once they have been released (see: <https://github.com/RustCrypto/hashes>)
 
 
 ## MISSING FEATURES

@@ -81,9 +81,16 @@
 //!
 //! Example:
 //! ```sh
-//! $ kuduconv -h  # always nice to read the help to know what a program can do!
+//! kuduconv -h  # always nice to read the help to know what a program can do!
 //!
-//! $ kuduconv to-hex --abi token.abi transfer {"from": "useraaaaaaaa", "to": "useraaaaaaab", "quantity": "0.0001 SYS", "memo": ""}
+//! # kuduconv has some common ABIs preloaded, so you can do this and it will try to find a matching ABI automatically
+//! kuduconv to-hex transfer '{"from": "useraaaaaaaa", "to": "useraaaaaaab", "quantity": "0.0001 SYS", "memo": ""}'
+//!
+//! # but you can also specify the ABI by name (if is one of the preloaded ones)
+//! kuduconv to-hex --abi eosio.token transfer '{"from": "useraaaaaaaa", "to": "useraaaaaaab", "quantity": "0.0001 SYS", "memo": ""}'
+//!
+//! # or specify directly a file
+//! kuduconv to-hex --abi token_abi.json transfer '{"from": "useraaaaaaaa", "to": "useraaaaaaab", "quantity": "0.0001 SYS", "memo": ""}'
 //! ```
 //!
 //! # Differences between this library and the Antelope C++ library

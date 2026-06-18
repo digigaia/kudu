@@ -2,13 +2,14 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use std::fs;
+use std::path::Path;
 use std::sync::Arc;
 
 use clap::{Parser, Subcommand};
 use color_eyre::{Result, eyre::{eyre, OptionExt, WrapErr}};
 use serde_json::Value;
 
-use kudu::{abi, Bytes, ABI};
+use kudu::{abi, tracing_init, Bytes, ABI};
 
 
 #[derive(Parser)]
@@ -56,36 +57,35 @@ enum Commands {
     },
 }
 
-/// Return an `ABI` object given its name or filename
+/// Return an `ABI` object given its name or filename. If none is given, try to find one that
+/// can handle the given typename in the ABIs preloaded in the registry.
 fn get_abi(abi_name: Option<String>, typename: &str) -> Result<Arc<ABI>> {
-    // TODO: if abi_name is not specified,
-    //       we will need to pass in the typename also to be able to do this
-    // TODO: if abi_name is one of the preloaded abi names, use this
-    // otherwise, try to open a file with the given name
+    if let Some(abi_name) = abi_name {
+        // if abi_name is an existing file, load it
+        // do this first to avoid pre-loading ABIs in the registry if that is not needed
+        if Path::new(&abi_name).is_file() {
+            let abi_str = fs::read_to_string(&abi_name).unwrap();  // safe unwrap
+            return Ok(Arc::new(ABI::from_str(&abi_str)?))
+        }
 
-    // if abi_name is not specified, try to find the corresponding typename in our preloaded ABIs
-    if abi_name.is_none() {
-        // we didn't specify an ABI file, try to look into our registry if we have an ABI
+        // if it isn't a file, try to look for a pre-loaded ABI in our registry with that name
+        if let Ok(abi) = abi::registry::get_abi(&abi_name) {
+            return Ok(abi);
+        }
+
+        Err(eyre!("Could not find file or ABI with name: {}", abi_name))
+    }
+    else {
+        // we didn't specify an ABI file, try to look in our registry if we have an ABI
         // that knows about the type we want to convert
-        return abi::registry::find_abi_for(typename).
-            wrap_err("Did not specify an ABI, nor is there one preloaded that matches the given typename");
+        abi::registry::find_abi_for(typename).
+            wrap_err("Did not specify an ABI and there is none preloaded that matches the given typename")
     }
-    let abi_name = abi_name.unwrap();  // safe unwrap
-
-    // if abi_name is the name of a preloaded ABI, use it
-    if let Ok(abi) = abi::registry::get_abi(&abi_name) {
-        return Ok(abi);
-    }
-
-    // otherwise, read ABI from file
-    let abi_str = fs::read_to_string(&abi_name)
-        .wrap_err_with(|| format!("Could not read file '{}'", &abi_name))?;
-
-    Ok(Arc::new(ABI::from_str(&abi_str)?))
 }
 
 pub fn main() -> Result<()> {
     color_eyre::install()?;
+    tracing_init();
 
     let cli = Cli::parse();
 
