@@ -419,7 +419,7 @@ impl<T: ABISerializable + Debug, const N: usize> ABISerializable for [T; N] {
         for _ in 0..len {
             result.push(T::from_bin(stream)?);
         }
-        Ok(result.try_into().unwrap())
+        Ok(result.try_into().unwrap())  // safe unwrap
     }
 }
 

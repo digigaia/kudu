@@ -178,7 +178,7 @@ impl SigningRequest {
     }
 
     pub fn decode_payload<T: AsRef<[u8]>>(esr: T) -> Result<JsonValue, SigningRequestError> {
-        let content = String::from_utf8(esr.as_ref().to_vec()).unwrap();
+        let content = String::from_utf8(esr.as_ref().to_vec()).context(FromUtf8Snafu)?;
         let dec = BASE64_URL_SAFE_NO_PAD.decode(esr).context(Base64DecodeSnafu { content: content.clone() })?;
         ensure!(!dec.is_empty(), InvalidSnafu { message: format!("base64-decoded payload {content} is empty") });
 
