@@ -417,7 +417,7 @@ impl PublicKey {
         let secp = secp256k1::global::SECP256K1;
         let message = Message::from_digest(Sha256::digest(input).into());
         let Ok(public_key) = secp256k1::PublicKey::from_byte_array_compressed(self.data) else {
-            debug!("Expected 65 bytes for public key");
+            debug!("Expected 33 bytes for public key");
             return false;
         };
 
