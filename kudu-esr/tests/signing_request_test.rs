@@ -73,11 +73,11 @@ fn encode() -> Result<()> {
                            "0101000000000000000200000000000000110100",
                            "000000000000a032dd181be9d56500010000");
 
-    let req = SigningRequest::from_actions_json(&actions);
-    assert_eq!(req.encode().to_hex(), expected);
+    let req = SigningRequest::from_actions_json(&actions)?;
+    assert_eq!(req.encode()?.to_hex(), expected);
 
     let req = SigningRequest::from_actions(actions2);
-    assert_eq!(req.encode().to_hex(), expected);
+    assert_eq!(req.encode()?.to_hex(), expected);
 
     Ok(())
 }
@@ -154,7 +154,7 @@ fn create_from_action() -> Result<()> {
             "name": "transfer",
             "authorization": [{"actor": "foo", "permission": "active"}],
             "data": {"from": "foo", "to": "bar", "quantity": "1.000 EOS", "memo": "hello there"},
-        }));
+        }))?;
 
     assert_eq!(json!(req), json!({
         "chain_id": ["chain_alias", 1],
@@ -172,7 +172,7 @@ fn create_from_action() -> Result<()> {
         "info": [],
     }));
 
-    assert_eq!(req.to_json(), json!({
+    assert_eq!(req.to_json()?, json!({
         "chain_id": ["chain_alias", 1],
         "req": [
             "action",
@@ -210,7 +210,7 @@ fn create_from_actions() -> Result<()> {
                 "authorization": [{"actor": "baz", "permission": "active"}],
                 "data": {"from": "baz", "to": "bar", "quantity": "1.000 EOS", "memo": "hello there"},
             }
-        ]))
+        ]))?
         .with_callback("https://example.com/?tx={{tx}}", true);
 
     assert_eq!(json!(req), json!({
@@ -237,7 +237,7 @@ fn create_from_actions() -> Result<()> {
         "info": [],
     }));
 
-    assert_eq!(req.to_json(), json!({
+    assert_eq!(req.to_json()?, json!({
         "chain_id": ["chain_alias", 1],
         "req": [
             "action[]",
@@ -284,7 +284,7 @@ fn create_from_transaction() -> Result<()> {
                     "data": "000000000000285d000000000000ae39e80300000000000003454f53000000000b68656c6c6f207468657265",
                 }
             ]
-        }))
+        }))?
         .with_broadcast(false)
         .with_callback("https://example.com/?tx={{tx}}", false);
 

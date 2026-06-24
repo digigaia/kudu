@@ -198,7 +198,7 @@ pub mod kudu_chain {
         }
 
         fn decode_data<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
-            Ok(pythonize(py, &self.0.decode_data().unwrap())?)
+            Ok(pythonize(py, &self.0.decode_data().map_err(value_err)?)?)
         }
 
         fn decode_data_with_abi<'py>(

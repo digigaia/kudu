@@ -22,14 +22,8 @@ impl<'a> TypeName<'a> {
 
     pub fn is_sized_array(&self) -> bool {
         match (self.0.rfind('['), self.0.rfind(']')) {
-            (Some(pos1), Some(pos2)) => {
-                if pos1 + 1 < pos2 {
-                    self.0[pos1 + 1..pos2].chars().all(|c| c.is_ascii_digit())
-                }
-                else {
-                    false
-                }
-            },
+            (Some(pos1), Some(pos2)) if pos1 + 1 < pos2 =>
+                self.0[pos1 + 1..pos2].chars().all(|c| c.is_ascii_digit()),
             _ => false,
         }
     }

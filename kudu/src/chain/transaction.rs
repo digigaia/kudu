@@ -196,13 +196,13 @@ impl Transaction {
 
         // set chain id
         let chain_id = info["chain_id"].as_str()
-            .context(NodeosSnafu { message:  "chain info 'chain_id' is not a string" })?;
+            .context(NodeosSnafu { message: "chain info 'chain_id' is not a string" })?;
         self.chain_id = Some(ChainId::from_hex(chain_id).context(InvalidChainIdSnafu { chain_id })?);
 
         // set expiration time
         let expiration_delay_seconds = 120;
         let head_block_time: TimePointSec = info["head_block_time"].as_str()
-            .context(NodeosSnafu { message:  "chain info 'head_block_time' is not a string" })?
+            .context(NodeosSnafu { message: "chain info 'head_block_time' is not a string" })?
             .parse()?;
         self.expiration = head_block_time + expiration_delay_seconds;
 
@@ -280,18 +280,20 @@ pub struct SignedTransaction {
 impl SignedTransaction {
     pub fn send(&self) -> Result<JsonValue, TransactionError> {
         let signed_tx = json!(self);
-        let result = self.tx.client.as_ref().unwrap()  // safe unwrap: a SignedTransaction is necessarily linked
+        let result = self.tx.client.as_ref()
+            .with_context(|| UnlinkedTransactionSnafu { message: "cannot send transaction" })?
             .call("/v1/chain/push_transaction", &signed_tx)
-            .context(NetworkSnafu { message: format!("Could not push transaction: {}", &signed_tx) })?;
+            .with_context(|_| NetworkSnafu { message: format!("Could not push transaction: {}", &signed_tx) })?;
 
         Ok(result)
     }
 
     pub fn send_unchecked(&self) -> Result<JsonValue, TransactionError> {
         let signed_tx = json!(self);
-        let result = self.tx.client.as_ref().unwrap()  // safe unwrap: a SignedTransaction is necessarily linked
+        let result = self.tx.client.as_ref()
+            .with_context(|| UnlinkedTransactionSnafu { message: "cannot send transaction" })?
             .call_unchecked("/v1/chain/push_transaction", &signed_tx)
-            .context(NetworkSnafu { message: format!("Could not push transaction: {}", &signed_tx) })?;
+            .with_context(|_| NetworkSnafu { message: format!("Could not push transaction: {}", &signed_tx) })?;
 
         Ok(result)
     }

@@ -271,9 +271,10 @@ fn string_to_key_data(enc_data: &str, prefix: Option<&str>) -> Result<Vec<u8>, I
     let actual = &digest[..4];
     let expected = &data[data.len() - 4..];
 
-    assert_eq!(actual, expected,
-               "hash don't match, actual: {:?} - expected {:?}",
-               hex::encode(actual), hex::encode(expected));
+    ensure!(actual == expected, InvalidHashSnafu {
+        hash: hex::encode(actual),
+        expected: hex::encode(expected)
+    });
 
     Ok(data[..data.len() - 4].to_owned())
 }
@@ -369,7 +370,7 @@ impl PrivateKey {
             // use global context
             let secp = secp256k1::global::SECP256K1;
 
-            let secret_key = SecretKey::from_byte_array(self.data).expect("32 bytes, within curve order");
+            let secret_key = SecretKey::from_byte_array(self.data).expect("32 bytes, within curve order");  // safe expect
             let message = Message::from_digest(digest.0);
 
             // iterate over a nonce to be added to the signatures until we find a good one
@@ -408,7 +409,7 @@ impl PrivateKey {
 impl PublicKey {
     pub fn from_private_key(private_key: &PrivateKey) -> Self {
         let secp = secp256k1::global::SECP256K1;
-        let secret_key = SecretKey::from_byte_array(private_key.data).expect("32 bytes, within curve order");
+        let secret_key = SecretKey::from_byte_array(private_key.data).expect("32 bytes, within curve order");  // safe expect
         let public_key = secp256k1::PublicKey::from_secret_key(secp, &secret_key);
         public_key.into()
     }

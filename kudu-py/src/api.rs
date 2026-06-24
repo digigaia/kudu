@@ -17,6 +17,7 @@ pub mod kudu_api {
     use kudu::api::{APIClient, HttpError};
     use kudu::JsonValue;
 
+    use crate::util::value_err;
 
     fn wrap_for_python<'py, T>(py: Python<'py>, value: Result<&T, &HttpError>) -> PyResult<Bound<'py, PyAny>>
     where
@@ -56,7 +57,7 @@ pub mod kudu_api {
         }
 
         fn call<'py>(&self, py: Python<'py>, path: &str, params: &Bound<'py, PyAny>) -> PyResult<Bound<'py, PyAny>> {
-            let params: JsonValue = depythonize(params).unwrap();
+            let params: JsonValue = depythonize(params).map_err(value_err)?;
             let result = self.0.call(path, &params);
             wrap_for_python(py, result.as_ref())
         }

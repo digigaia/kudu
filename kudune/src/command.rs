@@ -4,7 +4,7 @@
 use std::process::{self, Output};
 
 use duct::cmd;
-use serde_json::Value;
+use serde_json::{Value, json};
 use tracing::{error, trace};
 
 use crate::{print_streams, util::join_quote};
@@ -110,9 +110,12 @@ impl DockerCommandJson {
         let output = self.command.run();
         let stdout = std::str::from_utf8(&output.stdout).unwrap();
 
-        stdout.lines()
+        let result: Result<_, _> = stdout.lines()
             // first and last chars are single quotes, remove them before parsing json
-            .map(|l| serde_json::from_str(&l[1..l.len()-1]).unwrap())
-            .collect()
+            .map(|l| serde_json::from_str(&l[1..l.len()-1]))
+            .collect();
+        result.unwrap_or_else(|err| vec![json!(
+            format!("ERROR: invalid command output: {:?}\nERROR: {err}", stdout.lines())
+        )])
     }
 }

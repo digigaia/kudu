@@ -46,6 +46,9 @@ pub enum ABIError {
     #[snafu(display("no matching ABI for typename: '{name}'"))]
     NoMatchingABIError { name: String },
 
+    #[snafu(display("leftover data in stream"))]
+    LeftoverDataInStream,
+
     #[snafu(display("cannot convert variant to AntelopeValue: {v}"))]
     VariantConversionError { v: Box<JsonValue>, source: InvalidValue },
 

@@ -17,7 +17,6 @@ use std::sync::Arc;
 use serde::{Deserialize, Serialize};
 use serde_json;
 use tracing::{debug, trace, warn};
-use transaction::TransactionError;
 
 use crate::{
     contract, ABISerializable, APIClient, AccountName, ActionName, Asset, Bytes, JsonValue, Name, PrivateKey
@@ -65,7 +64,7 @@ pub use trace::{
     Trace,
     TransactionTrace, TransactionTraceV0, TransactionTraceException, TransactionTraceMsg,
 };
-pub use transaction::{SignedTransaction, Transaction};
+pub use transaction::{SignedTransaction, Transaction, TransactionError};
 
 
 /// not a native Antelope type but normally defined through an ABI
@@ -99,7 +98,10 @@ pub fn nodeos_log<const N: usize>(response: &JsonValue, console_output: &[String
     // this is a separate function (instead of inline) so it shows that the logs come from nodeos
     if console_output.is_empty() { return; }
 
-    let tx_id = response["transaction_id"].as_str().unwrap();
+    let Some(tx_id) = response["transaction_id"].as_str() else {
+        warn!("no transaction ID in nodeos log");
+        return;
+    };
     if      N == DEBUG { debug!("Console output for tx: {}", tx_id); }
     else if N == WARN  {  warn!("Console output for tx: {}", tx_id); }
 
@@ -116,19 +118,25 @@ pub fn nodeos_log<const N: usize>(response: &JsonValue, console_output: &[String
 /// WARNING: this panics if the trace is malformed
 pub fn parse_trace(response: &JsonValue) -> Result<Vec<String>, Vec<String>> {
     trace!("parse trace: {}", serde_json::to_string_pretty(response).unwrap());
+    fn check<T: ?Sized>(value: Option<&T>) -> Result<&T, Vec<String>> {
+        match value {
+            Some(v) => Ok(v),
+            None => Err(vec!["malformed trace".to_string()]),
+        }
+    }
 
     let mut lines = vec![];
     if let Some(processed) = response.get("processed") {
         // print console output
-        for trace in processed["action_traces"].as_array().unwrap().iter() {
+        for trace in check(processed["action_traces"].as_array())?.iter() {
             if let Some(output) = trace.get("console") {
-                if !output.as_str().unwrap().is_empty() {
+                if !check(output.as_str())?.is_empty() {
                     lines.push(output.to_string());
                 }
             }
-            for inline_trace in trace["inline_traces"].as_array().unwrap().iter() {
+            for inline_trace in check(trace["inline_traces"].as_array())?.iter() {
                 if let Some(output) = inline_trace.get("console") {
-                    if !output.as_str().unwrap().is_empty() {
+                    if !check(output.as_str())?.is_empty() {
                         lines.push(output.to_string());
                     }
                 }
@@ -143,7 +151,7 @@ pub fn parse_trace(response: &JsonValue) -> Result<Vec<String>, Vec<String>> {
         Err(lines)
     }
     else {
-        lines.push(format!("Unhandled case!! {}", serde_json::to_string_pretty(response).unwrap()));
+        lines.push(format!("Unhandled case!! {}", serde_json::to_string_pretty(response).unwrap()));  // safe unwrap
         Err(lines)
     }
 }

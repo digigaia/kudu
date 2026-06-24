@@ -56,6 +56,9 @@ impl Name {
         }
     }
 
+    /// Build a `Name` from its string representation (const version).
+    ///
+    /// NOTE: this panics for invalid names
     pub const fn constant(s: &str) -> Self {
         if s.len() > 13 { panic!("Name too long! Max is 13 chars"); }
         let value = string_to_u64(s.as_bytes());

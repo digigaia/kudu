@@ -16,15 +16,15 @@ use serde::{Serialize, Serializer, ser::SerializeStruct};
 
 use kudu::{
     impl_auto_error_conversion, json, with_location,
-    ABI, ABIDefinition, ABIError, Action, ByteStream, Bytes, Checksum256, JsonValue, Name,
-    PermissionLevel, SerializeEnum, SerializeError, Transaction
+    ABI, ABIDefinition, ABIError, Action, ActionError, ByteStream, Bytes, Checksum256, JsonValue, Name,
+    PermissionLevel, SerializeEnum, SerializeError, Transaction, TransactionError
 };
 
-use tracing::{trace, debug, warn};
+use tracing::{trace, debug};
 
-pub static SIGNER_NAME: Name = Name::from_u64(1);
-pub static SIGNER_PERMISSION: Name = Name::from_u64(2);
-pub static SIGNER_AUTH: PermissionLevel = PermissionLevel {
+pub const SIGNER_NAME: Name = Name::from_u64(1);
+pub const SIGNER_PERMISSION: Name = Name::from_u64(2);
+pub const SIGNER_AUTH: PermissionLevel = PermissionLevel {
     actor: SIGNER_NAME,
     permission: SIGNER_PERMISSION
 };
@@ -146,9 +146,9 @@ impl SigningRequest {
         }
     }
 
-    pub fn from_action_json(action: &JsonValue) -> Self {
-        let action = Action::from_json(action).unwrap();
-        SigningRequest::from_action(action)
+    pub fn from_action_json(action: &JsonValue) -> Result<Self, SigningRequestError> {
+        let action = Action::from_json(action).context(ActionSnafu)?;
+        Ok(SigningRequest::from_action(action))
     }
 
     pub fn from_actions(actions: Vec<Action>) -> Self {
@@ -158,22 +158,21 @@ impl SigningRequest {
         }
     }
 
-    pub fn from_actions_json(actions: &JsonValue) -> Self {
-        let actions = Action::from_json_array(actions).unwrap();
-        SigningRequest::from_actions(actions)
+    pub fn from_actions_json(actions: &JsonValue) -> Result<Self, SigningRequestError> {
+        let actions = Action::from_json_array(actions).context(ActionSnafu)?;
+        Ok(SigningRequest::from_actions(actions))
     }
 
-    pub fn from_transaction_json(tx: JsonValue) -> Self {
-        SigningRequest {
-            request: Request::Transaction(Transaction::from_json(&tx).unwrap()),
+    pub fn from_transaction_json(tx: JsonValue) -> Result<Self, SigningRequestError> {
+        Ok(SigningRequest {
+            request: Request::Transaction(Transaction::from_json(&tx).context(TransactionSnafu)?),
             ..Default::default()
-        }
+        })
     }
 
     pub fn from_uri(uri: &str) -> Result<Self, SigningRequestError> {
         ensure!(uri.starts_with("esr://"), InvalidURISnafu { uri });
         let payload = &uri[6..];
-        warn!("payload: {}", payload);
         Self::decode(payload)
     }
 
@@ -238,16 +237,13 @@ impl SigningRequest {
 
     // TODO: `SigningRequest` should be `ABISerializable` instead of having to go through
     //       its JSON representation first
-    pub fn encode(&self) -> Bytes {
+    pub fn encode(&self) -> Result<Bytes, SigningRequestError> {
         let mut ds = Bytes::new();
         let abi = get_signing_request_abi();
 
-        // self.encode_actions();
-        warn!("chain id = {:?}", json!(self.chain_id));
-
         let sr = json!(self);
-        abi.encode_variant(&mut ds, "signing_request", &sr).unwrap(); // FIXME: remove this `unwrap`
-        ds
+        abi.encode_variant(&mut ds, "signing_request", &sr).context(ABISnafu)?;
+        Ok(ds)
     }
 }
 
@@ -268,21 +264,21 @@ impl Serialize for SigningRequest {
 
 
 impl SigningRequest {
-    pub fn to_json(&self) -> JsonValue {
+    pub fn to_json(&self) -> Result<JsonValue, SigningRequestError> {
         let mut result = json!(self);
         match &self.request {
             Request::Action(action) => {
-                result["req"][1]["data"] = action.decode_data().unwrap();  // FIXME: unwrap
+                result["req"][1]["data"] = action.decode_data().context(ABISnafu)?;
             },
             Request::Actions(actions) => {
                 for (i, action) in actions.iter().enumerate() {
-                    result["req"][1][i]["data"] = action.decode_data().unwrap();
+                    result["req"][1][i]["data"] = action.decode_data().context(ABISnafu)?;
                 }
             },
             Request::Transaction(_) => todo!(),
             Request::Identity => todo!(),
         }
-        result
+        Ok(result)
     }
 
     fn try_from_json(payload: JsonValue) -> Result<Self, SigningRequestError> {
@@ -290,44 +286,59 @@ impl SigningRequest {
         let mut result = SigningRequest::default();
 
         let chain_id = &payload["chain_id"];
-        let chain_id_type = conv_str(&chain_id[0])?;
+        let chain_id_type = conv_str("chain_id type", &chain_id[0])?;
 
         result.chain_id = match chain_id_type {
             "chain_id" => {
-                let data = conv_str(&chain_id[1])?;
+                let data = conv_str("chain_id data", &chain_id[1])?;
                 ChainId::Id(Box::new(Checksum256::from_hex(data).context(HexDecodeSnafu)?))
             },
             "chain_alias" => {
-                let alias = chain_id[1].as_u64().unwrap();
-                let alias = u8::try_from(alias).unwrap();
+                let alias = chain_id[1].as_u64().with_context(|| InvalidSnafu {
+                    message: format!("cannot convert chain alias \"{}\" to integer", chain_id[1])
+                })?;
+                let alias = u8::try_from(alias).map_err(|_| InvalidSnafu {
+                    message: format!("chain alias value {alias} doesn't fit in a `u8`")
+                }.build())?;
                 ChainId::Alias(alias)
             },
             _ => unimplemented!(),
         };
 
-        let req_type = conv_str(&payload["req"][0])?;
+        let req_type = conv_str("request type", &payload["req"][0])?;
         let req_data = &payload["req"][1];
 
         result.request = match req_type {
-            "action" => Request::Action(Action::from_json(req_data).unwrap()),
+            "action" => Request::Action(Action::from_json(req_data).context(ActionSnafu)?),
             "action[]" => {
-                let actions = req_data.as_array().unwrap();
-                Request::Actions(actions.iter().map(|v| Action::from_json(v).unwrap()).collect())
+                let actions = conv_array("request actions", req_data)?;
+                let actions: Result<Vec<Action>, _> = actions
+                    .iter()
+                    .map(Action::from_json)
+                    .collect();
+                Request::Actions(actions.context(ActionSnafu)?)
             },
             _ => unimplemented!(),
         };
 
-        result.flags = FlagSet::<RequestFlags>::new(payload["flags"].as_u64().unwrap().try_into().unwrap()).unwrap();
-        result.callback = match conv_str(&payload["callback"])? {
+        let flags = payload["flags"].as_u64().with_context(|| InvalidSnafu {
+            message: format!("cannot convert flags \"{}\" to integer", payload["flags"])
+        })?;
+        let flags = flags.try_into().map_err(|_| InvalidSnafu {
+            message: format!("request flags {flags} doesn't fit in a `u8`")
+        }.build())?;
+        result.flags = FlagSet::<RequestFlags>::new(flags).map_err(|_| InvalidSnafu {
+            message: format!("Invalid flag set: {flags}")
+        }.build())?;
+        result.callback = match conv_str("callback", &payload["callback"])? {
             "" => None,
             callback => Some(callback.to_owned()),
         };
-        // result.info = payload["info"].as_array().unwrap().to_owned();
-        payload["info"].as_array().unwrap().clone_into(&mut result.info);
+
+        conv_array("payload info", &payload["info"])?.clone_into(&mut result.info);
 
         Ok(result)
     }
-
 }
 
 
@@ -367,6 +378,16 @@ pub enum SigningRequestError {
         source: SerializeError,
     },
 
+    #[snafu(display("invalid action"))]
+    Action {
+        source: ActionError,
+    },
+
+    #[snafu(display("invalid transaction"))]
+    Transaction {
+        source: TransactionError,
+    },
+
     #[snafu(display("hex decoding error"))]
     HexDecode {
         source: hex::FromHexError,
@@ -385,14 +406,14 @@ pub enum SigningRequestError {
 
 impl_auto_error_conversion!(FromUtf8Error, SigningRequestError, FromUtf8Snafu);
 
-pub fn conv_str(obj: &JsonValue) -> Result<&str, SigningRequestError> {
-    obj.as_str().context(InvalidSnafu {
-        message: format!("Cannot convert object {:?} to str", obj)
+fn conv_str<'a>(field: &'static str, obj: &'a JsonValue) -> Result<&'a str, SigningRequestError> {
+    obj.as_str().with_context(|| InvalidSnafu {
+        message: format!("Cannot convert {field} object {obj:?} to str")
     })
 }
 
-pub fn conv_action_field_str<'a>(action: &'a JsonValue, field: &str) -> Result<&'a str, SigningRequestError> {
-    action[field].as_str().context(InvalidSnafu {
-        message: format!("Cannot convert action['{}'] to str, actual type: {:?}", field, action[field])
+fn conv_array<'a>(field: &'static str, obj: &'a JsonValue) -> Result<&'a Vec<JsonValue>, SigningRequestError> {
+    obj.as_array().with_context(|| InvalidSnafu {
+        message: format!("Cannot convert {field} object {obj:?} to array")
     })
 }
