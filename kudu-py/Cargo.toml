@@ -3,8 +3,10 @@
 
 [package]
 name = "kudu-py"
-version = "0.1.0"
-edition = "2024"
+version      = { workspace = true }
+edition      = { workspace = true }
+# version = "0.1.0"
+# edition = "2024"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [lib]
@@ -14,7 +16,7 @@ crate-type = ["cdylib"]
 [dependencies]
 chrono             = { workspace = true }
 kudu = { path = "../kudu" }
-pyo3 = { version = "0.29.0", features = ["multiple-pymethods", "chrono"] }
+pyo3 = { version = "0.29.0", features = ["multiple-pymethods", "chrono"] } #, "extension-module", "abi3-py313"] }
 pythonize = "0.29.0"
 serde = { version = "1.0.200", features = ["derive"] }
 crabtime = "1.1.4"
