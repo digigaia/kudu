@@ -1,0 +1,56 @@
+name: tests
+
+on:
+  push:
+    tags:
+      - '*'
+  pull_request:
+    branches: [master]
+
+permissions:
+  contents: read
+
+jobs:
+
+  tests:
+    runs-on: ${{ matrix.platform.runner }}
+    timeout-minutes: 3
+    strategy:
+      matrix:
+        platform:
+          - runner: ubuntu-latest
+            target: x86_64
+          - runner: ubuntu-26.04-arm
+            target: aarch64
+          - runner: macos-latest
+            target: aarch64
+    steps:
+      - uses: actions/checkout@v7
+      - uses: taiki-e/install-action@7f4eb899022d8fe70b20c4f3de697aa85c309026  # v2.85.11
+        with:
+          tool: just,cargo-nextest
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6  # v2.9.2
+      - name: Run tests
+        run: just test
+
+  python-tests:
+    runs-on: ${{ matrix.platform.runner }}
+    timeout-minutes: 15
+    strategy:
+      matrix:
+        # do not run on `aarch64`, as the EOS VM doesn't run on it
+        platform:
+          - runner: ubuntu-latest
+            target: x86_64
+    steps:
+      - uses: actions/checkout@v7
+      - uses: taiki-e/install-action@7f4eb899022d8fe70b20c4f3de697aa85c309026  # v2.85.11
+        with:
+          tool: just,uv
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6  # v2.9.2
+      - name: Install kudune for running python tests
+        run: just install-kudune
+      - name: Install pyinfra for building Vaulta image
+        run: uv tool install pyinfra
+      - name: Run python tests
+        run: just test-python
