@@ -39,6 +39,9 @@ file once they are implemented.
 
 - review singletons usage in tests
 
+- stricter clippy/linting
+  see: <https://www.reddit.com/r/rust/comments/1veqxhc/if_youre_as_pedantic_as_me_add_this_clippy_config/>
+
 
 ## MISC
 
