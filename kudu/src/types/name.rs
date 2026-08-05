@@ -89,7 +89,9 @@ impl Name {
     pub fn prefix(&self) -> Name {
         // note: antelope C++ has a more efficient implementation based on direct bit twiddling,
         //       but we're going for a simpler implementation here
-        Name::new(self.to_string().rsplitn(2, '.').last().unwrap()).unwrap()  // both unwrap are safe here
+        Name::new(self.to_string().rsplitn(2, '.').last()
+                  .expect("rsplitn always yields at least one element"))
+            .expect("prefix of a valid name is always a valid name")
     }
 }
 
@@ -128,14 +130,6 @@ const fn string_to_u64(s: &[u8]) -> u64 {
 
 const CHARMAP: &[u8] = b".12345abcdefghijklmnopqrstuvwxyz";
 
-
-fn _u64_to_bytes(n: u64) -> Vec<u8> {
-    let mut s: Vec<u8> = vec![b'.'; 13];
-    let end_pos = u64_to_buf(n, (&mut s[..]).try_into().unwrap());
-    // truncate string with unused trailing symbols
-    s.truncate(end_pos);
-    s
-}
 
 fn u64_to_buf(n: u64, s: &mut [u8; 13]) -> usize {
     let mut n = n;
@@ -189,10 +183,6 @@ const fn is_normalized(s: &[u8], encoded: u64) -> bool {
     true
 }
 
-fn _u64_to_string(n: u64) -> String {
-    String::from_utf8(_u64_to_bytes(n)).unwrap()  // safe unwrap
-}
-
 
 // -----------------------------------------------------------------------------
 //     Conversion traits
@@ -221,7 +211,7 @@ impl fmt::Debug for Name {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut buf: [u8; 13] = [0; 13];  // TODO: use MaybeUninit?
         let n = u64_to_buf(self.value, &mut buf);
-        f.write_str(unsafe { str::from_utf8_unchecked(&buf[..n]) })
+        f.write_str(unsafe { str::from_utf8_unchecked(&buf[..n]) })  // SAFETY: names only have ASCII chars
     }
 }
 
@@ -234,7 +224,7 @@ impl fmt::Display for Name {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut buf: [u8; 13] = [0; 13];  // TODO: use MaybeUninit?
         let n = u64_to_buf(self.value, &mut buf);
-        f.write_str(unsafe { str::from_utf8_unchecked(&buf[..n]) })
+        f.write_str(unsafe { str::from_utf8_unchecked(&buf[..n]) })  // SAFETY: names only have ASCII chars
     }
 }
 
