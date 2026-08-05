@@ -9,7 +9,7 @@ use std::str::{ParseBoolError, Utf8Error};
 
 use chrono::ParseError as ChronoParseError;
 use hex::FromHexError;
-use snafu::{Snafu, ResultExt, OptionExt};
+use snafu::{Snafu, ResultExt, OptionExt, ensure};
 use strum::{Display, AsRefStr, EnumDiscriminants, EnumString, VariantNames};
 use tracing::instrument;
 
@@ -331,33 +331,6 @@ impl AntelopeValue {
     }
 }
 
-
-
-impl From<AntelopeValue> for bool {
-    fn from(n: AntelopeValue) -> bool {
-        match n {
-            AntelopeValue::Bool(b) => b,
-            _ => unimplemented!(),
-        }
-    }
-}
-
-impl From<AntelopeValue> for i32 {
-    fn from(n: AntelopeValue) -> i32 {
-        match n {
-            AntelopeValue::Int8(n) => n as i32,
-            AntelopeValue::Int16(n) => n as i32,
-            AntelopeValue::Int32(n) => n,
-            AntelopeValue::Uint8(n) => n as i32,
-            AntelopeValue::Uint16(n) => n as i32,
-            // we are not interested in covering the range of values where this conversion
-            // fails, so we just unwrap the value to have the convenient u32 -> i32 into() conversion
-            AntelopeValue::Uint32(n) => n.try_into().unwrap(),
-            AntelopeValue::VarUint32(n) => u32::from(n).try_into().unwrap(),
-            _ => todo!(),
-        }
-    }
-}
 
 impl TryFrom<AntelopeValue> for usize {
     type Error = InvalidValue;
