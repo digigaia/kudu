@@ -16,6 +16,9 @@ pub enum InvalidSymbol {
     #[snafu(display("creating symbol from empty string"))]
     Empty,
 
+    #[snafu(display("symbol code too big too fit a 7-char name"))]
+    TooBig,
+
     #[snafu(display(r#"symbol name longer than 7 characters: "{name}""#))]
     TooLong { name: String },
 
@@ -38,12 +41,13 @@ pub enum InvalidSymbol {
 impl_auto_error_conversion!(ParseIntError, InvalidSymbol, ParsePrecisionSnafu);
 
 
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct SymbolCode(u64);
 
 impl SymbolCode {
-    pub fn from_u64(n: u64) -> SymbolCode {
-        SymbolCode(n)
+    pub fn from_u64(n: u64) -> Result<SymbolCode, InvalidSymbol> {
+        check_valid_symbol_code(n)?;
+        Ok(SymbolCode(n))
     }
 
     pub fn as_u64(&self) -> u64 { self.0 }
@@ -83,7 +87,7 @@ impl Symbol {
     }
 
     pub fn new(s: &str) -> Result<Self, InvalidSymbol> {
-        let s = s.trim();
+        let s = s.trim();  // FIXME: do we really want to have this here? I don't think so...
         ensure!(!s.is_empty(), EmptySnafu);
         let pos = s.find(',').context(MissingCommaSnafu)?;
         let precision: u8 = s[..pos].parse().context(ParsePrecisionSnafu)?;
@@ -93,13 +97,12 @@ impl Symbol {
     pub fn as_u64(&self) -> u64 { self.value }
 
     pub fn from_u64(n: u64) -> Result<Self, InvalidSymbol> {
-        let result =  Self { value: n };
-        ensure!(result.is_valid(), InvalidU64RepresentationSnafu { value: n });
-        Ok(result)
+        check_valid_symbol(n)?;
+        Ok(Self { value: n })
     }
 
     pub fn decimals(&self) -> u8 {
-        (self.value & 0xFF) as u8
+        (self.value & 0xff) as u8
     }
 
     pub fn precision(&self) -> i64 {
@@ -123,12 +126,8 @@ impl Symbol {
     pub fn name(&self) -> String {
         symbol_code_to_string(self.code().as_u64())
     }
-
-    pub fn is_valid(&self) -> bool {
-        self.decimals() <= Self::MAX_PRECISION && is_valid_symbol_name(&self.name())
-    }
-
 }
+
 
 // -----------------------------------------------------------------------------
 //     helper functions
@@ -152,11 +151,12 @@ fn string_to_symbol_code(s: &str) -> Result<u64, InvalidSymbol> {
     Ok(result)
 }
 
+// precondition: `value` is a valid code
 fn symbol_code_to_string(value: u64) -> String {
     let mut v: u64 = value;
     let mut result = String::with_capacity(7);
     while v != 0 {
-        let c = (v & 0xFF) as u8;
+        let c = (v & 0xff) as u8;
         result.push(c as char);
         v >>= 8;
     }
@@ -170,8 +170,21 @@ fn string_to_symbol(precision: u8, s: &str) -> Result<u64, InvalidSymbol> {
 }
 
 #[inline]
-fn is_valid_symbol_name(name: &str) -> bool {
-    name.as_bytes().iter().all(|c| c.is_ascii_uppercase())
+fn check_valid_symbol_code(n: u64) -> Result<(), InvalidSymbol> {
+    ensure!(n != 0, EmptySnafu);
+    ensure!(n & 0xffffff_ffffffff != 0, TooBigSnafu);
+    for _ in 0..7 {
+        ensure!((b'A'..=b'Z').contains(&((n & 0xff) as u8)), InvalidU64RepresentationSnafu { value: n })
+    }
+    Ok(())
+}
+
+#[inline]
+fn check_valid_symbol(n: u64) -> Result<(), InvalidSymbol> {
+    let precision: u8 = (n & 0xff) as u8;
+    ensure!(precision <= Symbol::MAX_PRECISION,
+            PrecisionSnafu { given: precision, max: Symbol::MAX_PRECISION });
+    check_valid_symbol_code(n >> 8)
 }
 
 
@@ -286,11 +299,16 @@ mod tests {
             ",",
             "19,WAX",
             "-1,WAX",
+            "4,abc",
+            "5,BÉP",
         ];
 
         for s in symbols {
             assert!(Symbol::new(s).is_err());
         }
+
+        assert!(SymbolCode::from_u64(0).is_err());
+        assert!(SymbolCode::from_u64(u64::max_value()).is_err());
     }
 
     #[test]

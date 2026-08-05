@@ -59,9 +59,7 @@ impl Asset {
     const MAX_AMOUNT: i64 = (1 << 62) - 1;
 
     pub fn new(amount: i64, symbol: Symbol) -> Result<Asset, InvalidAsset> {
-        ensure!((-Self::MAX_AMOUNT..Self::MAX_AMOUNT).contains(&amount), AmountOutOfRangeSnafu);
-        // no need to check for `symbol.is_valid()` as it has been successfully
-        // constructed so must be valid already
+        ensure!((-Self::MAX_AMOUNT..=Self::MAX_AMOUNT).contains(&amount), AmountOutOfRangeSnafu);
         Ok(Asset { amount, symbol })
     }
 
@@ -71,6 +69,8 @@ impl Asset {
     pub fn decimals(&self) -> u8 { self.symbol.decimals() }
     pub fn precision(&self) -> i64 { self.symbol.precision() }
 
+    /// Convert asset quantity to a real number.
+    /// WARNING: this might lose precision and does not necessarily roundtrip. Use only for display purposes.
     pub fn to_real(&self) -> f64 {
         self.amount as f64 / self.precision() as f64
     }

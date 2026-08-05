@@ -241,6 +241,8 @@ impl AntelopeValue {
             | AntelopeType::Asset => Self::from_str(typename, v.as_str().with_context(incompatible_types)?)?,
             AntelopeType::ExtendedAsset => {
                 let ea = v.as_object().with_context(incompatible_types)?;
+                ensure!(ea.contains_key("quantity") && ea.contains_key("contract"),
+                        InvalidDataSnafu { message: "`ExtendedAsset` requires both 'quantity' and 'contract' fields" });
                 let qty = variant_to_str(&ea["quantity"])?;
                 Self::ExtendedAsset(Box::new(ExtendedAsset {
                     quantity: qty.parse().context(AssetSnafu { repr: qty })?,

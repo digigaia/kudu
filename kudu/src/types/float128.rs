@@ -47,6 +47,9 @@ use super::*;
         }
         else if let Some(s) = v.as_str() {
             let mut result = Float128::default();
+            // we are always "just" storing an array of bytes if the 'float128' feature is
+            // not activated, so we don't need to do endianness normalization as those bytes
+            // will never be interpreted as a `f128` value
             hex::decode_to_slice(s, &mut result.0).context(HexDecodeSnafu { repr: s })?;
             Ok(result)
         }

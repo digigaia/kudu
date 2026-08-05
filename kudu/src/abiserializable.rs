@@ -333,7 +333,7 @@ impl ABISerializable for SymbolCode {
     #[inline]
     fn from_bin(stream: &mut ByteStream) -> Result<Self, SerializeError> {
         let n = u64::from_bin(stream)?;
-        Ok(SymbolCode::from_u64(n))
+        Ok(SymbolCode::from_u64(n)?)
     }
 }
 
