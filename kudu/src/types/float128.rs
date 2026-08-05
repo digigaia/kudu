@@ -16,7 +16,9 @@ pub use float128_impl::Float128;
 
 #[cfg(not(feature = "float128"))]
 mod float128_impl {
-    use super::*;
+    use crate::convert::GenericSnafu;
+
+use super::*;
 
     #[derive(Copy, Clone, Debug, PartialEq, Default)]
     pub struct Float128([u8;16]);
@@ -40,7 +42,9 @@ mod float128_impl {
     }
 
     pub fn variant_to_f128(v: &JsonValue) -> Result<Float128> {
-        if let Some(x) = v.as_f64()      { Ok(x.into()) }
+        if let Some(_) = v.as_f64() {
+            GenericSnafu { message: "no native f128 support" }.fail()
+        }
         else if let Some(s) = v.as_str() {
             let mut result = Float128::default();
             hex::decode_to_slice(s, &mut result.0).context(HexDecodeSnafu { repr: s })?;

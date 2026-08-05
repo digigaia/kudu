@@ -63,6 +63,11 @@ pub enum ConversionError {
         typename: &'static str,
         value: Box<JsonValue>
     },
+
+    #[snafu(display("{message}"))]
+    Generic {
+        message: &'static str,
+    },
 }
 
 type Result<T, E = ConversionError> = std::result::Result<T, E>;
