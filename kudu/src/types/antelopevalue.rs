@@ -364,14 +364,14 @@ impl TryFrom<AntelopeValue> for usize {
 
     fn try_from(n: AntelopeValue) -> Result<usize, Self::Error> {
         Ok(match n {
-            AntelopeValue::Int8(n) => n as usize,
-            AntelopeValue::Int16(n) => n as usize,
-            AntelopeValue::Int32(n) => n as usize,
+            AntelopeValue::Int8(n) => n.try_into().context(IntConversionSnafu { size: "usize" })?,
+            AntelopeValue::Int16(n) => n.try_into().context(IntConversionSnafu { size: "usize" })?,
+            AntelopeValue::Int32(n) => n.try_into().context(IntConversionSnafu { size: "usize" })?,
             AntelopeValue::Int64(n) => n.try_into().context(IntConversionSnafu { size: "usize" })?,
             AntelopeValue::Uint8(n) => n as usize,
             AntelopeValue::Uint16(n) => n as usize,
             AntelopeValue::Uint32(n) => n as usize,
-            AntelopeValue::Uint64(n) => n as usize,
+            AntelopeValue::Uint64(n) => n.try_into().context(IntConversionSnafu { size: "usize" })?,
             AntelopeValue::VarInt32(n) => i32::from(n).try_into().context(IntConversionSnafu { size: "usize" })?,
             AntelopeValue::VarUint32(n) => u32::from(n) as usize,
             _ => return InvalidDataSnafu { message: (format!("cannot convert {:?} to usize", n)) }.fail(),

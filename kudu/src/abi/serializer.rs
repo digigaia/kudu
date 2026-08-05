@@ -299,7 +299,9 @@ impl ABI {
             let inner_type: AntelopeType = ftype.try_into().unwrap();  // safe unwrap
             if rtype.is_array() {
                 let a = object.as_array().ok_or_else(incompatible_types)?;
-                VarUint32::from(a.len()).to_bin(ds);
+                VarUint32::try_from(a.len())
+                    .map_err(|_| EncodeSnafu { message: format!("array too big: {} elements", a.len()) }.build())?
+                    .to_bin(ds);
                 for v in a {
                     AntelopeValue::from_variant(inner_type, v)
                         .with_context(|_| VariantConversionSnafu { v: v.clone() })?
@@ -328,7 +330,9 @@ impl ABI {
 
             if rtype.is_array() {
                 let a = object.as_array().ok_or_else(incompatible_types)?;
-                VarUint32::from(a.len()).to_bin(ds);
+                VarUint32::try_from(a.len())
+                    .map_err(|_| EncodeSnafu { message: format!("array too big: {} elements", a.len()) }.build())?
+                    .to_bin(ds);
                 for v in a {
                     self.encode_variant_(ctx, ds, ftype, v)?;
                 }
@@ -356,7 +360,9 @@ impl ABI {
                         });
                 let variant_type = TypeName(object[0].as_str().unwrap());
                 if let Some(vpos) = variant_def.types.iter().position(|v| *v == variant_type) {
-                    VarUint32::from(vpos).to_bin(ds);
+                    VarUint32::try_from(vpos)
+                        .map_err(|_| EncodeSnafu { message: format!("type index too big: {}", vpos) }.build())?
+                        .to_bin(ds);
                     self.encode_variant_(ctx, ds, variant_type, &object[1])?;
                 }
                 else {

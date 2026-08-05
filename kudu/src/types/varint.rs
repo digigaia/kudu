@@ -55,10 +55,11 @@ impl From<VarUint32> for u32 {
     fn from(n: VarUint32) -> u32 { n.0 }
 }
 
-impl From<usize> for VarUint32 {
-    fn from(n: usize) -> VarUint32 {
-        let n: u32 = n.try_into().expect("number too large to fit in a `u32`");
-        VarUint32(n)
+impl TryFrom<usize> for VarUint32 {
+    type Error = <u32 as TryFrom<usize>>::Error;
+    fn try_from(n: usize) -> Result<VarUint32, Self::Error> {
+        let n: u32 = n.try_into()?;
+        Ok(VarUint32(n))
     }
 }
 
