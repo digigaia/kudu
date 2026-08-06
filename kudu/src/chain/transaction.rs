@@ -15,8 +15,8 @@ use snafu::{OptionExt, ResultExt, Snafu, ensure};
 
 use crate::{
     ABISerializable, APIClient, Action, ActionError, BlockId, Bytes, ChainId,
-    Checksum256, Extensions, JsonValue, PrivateKey, Signature, TimePointSec, TransactionId,
-    VarUint32,
+    Checksum256, Extensions, InvalidCryptoData, JsonValue, PrivateKey, Signature,
+    TimePointSec, TransactionId, VarUint32,
     api::HttpError,
     bitops::endian_reverse_u32,
     convert::{ConversionError,  variant_to_object, variant_to_str, variant_to_uint},
@@ -42,6 +42,9 @@ pub enum TransactionError {
     #[snafu(display("invalid action"))]
     InvalidAction { source: ActionError },
 
+    #[snafu(display("cannot sign transaction"))]
+    TransactionSigningError { source: InvalidCryptoData },
+
     #[snafu(display("unlinked transaction: {message}"))]
     UnlinkedTransaction { message: String },
 
@@ -61,6 +64,7 @@ pub enum TransactionError {
 impl_auto_error_conversion!(ChronoParseError, TransactionError, DateTimeParseSnafu);
 impl_auto_error_conversion!(ConversionError, TransactionError, ConversionSnafu);
 impl_auto_error_conversion!(ActionError, TransactionError, InvalidActionSnafu);
+impl_auto_error_conversion!(InvalidCryptoData, TransactionError, TransactionSigningSnafu);
 impl_auto_error_conversion!(serde_json::Error, TransactionError, FromJsonSnafu);
 
 
@@ -214,7 +218,7 @@ impl Transaction {
 
     fn get_signature(&self, signing_key: &PrivateKey) -> Result<Signature, TransactionError> {
         let context_free_data = b"";  // TODO: support this
-        Ok(signing_key.sign_digest(self.sig_digest(context_free_data)?))
+        Ok(signing_key.sign_digest(self.sig_digest(context_free_data)?)?)
     }
 
     pub fn sign(&self, signing_key: &PrivateKey) -> Result<SignedTransaction, TransactionError> {

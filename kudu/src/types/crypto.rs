@@ -127,17 +127,18 @@ impl<T: CryptoDataType, const DATA_SIZE: usize> CryptoData<T, DATA_SIZE> {
         }
         else if s.starts_with(&format!("{}_K1_", T::PREFIX)) {
             let key_type = KeyType::K1;
-            let data = string_to_key_data(&s[7..], Some(key_type.prefix()))?;
+            let offset = T::PREFIX.len() + 4;
+            let data = string_to_key_data(&s[offset..], Some(key_type.prefix()))?;
             Ok(Self { key_type, data: Self::vec_to_data(data)?, phantom: PhantomData })
         }
         else if s.starts_with(&format!("{}_R1_", T::PREFIX)) {
             let key_type = KeyType::R1;
-            let data = string_to_key_data(&s[7..], Some(key_type.prefix()))?;
+            let offset = T::PREFIX.len() + 4;
+            let data = string_to_key_data(&s[offset..], Some(key_type.prefix()))?;
             Ok(Self { key_type, data: Self::vec_to_data(data)?, phantom: PhantomData })
-            // unimplemented!()
         }
         else if s.starts_with(&format!("{}_WA_", T::PREFIX)) {
-            unimplemented!()
+            NotCryptoDataSnafu { message: format!("WebAuthn keys are not yet implemented: {}", s) }.fail()
         }
         else {
             NotCryptoDataSnafu { message: s.to_owned() }.fail()
@@ -178,7 +179,7 @@ impl<T: CryptoDataType, const DATA_SIZE: usize> TryFrom<&str> for CryptoData<T, 
 
 impl<T: CryptoDataType, const DATA_SIZE: usize> fmt::Display for CryptoData<T, DATA_SIZE> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        if self.key_type == KeyType::WebAuthn { unimplemented!("unsupported key type: {:?}", self.key_type); }
+        if self.key_type == KeyType::WebAuthn { return write!(f, "{}_WA_<unsupported>", T::PREFIX); }
         write!(f, "{}_{}", T::PREFIX, key_data_to_string(&self.data,  self.key_type.prefix()))
    }
 }
@@ -290,15 +291,19 @@ fn from_wif(enc_data: &str) -> Result<Vec<u8>, InvalidCryptoData> {
     let digest = Sha256::digest(&data[..data.len() - 4]);
     let digest2 = Sha256::digest(digest);
 
-    let actual = &digest[..4];
-    let actual2 = &digest2[..4];
+    let actual = &digest2[..4];
     let expected = &data[data.len() - 4..];
 
-    ensure!(actual == expected || actual2 == expected, InvalidHashSnafu {
-        hash: hex::encode(actual2),
+    // NOTE: original libfc code check for single or double sha256 matching, but it is not correct,
+    //       WIF requires double sha256 for the checksum. Do the correct thing here.
+    ensure!(actual == expected, InvalidHashSnafu {
+        hash: hex::encode(actual),
         expected: hex::encode(expected)
     });
 
+    ensure!(data[0] == 0x80, NotCryptoDataSnafu {
+        message: format!("invalid WIF version byte: 0x{:02x}, expected 0x80", data[0])
+    });
     Ok(data[1..data.len() - 4].to_owned())
 }
 
@@ -358,19 +363,20 @@ impl TryFrom<&Signature> for secp256k1::ecdsa::RecoverableSignature {
 }
 
 impl PrivateKey {
-    pub fn sign_bytes(&self, input: &[u8]) -> Signature {
+    pub fn sign_bytes(&self, input: &[u8]) -> Result<Signature, InvalidCryptoData> {
         // hash our bytes into a digest to be signed
         let digest: [u8; 32] = Sha256::digest(input).into();
 
         self.sign_digest(digest.into())
     }
 
-    pub fn sign_digest(&self, digest: crate::Digest) -> Signature {
+    pub fn sign_digest(&self, digest: crate::Digest) -> Result<Signature, InvalidCryptoData> {
         if self.key_type == KeyType::K1 {
             // use global context
             let secp = secp256k1::global::SECP256K1;
 
-            let secret_key = SecretKey::from_byte_array(self.data).expect("32 bytes, within curve order");  // safe expect
+            let secret_key = SecretKey::from_byte_array(self.data)
+                .map_err(|e| InvalidDataSizeSnafu { message: format!("invalid private key scalar: {}", e) }.build())?;
             let message = Message::from_digest(digest.0);
 
             // iterate over a nonce to be added to the signatures until we find a good one
@@ -381,9 +387,9 @@ impl PrivateKey {
             let mut sig = Signature::from(secp_sig);
             let mut nonce: [u64; 4] = [0u64; 4];  // use this shape instead of [u8; 32] so we can iterate over nonce[0] more easily
 
-            loop {
+            for _ in 0..1024 {
                 // if sig is canonical, return it
-                if sig.is_canonical() { return sig; }
+                if sig.is_canonical() { return Ok(sig); }
 
                 // otherwise, iterate over our nonce until we find a good signature
                 nonce[0] += 1;
@@ -391,9 +397,10 @@ impl PrivateKey {
                 let secp_sig = secp.sign_ecdsa_recoverable_with_noncedata(message, &secret_key, cast_ref::<[u64; 4], [u8; 32]>(&nonce));
                 sig = Signature::from(secp_sig);
             }
+            InvalidSignatureSnafu { message: "could not find canonical signature after 1024 attempts" }.fail()
         }
         else {
-            unimplemented!("can only call `PrivateKey::sign_digest()` on K1 key types")
+            InvalidSignatureSnafu { message: "can only call `PrivateKey::sign_digest()` on K1 key types" }.fail()
         }
     }
 
@@ -433,6 +440,7 @@ impl PublicKey {
     }
 
     pub fn to_old_format(&self) -> String {
+        // encode with an empty prefix and strip separator
         format!("EOS{}", &key_data_to_string(&self.data, "")[1..])
     }
 }
@@ -488,7 +496,7 @@ mod tests {
     fn test_sign() -> Result<()> {
         let key = PrivateKey::eosio_dev();
         let input = b"a";
-        let sig = key.sign_bytes(input);
+        let sig = key.sign_bytes(input)?;
         assert_eq!(sig.to_string(), "SIG_K1_JvyUh5EJU7xS3QJSszNKdxGTkQNoo1PUcaQUAjpGTa64Sihf7R6tyiiAjoiZVkoDcfFpEokJPMVqyKYUFmgSvW1MvcRhrM");
         assert!(sig.is_canonical());
 
