@@ -8,7 +8,14 @@ classifiers = [
     "Programming Language :: Rust",
     "Programming Language :: Python :: Implementation :: CPython",
 ]
-dynamic = ["version"]
+dynamic = [
+    "version",
+    "description",
+    "urls",
+    "authors",
+    "license",
+    "keywords",
+]
 
 dependencies = [
     "duct>=1.0",
