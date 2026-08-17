@@ -1170,7 +1170,7 @@ dependencies = [
 
 [[package]]
 name = "kudu"
-version = "0.2.2"
+version = "0.2.3"
 dependencies = [
  "bs58",
  "bytemuck",
@@ -1196,7 +1196,7 @@ dependencies = [
 
 [[package]]
 name = "kudu-esr"
-version = "0.2.2"
+version = "0.2.3"
 dependencies = [
  "base64 0.22.1",
  "color-eyre",
@@ -1214,7 +1214,7 @@ dependencies = [
 
 [[package]]
 name = "kudu-macros"
-version = "0.2.2"
+version = "0.2.3"
 dependencies = [
  "heck",
  "proc-macro2",
@@ -1225,7 +1225,7 @@ dependencies = [
 
 [[package]]
 name = "kudu-py"
-version = "0.2.2"
+version = "0.2.3"
 dependencies = [
  "chrono",
  "crabtime",
@@ -1237,7 +1237,7 @@ dependencies = [
 
 [[package]]
 name = "kudune"
-version = "0.2.2"
+version = "0.2.3"
 dependencies = [
  "clap",
  "color-eyre",
