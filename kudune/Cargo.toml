@@ -20,7 +20,7 @@ serde_json         = { workspace = true }
 tracing            = { workspace = true }
 tracing-subscriber = { workspace = true }
 
-kudu = { path = "../kudu", version = "0.2.1-alpha.2" }
+kudu = { path = "../kudu", version = "0.2.1-alpha.3" }
 clap = { version = "4.4", features = ["derive"] }
 duct = "1"
 regex = "1"

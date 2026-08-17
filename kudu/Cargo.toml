@@ -27,7 +27,7 @@ strum              = { workspace = true }
 tracing            = { workspace = true }
 tracing-subscriber = { workspace = true }
 
-kudu-macros        = { path = "../kudu-macros", version = "0.2.1-alpha.2" }
+kudu-macros        = { path = "../kudu-macros", version = "0.2.1-alpha.3" }
 bytemuck = "1"
 flate2 = "1.0"
 ripemd = "0.2"
