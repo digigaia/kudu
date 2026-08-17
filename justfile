@@ -29,7 +29,7 @@ build-release:
 [group('build')]
 [working-directory: 'kudu-py']
 build-python:
-    uv run maturin develop
+    uv run --with 'maturin>=1.11,<2.0' maturin develop
 
 # build and install the Kudune binary
 [group('build')]
