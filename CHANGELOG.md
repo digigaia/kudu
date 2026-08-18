@@ -3,6 +3,12 @@ SPDX-FileCopyrightText: 2026 DigiGaia SCCL
 SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
+# 0.2.x - Python packaging fixes
+
+The whole 0.2.x series has been released in order to prepare and fine-tune the publishing of python
+packages to PyPI. It doesn't contain any other features or enhancements.
+
+
 # 0.2 - Python bindings
 
 ## General enhancements
