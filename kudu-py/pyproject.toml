@@ -12,6 +12,7 @@ dynamic = [
     "version",
     "summary",
     "description",
+    "readme",
     "urls",
     "authors",
     "license",
