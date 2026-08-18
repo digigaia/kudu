@@ -8,7 +8,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 **A Python library for interacting with Antelope blockchains**
 
 [![Latest published Kudu-py version](https://img.shields.io/pypi/v/kudu-py.svg)](https://pypi.org/project/kudu-py/)
-[![AGPLv3+ license](https://img.shields.io/pypi/l/kudu)](https://github.com/digigaia/kudu/blob/master/LICENSES/AGPL-3.0-or-later.txt)
+[![AGPLv3+ license](https://img.shields.io/pypi/l/kudu-py)](https://github.com/digigaia/kudu/blob/master/LICENSES/AGPL-3.0-or-later.txt)
 
 </div>
 
