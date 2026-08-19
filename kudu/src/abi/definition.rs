@@ -8,12 +8,13 @@ use serde_json::json;
 use snafu::{ensure, ResultExt};
 
 
-use crate::abi::error::LeftoverDataInStreamSnafu;
 use crate::abiserializable::{ABISerializable, ABISnafu};
 use crate::{
     Bytes, ByteStream, SerializeError, JsonValue, ActionName, TableName,
     abi::serializer::ABI,
-    abi::error::{ABIError, JsonSnafu, DeserializeSnafu, VersionSnafu, IncompatibleVersionSnafu},
+    abi::error::{
+        ABIError, JsonSnafu, DeserializeSnafu, VersionSnafu, IncompatibleVersionSnafu, LeftoverDataInStreamSnafu
+    },
     abi::data::{ABI_SCHEMA, CONTRACT_ABI}
 };
 
@@ -164,7 +165,8 @@ impl ABIDefinition {
         // check here: https://github.com/wharfkit/antelope/blob/master/src/chain/abi.ts#L109
         // see ref order here: https://github.com/AntelopeIO/spring/blob/main/libraries/chain/include/eosio/chain/abi_def.hpp#L179
         // assert_eq!(data.leftover(), [0u8; 2]);
-        ensure!(data.leftover().is_empty(), LeftoverDataInStreamSnafu);
+        let leftover_bytes = data.leftover().len();
+        ensure!(leftover_bytes == 0, LeftoverDataInStreamSnafu { count: leftover_bytes });
 
         Self::from_variant(&abi)
     }

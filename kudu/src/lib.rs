@@ -86,7 +86,7 @@
 //! # kuduconv has some common ABIs preloaded, so you can do this and it will try to find a matching ABI automatically
 //! kuduconv to-hex transfer '{"from": "useraaaaaaaa", "to": "useraaaaaaab", "quantity": "0.0001 SYS", "memo": ""}'
 //!
-//! # but you can also specify the ABI by name (if is one of the preloaded ones)
+//! # but you can also specify the ABI by name (if it is one of the preloaded ones)
 //! kuduconv to-hex --abi eosio.token transfer '{"from": "useraaaaaaaa", "to": "useraaaaaaab", "quantity": "0.0001 SYS", "memo": ""}'
 //!
 //! # or specify directly a file

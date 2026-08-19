@@ -325,7 +325,7 @@ impl SigningRequest {
             message: format!("cannot convert flags \"{}\" to integer", payload["flags"])
         })?;
         let flags = flags.try_into().map_err(|_| InvalidSnafu {
-            message: format!("request flags {flags} doesn't fit in a `u8`")
+            message: format!("request flags value {flags} doesn't fit in a `u8`")
         }.build())?;
         result.flags = FlagSet::<RequestFlags>::new(flags).map_err(|_| InvalidSnafu {
             message: format!("Invalid flag set: {flags}")
