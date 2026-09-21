@@ -48,7 +48,7 @@ permissions:
 
 
 jobs: {
-	test: uses: "./.github/workflows/tests.yml",
+	test: uses: "./.github/workflows/python-tests.yml",
 
 	linux: #job & {
 		needs: "test"

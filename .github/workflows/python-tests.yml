@@ -12,21 +12,26 @@ permissions:
 jobs:
   tests:
     runs-on: ${{ matrix.platform.runner }}
-    timeout-minutes: 3
+    timeout-minutes: 15
+    uses: ./.github/workflows/tests.yml
+  python-tests:
+    runs-on: ${{ matrix.platform.runner }}
+    timeout-minutes: 15
     strategy:
       matrix:
         platform:
           - runner: ubuntu-latest
             target: x86_64
-          - runner: ubuntu-26.04-arm
-            target: aarch64
-          - runner: macos-latest
-            target: aarch64
+    needs: tests
     steps:
       - uses: actions/checkout@v7
       - uses: taiki-e/install-action@7f4eb899022d8fe70b20c4f3de697aa85c309026
         with:
-          tool: just,cargo-nextest
+          tool: just,uv
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
-      - name: Run tests
-        run: just test
+      - name: Install kudune for running python tests
+        run: just install-kudune
+      - name: Install pyinfra for building Vaulta image
+        run: uv tool install pyinfra
+      - name: Run python tests
+        run: just test-python

@@ -18,7 +18,7 @@ permissions:
 #prepare: [
 	{ uses: #checkout },
 	{ uses: #install_action,
-	  with: tool: "just,uv,cargo-nextest" },
+	  with: tool: "just,cargo-nextest" },
 	{ uses: #rust_cache },
 ]
 
@@ -40,21 +40,4 @@ jobs: {
 			[{ name: "Run tests", run: "just test" }],
 		]),
 	},
-
-	"python-tests": {
-		// do not run on `aarch64`, as the EOS VM doesn't run on it
-		strategy: matrix: platform: [#ubuntu_runner],
-        steps: list.Concat([
-    	    #prepare,
-			[
-				{ name: "Install kudune for running python tests"
-				  run: "just install-kudune" },
-				{ name: "Install pyinfra for building Vaulta image",
-				  run: "uv tool install pyinfra" },
-				{ name: "Run python tests",
-				  run: "just test-python" },
-		    ]
-		]),
-	}
-
 }

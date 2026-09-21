@@ -8,7 +8,7 @@ permissions:
   contents: read
 jobs:
   test:
-    uses: ./.github/workflows/tests.yml
+    uses: ./.github/workflows/python-tests.yml
   linux:
     needs: test
     runs-on: ${{ matrix.platform.runner }}

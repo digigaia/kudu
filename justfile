@@ -141,7 +141,7 @@ license-all: \
 gen-gha-workflows:
     #!/bin/sh
     set -euo pipefail
-    for workflow in tests build-cargo-crates build-python-wheels; do
+    for workflow in tests python-tests build-cargo-crates build-python-wheels; do
         outfile=".github/workflows/$workflow.yml"
         echo "Generating $outfile..."
         cue export CI/$workflow.cue CI/definitions.cue --out yaml --force --outfile $outfile
