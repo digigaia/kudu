@@ -136,6 +136,20 @@ license-all: \
     (license "**/.gitignore" "*.md" "*.toml")
     reuse lint
 
+# generate the Github Actions workflow files from our `cue` config
+[group('project management')]
+gen-gha-workflows:
+    #!/bin/sh
+    set -euo pipefail
+    for workflow in tests build-python-wheels; do
+        outfile=".github/workflows/$workflow.yml"
+        echo "Generating $outfile..."
+        cue export CI/$workflow.cue CI/definitions.cue --out yaml --force --outfile $outfile
+    done
+    echo "OK!"
+    # cue export CI/tests.cue CI/definitions.cue --out yaml --outfile /tmp/tests.yml
+    # cue export CI/build-python-wheels.cue CI/definitions.cue --out yaml --outfile /tmp/build-python-wheels.yml
+
 
 hyperfine_opts := "--shell=none --warmup 10"
 abieos_path := "../abieos/build/tools"
