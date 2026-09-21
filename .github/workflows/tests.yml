@@ -1,11 +1,12 @@
 name: tests
 "on":
   push:
-    tags:
-      - '*'
+    branches:
+      - master
   pull_request:
     branches:
       - master
+  workflow_call: null
 permissions:
   contents: read
 jobs:

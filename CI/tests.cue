@@ -5,8 +5,9 @@ import "list"
 name: "tests"
 
 on: {
-    push: tags: ["*"],
+    push: branches: ["master"],
     pull_request: branches: ["master"],
+	workflow_call: null  // allow other workflows to call this one
 }
 
 permissions:

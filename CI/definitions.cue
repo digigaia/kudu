@@ -33,6 +33,7 @@ package CI
 #upload_artifact: "actions/upload-artifact@v7"
 #download_artifact: "actions/download-artifact@v8"
 #attest_build_provenance: "actions/attest-build-provenance@v4"
+#rust_toolchain: "dtolnay/rust-toolchain@stable"
 #install_action: "taiki-e/install-action@7f4eb899022d8fe70b20c4f3de697aa85c309026"  // v2.85.11
 #rust_cache: "Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6"  // v2.9.2
 #maturin_action: "PyO3/maturin-action@e83996d129638aa358a18fbd1dfb82f0b0fb5d3b"  // v1.51.0

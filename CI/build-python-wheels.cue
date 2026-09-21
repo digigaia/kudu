@@ -1,7 +1,5 @@
 package CI
 
-// import "list"
-
 name: "build-python-wheels"
 
 on: {
@@ -50,7 +48,10 @@ permissions:
 
 
 jobs: {
+	test: uses: "./.github/workflows/tests.yml",
+
 	linux: #job & {
+		needs: "test"
 		strategy: matrix: platform: [#ubuntu_runner, #ubuntu_arm_runner],
 		steps: #build_steps & [_, _, {
 			with: manylinux: "2_28"
@@ -59,6 +60,7 @@ jobs: {
 		}],
 	},
 	musllinux: #job & {
+		needs: "test"
 		strategy: matrix: platform: [#ubuntu_runner, #ubuntu_arm_runner],
 		steps: #build_steps & [_, _, {
 			with: manylinux: "musllinux_1_2"
@@ -67,12 +69,14 @@ jobs: {
 		}],
 	},
 	macos: #job & {
+		needs: "test"
 		strategy: matrix: platform: [#macos_runner],
 		steps: #build_steps & [_, _, _, {
 			with: name: "wheels-macos-${{ matrix.platform.target }}",
 		}],
 	},
 	sdist: {
+		needs: "test"
 		"runs-on": "ubuntu-latest",
 		"timeout-minutes": 3,
 		steps: [
