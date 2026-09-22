@@ -16,6 +16,7 @@ jobs:
   release-rust:
     needs: test-rust
     uses: ./.github/workflows/release-rust.yml
+    secrets: inherit
   release-python:
     needs: test-python
     uses: ./.github/workflows/release-python.yml

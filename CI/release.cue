@@ -25,6 +25,7 @@ jobs: {
 	"release-rust": {
 		needs: "test-rust"
 		uses: "./.github/workflows/release-rust.yml"
+		secrets: "inherit"
 	},
 
 	"release-python": {
