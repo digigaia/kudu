@@ -12,7 +12,7 @@ members = [
 ]
 
 [workspace.package]
-version = "0.2.12"
+version = "0.2.13"
 edition = "2024"
 license = "AGPL-3.0-or-later"
 rust-version = "1.87"
@@ -23,8 +23,8 @@ keywords = ["blockchain", "antelope", "eos", "vaulta"]
 categories = ["command-line-utilities", "cryptography::cryptocurrencies", "encoding"]
 
 [workspace.dependencies]
-kudu        = { path = "./kudu", version = "0.2.12", default-features = false }
-kudu-macros = { path = "./kudu-macros", version = "0.2.12", default-features = false }
+kudu        = { path = "./kudu", version = "0.2.13", default-features = false }
+kudu-macros = { path = "./kudu-macros", version = "0.2.13", default-features = false }
 
 base64 = "0.22.0"
 chrono = { version = "0.4", features = ["serde"] }
