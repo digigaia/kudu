@@ -11,6 +11,3 @@ permissions:
 jobs:
   test-rust:
     uses: ./.github/workflows/tests-rust.yml
-  test-python:
-    needs: test-rust
-    uses: ./.github/workflows/tests-python.yml

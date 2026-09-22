@@ -15,8 +15,11 @@ permissions:
 
 jobs: {
     "test-rust": uses: "./.github/workflows/tests-rust.yml",
-	"test-python": {
-		needs: "test-rust"
-		uses: "./.github/workflows/tests-python.yml"
-	},
+
+	// deactivate those on normal pushes and PRs
+	// we will only run them in the `release` workflow before publishing wheels
+	// "test-python": {
+	// 	needs: "test-rust"
+	// 	uses: "./.github/workflows/tests-python.yml"
+	// },
 }
