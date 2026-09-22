@@ -1,0 +1,17 @@
+This file contains notes about developing on Kudu.
+
+# Release process
+
+In order to release a new version, you need to follow these steps:
+
+- ensure you are on the `master` branch
+- create a new commit with:
+  - run `just set-version <version>`
+  - update changelog
+  - run `cargo update --workspace` to update lock file
+  - run `just license-all` to update license for all files
+- tag this commit as `v<version>` (ie: leading 'v' for 'version')
+- `git push --tags`
+
+The CI running on Github Actions will automatically build and publish cargo
+crates and python wheels.

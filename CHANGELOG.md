@@ -3,10 +3,12 @@ SPDX-FileCopyrightText: 2026 DigiGaia SCCL
 SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
-# 0.2.x - Python packaging fixes
+# 0.2.x - Python & Rust packaging fixes
 
-The whole 0.2.x series has been released in order to prepare and fine-tune the publishing of python
-packages to PyPI. It doesn't contain any other features or enhancements.
+The whole 0.2.x series has been released in order to implement CI with Github Actions, and prepare
+and fine-tune the publishing of python packages to PyPI and Rust crates to crates.io.
+
+It doesn't contain any features or enhancements (except maybe for very minor fixes).
 
 
 # 0.2 - Python bindings
