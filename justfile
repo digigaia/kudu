@@ -68,12 +68,11 @@ test-python *pytest_args: build-python
 
 # ---- Project management -----------------------------------------------------#
 
-# set the version number in Cargo.toml
+# set the version number in Cargo.toml and update Cargo.lock
 [group('project management')]
 set-version version:
     @echo "Setting version to '{{version}}' in Cargo.toml"
-    @sed --in-place 's/^version = ".*"$/version = "{{version}}"/' Cargo.toml
-    @sed --in-place 's/^\(kudu.*\)version = "[^"]*"\(.*\)$/\1version = "{{version}}"\2/' Cargo.toml
+    cargo set-version --workspace "{{version}}"
 
 # publish the project crates on crates.io
 [group('project management')]

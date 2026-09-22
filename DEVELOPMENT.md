@@ -11,13 +11,17 @@ In order to release a new version, you need to follow these steps:
 
 - ensure you are on the `master` branch
 - create a new commit with:
+  - run `just license-all` to update license for all files
+  - run `just gen-gha-workflows`
   - run `just set-version <version>`
   - update changelog
-  - run `cargo update --workspace` to update lock file (TODO: move this into `just set-version`)
-  - run `just license-all` to update license for all files (TODO: move this into `just set-version`)
-  - run `just gen-gha-workflows` (TODO: move this into `just set-version`)
 - tag this commit as `v<version>` (ie: leading 'v' for 'version')
 - `git push --tags`
 
 The CI running on Github Actions will automatically build and publish cargo
 crates and python wheels.
+
+## TODO / FIXME
+
+- move `just license-all` and `just gen-gha-workflows` into `just set-version` or even
+  better into a `prek` rule.
