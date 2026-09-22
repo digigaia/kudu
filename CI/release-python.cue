@@ -5,7 +5,8 @@ package CI
 
 name: "release-python"
 
-on: workflow_dispatch: null,
+// allow other workflows to call this one
+on: workflow_call: null,
 
 permissions:
     contents: "read"
