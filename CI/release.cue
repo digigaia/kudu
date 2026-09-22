@@ -3,7 +3,7 @@
 
 package CI
 
-name: "tests"
+name: "release"
 
 on: push: tags: ["*"]
 
