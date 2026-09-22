@@ -1,4 +1,4 @@
-name: tests
+name: python-tests
 "on":
   push:
     branches:
@@ -11,12 +11,9 @@ permissions:
   contents: read
 jobs:
   tests:
-    runs-on: ${{ matrix.platform.runner }}
-    timeout-minutes: 15
     uses: ./.github/workflows/tests.yml
   python-tests:
     runs-on: ${{ matrix.platform.runner }}
-    timeout-minutes: 15
     strategy:
       matrix:
         platform:
@@ -35,3 +32,4 @@ jobs:
         run: uv tool install pyinfra
       - name: Run python tests
         run: just test-python
+    timeout-minutes: 15
