@@ -68,23 +68,12 @@ test-python *pytest_args: build-python
 
 # ---- Project management -----------------------------------------------------#
 
-@_set_version file version:
-    echo "Setting version to: {{version}} in {{file}}"
-    sed 's/^version = ".*"$/version = "{{version}}"/' {{file}} | sponge {{file}}
-
-@_set_version_in_deps file version:
-    echo "Setting version to: {{version}} in {{file}} dependencies"
-    sed 's/^\(kudu.*\)version = "[^"]*"\(.*\)$/\1version = "{{version}}"\2/' {{file}} | sponge {{file}}
-
-# set the version number in all Cargo.toml files
+# set the version number in Cargo.toml
 [group('project management')]
-set-version version: && \
-    (_set_version "Cargo.toml" version) \
-    (_set_version_in_deps "kudu/Cargo.toml" version) \
-    (_set_version_in_deps "kudu-esr/Cargo.toml" version) \
-    (_set_version_in_deps "kudu-py/Cargo.toml" version) \
-    (_set_version_in_deps "kudune/Cargo.toml" version)
-    @echo "Setting version to: {{version}}:"
+set-version version:
+    @echo "Setting version to '{{version}}' in Cargo.toml"
+    @sed --in-place 's/^version = ".*"$/version = "{{version}}"/' Cargo.toml
+    @sed --in-place 's/^\(kudu.*\)version = "[^"]*"\(.*\)$/\1version = "{{version}}"\2/' Cargo.toml
 
 # publish the project crates on crates.io
 [group('project management')]

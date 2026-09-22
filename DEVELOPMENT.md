@@ -8,8 +8,8 @@ In order to release a new version, you need to follow these steps:
 - create a new commit with:
   - run `just set-version <version>`
   - update changelog
-  - run `cargo update --workspace` to update lock file
-  - run `just license-all` to update license for all files
+  - run `cargo update --workspace` to update lock file (TODO: move this into `just set-version`)
+  - run `just license-all` to update license for all files (TODO: move this into `just set-version`)
 - tag this commit as `v<version>` (ie: leading 'v' for 'version')
 - `git push --tags`
 

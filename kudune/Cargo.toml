@@ -15,12 +15,13 @@ keywords     = { workspace = true }
 categories   = { workspace = true }
 
 [dependencies]
+kudu               = { workspace = true }
+
 color-eyre         = { workspace = true }
 serde_json         = { workspace = true }
 tracing            = { workspace = true }
 tracing-subscriber = { workspace = true }
 
-kudu = { path = "../kudu", version = "0.2.11" }
 clap = { version = "4.4", features = ["derive"] }
 duct = "1"
 regex = "1"

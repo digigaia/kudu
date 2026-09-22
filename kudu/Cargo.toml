@@ -17,6 +17,8 @@ categories   = { workspace = true }
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+kudu-macros        = { workspace = true }
+
 chrono             = { workspace = true }
 color-eyre         = { workspace = true }
 hex                = { workspace = true }
@@ -27,7 +29,6 @@ strum              = { workspace = true }
 tracing            = { workspace = true }
 tracing-subscriber = { workspace = true }
 
-kudu-macros        = { path = "../kudu-macros", version = "0.2.11" }
 bytemuck = "1"
 flate2 = "1.0"
 ripemd = "0.2"
