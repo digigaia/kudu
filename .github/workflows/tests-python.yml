@@ -1,25 +1,16 @@
-name: python-tests
+name: tests-python
 "on":
-  push:
-    branches:
-      - master
-  pull_request:
-    branches:
-      - master
   workflow_call: null
 permissions:
   contents: read
 jobs:
-  tests:
-    uses: ./.github/workflows/tests.yml
-  python-tests:
+  test-python:
     runs-on: ${{ matrix.platform.runner }}
     strategy:
       matrix:
         platform:
           - runner: ubuntu-latest
             target: x86_64
-    needs: tests
     steps:
       - uses: actions/checkout@v7
       - uses: taiki-e/install-action@7f4eb899022d8fe70b20c4f3de697aa85c309026

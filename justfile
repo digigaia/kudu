@@ -129,15 +129,15 @@ license-all: \
 [group('project management')]
 gen-gha-workflows:
     #!/bin/sh
-    set -euo pipefail
-    for workflow in tests python-tests build-cargo-crates build-python-wheels; do
+    set -eu
+    for cuefile in CI/*.cue; do
+        workflow=$(basename "$cuefile" .cue)
+        if [ "$workflow" = "definitions" ]; then continue; fi
         outfile=".github/workflows/$workflow.yml"
         echo "Generating $outfile..."
-        cue export CI/$workflow.cue CI/definitions.cue --out yaml --force --outfile $outfile
+        cue export "CI/$workflow.cue" CI/definitions.cue --out yaml --force --outfile "$outfile"
     done
     echo "OK!"
-    # cue export CI/tests.cue CI/definitions.cue --out yaml --outfile /tmp/tests.yml
-    # cue export CI/build-python-wheels.cue CI/definitions.cue --out yaml --outfile /tmp/build-python-wheels.yml
 
 
 hyperfine_opts := "--shell=none --warmup 10"

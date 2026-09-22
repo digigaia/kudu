@@ -1,16 +1,10 @@
-name: build-cargo-crates
+name: release-rust
 "on":
-  push:
-    tags:
-      - '*'
   workflow_dispatch: null
 permissions:
   contents: read
 jobs:
-  test:
-    uses: ./.github/workflows/tests.yml
   publish:
-    needs: test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7

@@ -5,18 +5,26 @@ package CI
 
 name: "tests"
 
-on: {
-    push: branches: ["master"],
-    pull_request: branches: ["master"],
-}
+on: push: tags: ["*"]
 
 permissions:
     contents: "read"
 
 jobs: {
     "test-rust": uses: "./.github/workflows/tests-rust.yml",
+
 	"test-python": {
 		needs: "test-rust"
 		uses: "./.github/workflows/tests-python.yml"
+	},
+
+	"release-rust": {
+		needs: "test-rust"
+		uses: "./.github/workflows/release-rust.yml"
+	},
+
+	"release-python": {
+		needs: "test-python"
+		uses: "./.github/workflows/release-python.yml"
 	},
 }

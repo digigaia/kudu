@@ -1,16 +1,10 @@
-name: build-python-wheels
+name: release-python
 "on":
-  push:
-    tags:
-      - '*'
   workflow_dispatch: null
 permissions:
   contents: read
 jobs:
-  test:
-    uses: ./.github/workflows/python-tests.yml
   linux:
-    needs: test
     runs-on: ${{ matrix.platform.runner }}
     strategy:
       matrix:
@@ -39,7 +33,6 @@ jobs:
           path: kudu-py/dist
     timeout-minutes: 15
   musllinux:
-    needs: test
     runs-on: ${{ matrix.platform.runner }}
     strategy:
       matrix:
@@ -68,7 +61,6 @@ jobs:
           path: kudu-py/dist
     timeout-minutes: 15
   macos:
-    needs: test
     runs-on: ${{ matrix.platform.runner }}
     strategy:
       matrix:
@@ -94,7 +86,6 @@ jobs:
           path: kudu-py/dist
     timeout-minutes: 15
   sdist:
-    needs: test
     runs-on: ubuntu-latest
     timeout-minutes: 3
     steps:

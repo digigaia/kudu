@@ -1,11 +1,11 @@
+// SPDX-FileCopyrightText: 2024-2026 DigiGaia SCCL
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 package CI
 
-name: "build-python-wheels"
+name: "release-python"
 
-on: {
-    push: tags: ["*"],
-    workflow_dispatch: null,
-}
+on: workflow_dispatch: null,
 
 permissions:
     contents: "read"
@@ -48,10 +48,7 @@ permissions:
 
 
 jobs: {
-	test: uses: "./.github/workflows/python-tests.yml",
-
 	linux: #job & {
-		needs: "test"
 		strategy: matrix: platform: [#ubuntu_runner, #ubuntu_arm_runner],
 		steps: #build_steps & [_, _, {
 			with: manylinux: "2_28"
@@ -59,8 +56,8 @@ jobs: {
 			with: name: "wheels-linux-${{ matrix.platform.target }}",
 		}],
 	},
+
 	musllinux: #job & {
-		needs: "test"
 		strategy: matrix: platform: [#ubuntu_runner, #ubuntu_arm_runner],
 		steps: #build_steps & [_, _, {
 			with: manylinux: "musllinux_1_2"
@@ -68,15 +65,15 @@ jobs: {
 			with: name: "wheels-musllinux-${{ matrix.platform.target }}",
 		}],
 	},
+
 	macos: #job & {
-		needs: "test"
 		strategy: matrix: platform: [#macos_runner],
 		steps: #build_steps & [_, _, _, {
 			with: name: "wheels-macos-${{ matrix.platform.target }}",
 		}],
 	},
+
 	sdist: {
-		needs: "test"
 		"runs-on": "ubuntu-latest",
 		"timeout-minutes": 3,
 		steps: [
@@ -105,7 +102,7 @@ jobs: {
 		needs: ["linux", "musllinux", "macos", "sdist"],
 		permissions: {
 			"id-token": "write",    // used to sign the release artifacts
-			contents: "write",      // used to upload release artifacts
+			contents: "write",      // used to upload release artifacts   // FIXME: needed if we're not uploading to Github?
 			attestations: "write",  // used to generate artifact attestation
 		},
 		steps: [

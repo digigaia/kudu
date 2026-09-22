@@ -15,6 +15,7 @@ In order to release a new version, you need to follow these steps:
   - update changelog
   - run `cargo update --workspace` to update lock file (TODO: move this into `just set-version`)
   - run `just license-all` to update license for all files (TODO: move this into `just set-version`)
+  - run `just gen-gha-workflows` (TODO: move this into `just set-version`)
 - tag this commit as `v<version>` (ie: leading 'v' for 'version')
 - `git push --tags`
 

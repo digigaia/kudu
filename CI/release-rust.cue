@@ -1,11 +1,11 @@
+// SPDX-FileCopyrightText: 2024-2026 DigiGaia SCCL
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 package CI
 
-name: "build-cargo-crates"
+name: "release-rust"
 
-on: {
-    push: tags: ["*"],
-    workflow_dispatch: null,
-}
+on: workflow_dispatch: null,
 
 permissions:
     contents: "read"
@@ -13,10 +13,7 @@ permissions:
 _token: env: CARGO_REGISTRY_TOKEN: "${{ secrets.CARGO_REGISTRY_TOKEN }}"
 
 jobs: {
-	test: uses: "./.github/workflows/tests.yml",
-
 	publish: {
-		needs: "test",
 		"runs-on": "ubuntu-latest",
 		steps: [
 			{ uses: #checkout },
