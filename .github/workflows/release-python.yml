@@ -113,7 +113,6 @@ jobs:
       - sdist
     permissions:
       id-token: write
-      contents: write
       attestations: write
     steps:
       - uses: actions/download-artifact@v8

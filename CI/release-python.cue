@@ -103,7 +103,6 @@ jobs: {
 		needs: ["linux", "musllinux", "macos", "sdist"],
 		permissions: {
 			"id-token": "write",    // used to sign the release artifacts
-			contents: "write",      // used to upload release artifacts   // FIXME: needed if we're not uploading to Github?
 			attestations: "write",  // used to generate artifact attestation
 		},
 		steps: [

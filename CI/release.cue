@@ -7,8 +7,12 @@ name: "release"
 
 on: push: tags: ["*"]
 
-permissions:
-    contents: "read"
+permissions: {
+	contents: "read"
+	// contents: "write",      // used to upload release artifacts  // NOT USED FOR NOW BUT WILL BE
+	"id-token": "write",    // used to sign the release artifacts
+	attestations: "write",  // used to generate artifact attestation
+}
 
 jobs: {
     "test-rust": uses: "./.github/workflows/tests-rust.yml",

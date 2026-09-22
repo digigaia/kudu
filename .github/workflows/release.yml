@@ -5,6 +5,8 @@ name: release
       - '*'
 permissions:
   contents: read
+  id-token: write
+  attestations: write
 jobs:
   test-rust:
     uses: ./.github/workflows/tests-rust.yml
