@@ -12,7 +12,6 @@ In order to release a new version, you need to follow these steps:
 - ensure you are on the `master` branch
 - create a new commit with:
   - run `just license-all` to update license for all files
-  - run `just gen-gha-workflows`
   - run `just set-version <version>`
   - update changelog
 - tag this commit as `v<version>` (ie: leading 'v' for 'version')
@@ -23,5 +22,8 @@ crates and python wheels.
 
 ## TODO / FIXME
 
-- move `just license-all` and `just gen-gha-workflows` into `just set-version` or even
-  better into a `prek` rule.
+- move `just license-all` into `just set-version` or even better into a `prek` rule.
+  (note: if in `prek`, we should just `reuse lint` instead of a full blown `just license-all`)
+
+- maybe move `just gen-gha-workflows` in `prek` if we have it instead of it being only
+  in `just set-version`

@@ -1,6 +1,6 @@
 name: release-python
 "on":
-  workflow_dispatch: null
+  workflow_call: null
 permissions:
   contents: read
 jobs:

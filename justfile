@@ -70,7 +70,7 @@ test-python *pytest_args: build-python
 
 # set the version number in Cargo.toml and update Cargo.lock
 [group('project management')]
-set-version version:
+set-version version: gen-gha-workflows
     @echo "Setting version to '{{version}}' in Cargo.toml"
     cargo set-version --workspace "{{version}}"
 
