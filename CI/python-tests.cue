@@ -2,7 +2,7 @@ package CI
 
 import "list"
 
-name: "tests"
+name: "python-tests"
 
 on: {
     push: branches: ["master"],
@@ -23,14 +23,10 @@ permissions:
 ]
 
 
-// define "runs-on" and a timeout for all jobs
-jobs: [_]: #job
-
-
 jobs: {
 	tests: uses: "./.github/workflows/tests.yml",
 
-	"python-tests": {
+	"python-tests": #job & {
 		// do not run on `aarch64`, as the EOS VM doesn't run on it
 		strategy: matrix: platform: [#ubuntu_runner],
 		needs: "tests",
