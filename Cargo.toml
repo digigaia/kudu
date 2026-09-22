@@ -23,8 +23,8 @@ keywords = ["blockchain", "antelope", "eos", "vaulta"]
 categories = ["command-line-utilities", "cryptography::cryptocurrencies", "encoding"]
 
 [workspace.dependencies]
-kudu        = { path = "./kudu", version = "0.2.11" }
-kudu-macros = { path = "./kudu-macros", version = "0.2.11" }
+kudu        = { path = "./kudu", version = "0.2.11", default-features = false }
+kudu-macros = { path = "./kudu-macros", version = "0.2.11", default-features = false }
 
 base64 = "0.22.0"
 chrono = { version = "0.4", features = ["serde"] }
