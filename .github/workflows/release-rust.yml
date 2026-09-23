@@ -1,11 +1,15 @@
 name: release-rust
 "on":
-  workflow_call: null
+  workflow_call:
+    secrets:
+      CARGO_REGISTRY_TOKEN:
+        required: true
 permissions:
   contents: read
 jobs:
   publish:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
       - name: Install Rust toolchain

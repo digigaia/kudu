@@ -5,8 +5,9 @@ name: release
       - '*'
 permissions:
   contents: read
-  id-token: write
-  attestations: write
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
 jobs:
   test-rust:
     uses: ./.github/workflows/tests-rust.yml
@@ -16,7 +17,12 @@ jobs:
   release-rust:
     needs: test-rust
     uses: ./.github/workflows/release-rust.yml
-    secrets: inherit
+    secrets:
+      CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
   release-python:
     needs: test-python
     uses: ./.github/workflows/release-python.yml
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write

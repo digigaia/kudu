@@ -6,8 +6,21 @@ name: tests
   pull_request:
     branches:
       - master
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - ready_for_review
+  workflow_dispatch: null
 permissions:
   contents: read
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 jobs:
   test-rust:
     uses: ./.github/workflows/tests-rust.yml
+  test-python:
+    needs: test-rust
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.draft == false
+    uses: ./.github/workflows/tests-python.yml
