@@ -29,7 +29,7 @@ jobs: {
 	// can still trigger them manually
 	"test-python": {
 		needs: "test-rust"
-		if: "github.event_name == 'workflow_dispatch' || github.event.pull_request.draft == false"
+		if: "github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && github.event.pull_request.draft == false)"
 		uses: "./.github/workflows/tests-python.yml"
 	},
 }
