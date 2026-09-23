@@ -1,18 +1,18 @@
-// SPDX-FileCopyrightText: 2024-2026 DigiGaia SCCL
+// SPDX-FileCopyrightText: 2026 DigiGaia SCCL
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 package CI
 
 name: "tests-python"
 
-// allow other workflows to call this one
-on: workflow_call: null
+on: workflow_call: null      // allow other workflows to call this one
+on: workflow_dispatch: null  // allow to call this workflow manually
 
 permissions:
     contents: "read"
 
 jobs: {
-	"test-python": #job & {
+	"full-with-kudune": #job & {
 		// do not run on `aarch64`, as the EOS VM doesn't run on it
 		strategy: matrix: platform: [#ubuntu_runner],
         steps: [

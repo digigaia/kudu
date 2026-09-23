@@ -129,12 +129,13 @@ license-all: \
 gen-gha-workflows:
     #!/bin/sh
     set -eu
+    rm -f .github/workflows/*.yml
     for cuefile in CI/*.cue; do
         workflow=$(basename "$cuefile" .cue)
         if [ "$workflow" = "definitions" ]; then continue; fi
         outfile=".github/workflows/$workflow.yml"
         echo "Generating $outfile..."
-        cue export "CI/$workflow.cue" CI/definitions.cue --out yaml --force --outfile "$outfile"
+        cue export "$cuefile" CI/definitions.cue --out yaml --force --outfile "$outfile"
     done
     echo "OK!"
 

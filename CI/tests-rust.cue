@@ -1,21 +1,21 @@
-// SPDX-FileCopyrightText: 2024-2026 DigiGaia SCCL
+// SPDX-FileCopyrightText: 2026 DigiGaia SCCL
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 package CI
 
 name: "tests-rust"
 
-// allow other workflows to call this one
-on: workflow_call: null
+on: workflow_call: null      // allow other workflows to call this one
+on: workflow_dispatch: null  // allow to call this workflow manually
 
 permissions:
     contents: "read"
 
-// define "runs-on" and a timeout for all jobs
+// inherit some default properties for all our jobs
 jobs: [_]: #job
 
 jobs: {
-    "test-rust": {
+    "unittests": {
 		"timeout-minutes": 3,
 		strategy: matrix: platform: [
 			#ubuntu_runner,

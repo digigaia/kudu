@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2024-2026 DigiGaia SCCL
+// SPDX-FileCopyrightText: 2026 DigiGaia SCCL
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 package CI
@@ -6,7 +6,9 @@ package CI
 name: "release-rust"
 
 // allow other workflows to call this one
-on: workflow_call: null,
+on: workflow_call: {
+	secrets: CARGO_REGISTRY_TOKEN: required: true
+}
 
 permissions:
     contents: "read"
@@ -16,6 +18,7 @@ _token: env: CARGO_REGISTRY_TOKEN: "${{ secrets.CARGO_REGISTRY_TOKEN }}"
 jobs: {
 	publish: {
 		"runs-on": "ubuntu-latest",
+		"timeout-minutes": 10,
 		steps: [
 			{ uses: #checkout },
 			{ name: "Install Rust toolchain", uses: #rust_toolchain },

@@ -7,6 +7,13 @@ This file contains notes about developing on Kudu.
 
 # Release process
 
+## Prerequisites
+
+- ensure you have `cargo-edit` installed (needed to set version automatically)
+
+
+## Steps to release a new version
+
 In order to release a new version, you need to follow these steps:
 
 - ensure you are on the `master` branch
@@ -19,6 +26,7 @@ In order to release a new version, you need to follow these steps:
 
 The CI running on Github Actions will automatically build and publish cargo
 crates and python wheels.
+
 
 ## TODO / FIXME
 

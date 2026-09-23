@@ -17,12 +17,12 @@ categories   = { workspace = true }
 [dependencies]
 kudu               = { workspace = true }
 
+clap               = { workspace = true }
 color-eyre         = { workspace = true }
 serde_json         = { workspace = true }
 tracing            = { workspace = true }
 tracing-subscriber = { workspace = true }
 
-clap = { version = "4.4", features = ["derive"] }
 duct = "1"
 regex = "1"
 tempfile = "3.13.0"

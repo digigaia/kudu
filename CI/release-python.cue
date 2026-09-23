@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2024-2026 DigiGaia SCCL
+// SPDX-FileCopyrightText: 2026 DigiGaia SCCL
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 package CI
@@ -6,7 +6,7 @@ package CI
 name: "release-python"
 
 // allow other workflows to call this one
-on: workflow_call: null,
+on: workflow_call: null
 
 permissions:
     contents: "read"
@@ -22,7 +22,7 @@ permissions:
 			target: "${{ matrix.platform.target }}",
 			"working-directory": "kudu-py",
 			args: "--release --out dist --find-interpreter",
-			sccache: #not_on_tag,
+			sccache: false,
 			...
 		},
 	},
@@ -33,7 +33,7 @@ permissions:
 	// 		target: "${{ matrix.platform.target }}",
 	// 		"working-directory": "kudu-py",
 	// 		args: "--release --out dist -i python3.15t",
-	// 		sccache: #not_on_tag,
+	// 		sccache: false,
 	// 		...
 	// 	},
 	// },
@@ -99,9 +99,9 @@ jobs: {
 		name: "Release"
 		"runs-on": "ubuntu-latest",
 		"timeout-minutes": 10
-		if: "${{ startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch' }}"
 		needs: ["linux", "musllinux", "macos", "sdist"],
 		permissions: {
+			contents: "read",
 			"id-token": "write",    // used to sign the release artifacts
 			attestations: "write",  // used to generate artifact attestation
 		},
@@ -113,11 +113,9 @@ jobs: {
 				with: "subject-path": "wheels-*/*",
 			}, {
 				name: "Install uv",
-				if: #on_tag,
 				uses: #setup_uv,
 			}, {
 				name: "Publish to PyPI",
-				if: #on_tag,
 				run: "uv publish --trusted-publishing always 'wheels-*/*'"
 			},
 	    ],

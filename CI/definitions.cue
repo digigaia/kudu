@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2024-2026 DigiGaia SCCL
+// SPDX-FileCopyrightText: 2026 DigiGaia SCCL
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 package CI
@@ -42,10 +42,18 @@ package CI
 #maturin_action: "PyO3/maturin-action@e83996d129638aa358a18fbd1dfb82f0b0fb5d3b"  // v1.51.0
 #setup_uv: "astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d"  // v10.0.1
 
-// define "runs-on" and a default timeout for all jobs
+
+// default job definition
+//  - use strategy.matrix.platform to define runners to be used
+//  - define a default timeout (can be overriden)
+//  - do not fail fast, this ensures a failing runner will not prevent the others to finish
 #job: {
 	"runs-on": "${{ matrix.platform.runner }}"
 	"timeout-minutes": int | *15,
+	strategy: {
+		"fail-fast": false,
+		...
+	},
 	...
 }
 
