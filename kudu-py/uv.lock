@@ -123,7 +123,7 @@ wheels = [
 ]
 
 [[package]]
-name = "kudu"
+name = "kudu-py"
 source = { editable = "." }
 dependencies = [
     { name = "duct" },
@@ -140,7 +140,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "duct", specifier = ">=1.0" },
-    { name = "loguru" },
+    { name = "loguru", specifier = ">=0.7" },
 ]
 
 [package.metadata.requires-dev]

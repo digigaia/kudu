@@ -67,10 +67,10 @@ def test_timepointsec():
     assert tp.minute == 17
     assert tp.second == 47
 
-    with pytest.raises(ValueError, match='Invalid year-month-day'):
+    with pytest.raises(ValueError, match="Invalid date/time: parameter 'day' .* is invalid"):
         kudu.TimePointSec((2018, 6, 45, 19, 17, 47))
 
-    with pytest.raises(ValueError, match='input contains invalid characters'):
+    with pytest.raises(ValueError, match='failed to parse year: invalid number, no digits found'):
         kudu.TimePointSec('this is not a date')
 
 
@@ -102,10 +102,10 @@ def test_timepoint():
     assert tp.second == 47
     assert tp.milli == 999
 
-    with pytest.raises(ValueError, match='Invalid year-month-day'):
+    with pytest.raises(ValueError, match="Invalid date/time: parameter 'day' .* is invalid"):
         kudu.TimePoint((2018, 6, 45, 19, 17, 47, 999))
 
-    with pytest.raises(ValueError, match='input contains invalid characters'):
+    with pytest.raises(ValueError, match='failed to parse year: invalid number, no digits found'):
         kudu.TimePoint('this is not a date')
 
 

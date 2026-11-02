@@ -12,7 +12,7 @@ pub mod kudu_time {
     use pyo3::exceptions::PyValueError;
     use pyo3::types::{PyDateAccess, PyDateTime, PyString, PyTimeAccess};
 
-    use chrono::{DateTime, Datelike, NaiveDateTime, Timelike, Utc};
+    use jiff::{civil::DateTime, tz::TimeZone, Timestamp, Zoned};
 
     use kudu::{ABISerializable, TimePoint, TimePointSec};
 
@@ -30,9 +30,9 @@ pub mod kudu_time {
     gen_default_repr!("PyTimePoint");
     gen_default_str!("PyTimePoint");
     gen_bytes_conversion!("PyTimePoint");
-    gen_convert_getters!("PyTimePoint", ".to_datetime().date_naive()", "i32", ["year"]);
-    gen_convert_getters!("PyTimePoint", ".to_datetime().date_naive()", "u32", ["month", "day"]);
-    gen_convert_getters!("PyTimePoint", ".to_datetime()", "u32", ["hour", "minute", "second"]);
+    gen_convert_getters!("PyTimePoint", ".to_timestamp().to_zoned(TimeZone::UTC)", "i16", ["year"]);
+    gen_convert_getters!("PyTimePoint", ".to_timestamp().to_zoned(TimeZone::UTC)", "i8", ["month", "day"]);
+    gen_convert_getters!("PyTimePoint", ".to_timestamp().to_zoned(TimeZone::UTC)", "i8", ["hour", "minute", "second"]);
 
     #[pymethods]
     impl PyTimePoint {
@@ -43,16 +43,16 @@ pub mod kudu_time {
             }
             else if let Ok(dt) = dt.cast::<PyDateTime>() {
                 // FIXME: only no-tz or utc
-                Ok(PyTimePoint(TimePoint::new(dt.get_year(),
-                                              dt.get_month().into(),
-                                              dt.get_day().into(),
-                                              dt.get_hour().into(),
-                                              dt.get_minute().into(),
-                                              dt.get_second().into(),
-                                              dt.get_microsecond() / 1000)
+                Ok(PyTimePoint(TimePoint::new(dt.get_year().try_into().map_err(value_err)?,
+                                              dt.get_month() as i8,
+                                              dt.get_day() as i8,
+                                              dt.get_hour() as i8,
+                                              dt.get_minute() as i8,
+                                              dt.get_second() as i8,
+                                              (dt.get_microsecond() as i32) / 1000)
                                   .unwrap())) // if it's a valid datetime, it should also be a valid TimePoint
             }
-            else if let Ok((y, m, d, h, min, s, milli)) = dt.extract::<(i32, u32, u32, u32, u32, u32, u32)>() {
+            else if let Ok((y, m, d, h, min, s, milli)) = dt.extract::<(i16, i8, i8, i8, i8, i8, i32)>() {
                 match TimePoint::new(y, m, d, h, min, s, milli) {
                     Ok(tp) => Ok(PyTimePoint(tp)),
                     Err(e) => Err(value_err(e)),
@@ -65,8 +65,7 @@ pub mod kudu_time {
 
         #[getter]
         pub fn get_milli(&self) -> u32 {
-            // use `.into()` to ensure we cover all infallible conversions
-            self.0.to_datetime().nanosecond() / 1_000_000
+            self.0.to_timestamp().subsec_millisecond() as u32
         }
 
         fn __eq__<'py>(&self, other: &Bound<'py, PyAny>) -> bool {
@@ -79,20 +78,23 @@ pub mod kudu_time {
                 return self.0.to_string() == dt;
             }
             // compare using a python datetime
-            if let Ok(dt) = other.extract::<DateTime<Utc>>() {
-                return self.0.to_datetime() == dt;
+            if let Ok(ts) = other.extract::<Timestamp>() {
+                return self.0.to_timestamp() == ts;
             }
             // also allow datetimes without timezone info, assume they are UTC
-            if let Ok(dt) = other.extract::<NaiveDateTime>() {
-                return self.0.to_datetime().naive_utc() == dt;
+            if let Ok(dt) = other.extract::<DateTime>() {
+                return self.0.to_timestamp().to_zoned(TimeZone::UTC).datetime() == dt;
             }
             false
         }
 
-        fn to_datetime(&self) -> DateTime<Utc> {
-            self.0.to_datetime()
+        fn to_timestamp(&self) -> Timestamp {
+            self.0.to_timestamp()
         }
 
+        fn to_datetime(&self) -> Zoned {
+            self.0.to_timestamp().to_zoned(TimeZone::UTC)
+        }
     }
 
 
@@ -106,9 +108,9 @@ pub mod kudu_time {
     gen_default_repr!("PyTimePointSec");
     gen_default_str!("PyTimePointSec");
     gen_bytes_conversion!("PyTimePointSec");
-    gen_convert_getters!("PyTimePointSec", ".to_datetime().date_naive()", "i32", ["year"]);
-    gen_convert_getters!("PyTimePointSec", ".to_datetime().date_naive()", "u32", ["month", "day"]);
-    gen_convert_getters!("PyTimePointSec", ".to_datetime()", "u32", ["hour", "minute", "second"]);
+    gen_convert_getters!("PyTimePointSec", ".to_timestamp().to_zoned(TimeZone::UTC)", "i16", ["year"]);
+    gen_convert_getters!("PyTimePointSec", ".to_timestamp().to_zoned(TimeZone::UTC)", "i8", ["month", "day"]);
+    gen_convert_getters!("PyTimePointSec", ".to_timestamp().to_zoned(TimeZone::UTC)", "i8", ["hour", "minute", "second"]);
 
     #[pymethods]
     impl PyTimePointSec {
@@ -119,15 +121,15 @@ pub mod kudu_time {
             }
             else if let Ok(dt) = dt.cast::<PyDateTime>() {
                 // FIXME: only no-tz or utc
-                Ok(PyTimePointSec(TimePointSec::new(dt.get_year(),
-                                                    dt.get_month().into(),
-                                                    dt.get_day().into(),
-                                                    dt.get_hour().into(),
-                                                    dt.get_minute().into(),
-                                                    dt.get_second().into())
+                Ok(PyTimePointSec(TimePointSec::new(dt.get_year().try_into().map_err(value_err)?,
+                                                    dt.get_month() as i8,
+                                                    dt.get_day() as i8,
+                                                    dt.get_hour() as i8,
+                                                    dt.get_minute() as i8,
+                                                    dt.get_second() as i8)
                                   .unwrap())) // if it's a valid datetime, it should also be a valid TimePointSec
             }
-            else if let Ok((y, m, d, h, min, s)) = dt.extract::<(i32, u32, u32, u32, u32, u32)>() {
+            else if let Ok((y, m, d, h, min, s)) = dt.extract::<(i16, i8, i8, i8, i8, i8)>() {
                 match TimePointSec::new(y, m, d, h, min, s) {
                     Ok(tp) => Ok(PyTimePointSec(tp)),
                     Err(e) => Err(value_err(e)),
@@ -148,20 +150,23 @@ pub mod kudu_time {
                 return self.0.to_string() == dt;
             }
             // compare using a python datetime
-            if let Ok(dt) = other.extract::<DateTime<Utc>>() {
-                return self.0.to_datetime() == dt;
+            if let Ok(dt) = other.extract::<Timestamp>() {
+                return self.0.to_timestamp() == dt;
             }
             // also allow datetimes without timezone info, assume they are UTC
-            if let Ok(dt) = other.extract::<NaiveDateTime>() {
-                return self.0.to_datetime().naive_utc() == dt;
+            if let Ok(dt) = other.extract::<DateTime>() {
+                return self.0.to_timestamp().to_zoned(TimeZone::UTC).datetime() == dt;
             }
             false
         }
 
-        fn to_datetime(&self) -> DateTime<Utc> {
-            self.0.to_datetime()
+        fn to_timestamp(&self) -> Timestamp {
+            self.0.to_timestamp()
         }
 
+        fn to_datetime(&self) -> Zoned {
+            self.0.to_timestamp().to_zoned(TimeZone::UTC)
+        }
     }
 
 }
