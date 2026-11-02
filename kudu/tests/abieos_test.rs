@@ -527,7 +527,7 @@ fn roundtrip_datetimes() -> Result<()> {
     check_tp(tp(2018, 6, 15, 19, 17, 47,   0), r#""2018-06-15T19:17:47.000""#, "c0ac3112b36e0500");
     check_tp(tp(2018, 6, 15, 19, 17, 47, 999), r#""2018-06-15T19:17:47.999""#, "18eb4012b36e0500");
     check_tp(tp(2030, 6, 15, 19, 17, 47, 999), r#""2030-06-15T19:17:47.999""#, "188bb5fc1dc70600");
-    check_cross_conversion!(abi, TimePoint::from_ymd_hms_micro(2000, 12, 31, 23, 59, 59, 999999).unwrap(),
+    check_cross_conversion!(abi, TimePoint::new_with_micro(2000, 12, 31, 23, 59, 59, 999999).unwrap(),
                             TimePoint, "time_point", r#""2000-12-31T23:59:59.999999""#,
                             "ff1f23e5c3790300", r#""2000-12-31T23:59:59.999""#,
                             NO_JSON_TO_NATIVE);

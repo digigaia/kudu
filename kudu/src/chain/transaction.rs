@@ -204,7 +204,7 @@ impl Transaction {
         let head_block_time: TimePointSec = info["head_block_time"].as_str()
             .context(NodeosSnafu { message: "chain info 'head_block_time' is not a string" })?
             .parse()?;
-        self.expiration = head_block_time + expiration_delay_seconds;
+        self.expiration = head_block_time.add_seconds(expiration_delay_seconds);
 
         // save client for sending later
         self.client = Some(client);
