@@ -5,19 +5,22 @@ use std::fmt;
 use std::ops::Add;
 use std::str::FromStr;
 
-use chrono::{DateTime, NaiveDate, NaiveDateTime, ParseError as ChronoParseError, TimeZone, Utc};
+use jiff::{civil::DateTime, tz::TimeZone, Timestamp};
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::{json, Value as JsonValue};
-use snafu::{Snafu, OptionExt};
+use snafu::Snafu;
 
 use kudu_macros::with_location;
 
-use crate::config;
+use crate::{config, impl_auto_error_conversion};
 
 
 #[with_location]
 #[derive(Debug, Snafu)]
 pub enum InvalidTimePoint {
+
+    // FIXME: remove unneeded errors
+
     #[snafu(display("Invalid year-month-day: {year}-{month}-{day}"))]
     Ymd {
         year: i32,
@@ -47,7 +50,13 @@ pub enum InvalidTimePoint {
         sec: u32,
         micro: u32,
     },
+
+    #[snafu(display("Invalid date/time"))]
+    JiffError { source: jiff::Error },
 }
+
+impl_auto_error_conversion!(jiff::Error, InvalidTimePoint, JiffSnafu);
+
 
 const DATE_FORMAT: &str = "%Y-%m-%dT%H:%M:%S%.f";      // accept any number of digits for millis/micros
 const DATE_FORMAT_MS: &str = "%Y-%m-%dT%H:%M:%S%.3f";  // fixed 3 digits for millis
@@ -55,14 +64,13 @@ const DATE_FORMAT_NO_SECS: &str = "%Y-%m-%dT%H:%M";
 
 /// return a date in microseconds, timezone is UTC by default
 /// (we don't use naive datetimes)
-fn parse_date(s: &str) -> Result<DateTime<Utc>, ChronoParseError> {
-    Ok(NaiveDateTime::parse_from_str(s, DATE_FORMAT)
-       .or_else(|_| NaiveDateTime::parse_from_str(s, DATE_FORMAT_NO_SECS))?
-       .and_utc())
+fn parse_date(s: &str) -> Result<Timestamp, jiff::Error> {
+    let dt = DateTime::strptime(DATE_FORMAT, s).or_else(|_| DateTime::strptime(DATE_FORMAT_NO_SECS, s))?;
+    Ok(dt.to_zoned(TimeZone::UTC)?.timestamp())
 }
 
-fn timestamp_to_block_slot(dt: &DateTime<Utc>) -> u32 {
-    let ms_since_epoch = (dt.timestamp_micros() / 1000) as u64 - config::BLOCK_TIMESTAMP_EPOCH;
+fn timestamp_to_block_slot(dt: &Timestamp) -> u32 {
+    let ms_since_epoch = dt.as_millisecond() as u64 - config::BLOCK_TIMESTAMP_EPOCH;
     let result = ms_since_epoch / (config::BLOCK_INTERVAL_MS as u64);
     result.try_into().expect("timestamp too far in the future to fit block slot in a `u32`")
 }
@@ -71,7 +79,7 @@ macro_rules! impl_time_display {
     ($typ:ty) => {
         impl fmt::Display for $typ {
             fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-                write!(f, "{}", self.to_datetime().format(DATE_FORMAT_MS))
+                write!(f, "{}", self.to_timestamp().strftime(DATE_FORMAT_MS))
             }
         }
     }
@@ -114,7 +122,7 @@ macro_rules! impl_from {
         }
 
         impl TryFrom<&str> for $typ {
-            type Error = ChronoParseError;
+            type Error = jiff::Error;
             fn try_from(value: &str) -> Result<Self, Self::Error> {
                 Self::from_str(value)
             }
@@ -132,23 +140,19 @@ macro_rules! impl_from {
 pub struct TimePoint(i64);
 
 impl TimePoint {
-    pub fn new(year: i32, month: u32, day: u32, hour: u32, min: u32, sec: u32, milli: u32) -> Result<Self, InvalidTimePoint> {
-        Ok(TimePoint::from_datetime(
-            NaiveDate::from_ymd_opt(year, month, day).context(YmdSnafu { year, month, day })?
-                .and_hms_milli_opt(hour, min, sec, milli).context(HmsMilliSnafu { hour, min, sec, milli })?
-                .and_utc()))
+    pub fn new(year: i16, month: i8, day: i8, hour: i8, min: i8, sec: i8, milli: i32) -> Result<Self, InvalidTimePoint> {
+        let dt = DateTime::new(year, month, day, hour, min, sec, milli * 1_000_000)?;
+        Ok(Self::from_timestamp(dt.to_zoned(TimeZone::UTC)?.timestamp()))
     }
-    pub fn from_ymd_hms_micro(year: i32, month: u32, day: u32, hour: u32, min: u32, sec: u32, micro: u32) -> Result<Self, InvalidTimePoint> {
-        Ok(TimePoint::from_datetime(
-            NaiveDate::from_ymd_opt(year, month, day).context(YmdSnafu { year, month, day })?
-                .and_hms_micro_opt(hour, min, sec, micro).context(HmsMicroSnafu { hour, min, sec, micro })?
-                .and_utc()))
+    pub fn from_ymd_hms_micro(year: i16, month: i8, day: i8, hour: i8, min: i8, sec: i8, micro: i32) -> Result<Self, InvalidTimePoint> {
+        let dt = DateTime::new(year, month, day, hour, min, sec, micro * 1_000)?;
+        Ok(Self::from_timestamp(dt.to_zoned(TimeZone::UTC)?.timestamp()))
     }
-    pub fn from_datetime(dt: DateTime<Utc>) -> Self {
-        TimePoint(dt.timestamp_micros())
+    pub fn from_timestamp(ts: Timestamp) -> Self {
+        TimePoint(ts.as_microsecond())
     }
-    pub fn to_datetime(&self) -> DateTime<Utc> {
-        Utc.timestamp_micros(self.0).unwrap()  // safe unwrap
+    pub fn to_timestamp(&self) -> Timestamp {
+        Timestamp::from_microsecond(self.0).unwrap()  // safe unwrap
     }
     pub fn to_json(&self) -> JsonValue {
         json!(self.to_string())
@@ -160,10 +164,10 @@ impl_serialize!(TimePoint);
 impl_from!(TimePoint, i64);
 
 impl FromStr for TimePoint {
-    type Err = ChronoParseError;
+    type Err = jiff::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ok(TimePoint::from_datetime(parse_date(s)?))
+        Ok(TimePoint::from_timestamp(parse_date(s)?))
     }
 }
 
@@ -177,21 +181,19 @@ impl FromStr for TimePoint {
 pub struct TimePointSec(u32);
 
 impl TimePointSec {
-    pub fn new(year: i32, month: u32, day: u32, hour: u32, min: u32, sec: u32) -> Result<Self, InvalidTimePoint> {
-        Ok(TimePointSec::from_datetime(
-            NaiveDate::from_ymd_opt(year, month, day).context(YmdSnafu { year, month, day })?
-                .and_hms_opt(hour, min, sec).context(HmsSnafu { hour, min, sec })?
-                .and_utc()))
+    pub fn new(year: i16, month: i8, day: i8, hour: i8, min: i8, sec: i8) -> Result<Self, InvalidTimePoint> {
+        let dt = DateTime::new(year, month, day, hour, min, sec, 0)?;
+        Ok(Self::from_timestamp(dt.to_zoned(TimeZone::UTC)?.timestamp()))
     }
-    pub fn from_datetime(dt: DateTime<Utc>) -> Self {
-        TimePointSec(dt.timestamp().try_into()
+    pub fn from_timestamp(ts: Timestamp) -> Self {
+        TimePointSec(ts.as_second().try_into()
                      .expect("date too far in the future: number of seconds exceeds `u32` capacity"))
     }
-    pub fn to_datetime(&self) -> DateTime<Utc> {
-        Utc.timestamp_millis_opt(self.0 as i64 * 1000).unwrap()  // safe unwrap
+    pub fn to_timestamp(&self) -> Timestamp {
+        Timestamp::from_second(self.0 as i64).unwrap()  // safe unwrap
     }
     pub fn to_json(&self) -> JsonValue {
-        json!(format!("{}", self.to_datetime().format(DATE_FORMAT_MS)))
+        json!(format!("{}", self.to_timestamp().strftime(DATE_FORMAT_MS)))
     }
 }
 
@@ -200,10 +202,10 @@ impl_serialize!(TimePointSec);
 impl_from!(TimePointSec, u32);
 
 impl FromStr for TimePointSec {
-    type Err = ChronoParseError;
+    type Err = jiff::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ok(TimePointSec::from_datetime(parse_date(s)?))
+        Ok(TimePointSec::from_timestamp(parse_date(s)?))
     }
 }
 
@@ -223,22 +225,20 @@ impl Add<u32> for TimePointSec {
 pub struct BlockTimestamp(u32);
 
 impl BlockTimestamp {
-    pub fn new(year: i32, month: u32, day: u32, hour: u32, min: u32, sec: u32, milli: u32) -> Result<Self, InvalidTimePoint> {
-        Ok(BlockTimestamp::from_datetime(
-            NaiveDate::from_ymd_opt(year, month, day).context(YmdSnafu { year, month, day })?
-                .and_hms_milli_opt(hour, min, sec, milli).context(HmsMilliSnafu { hour, min, sec, milli })?
-                .and_utc()))
+    pub fn new(year: i16, month: i8, day: i8, hour: i8, min: i8, sec: i8, milli: i32) -> Result<Self, InvalidTimePoint> {
+        let dt = DateTime::new(year, month, day, hour, min, sec, milli * 1_000_000)?;
+        Ok(Self::from_timestamp(dt.to_zoned(TimeZone::UTC)?.timestamp()))
     }
-    pub fn from_datetime(dt: DateTime<Utc>) -> Self {
-        BlockTimestamp(timestamp_to_block_slot(&dt))
+    pub fn from_timestamp(ts: Timestamp) -> Self {
+        BlockTimestamp(timestamp_to_block_slot(&ts))
     }
-    pub fn to_datetime(&self) -> DateTime<Utc> {
-        Utc.timestamp_millis_opt(
+    pub fn to_timestamp(&self) -> Timestamp {
+        Timestamp::from_millisecond(
             (self.0 as i64 * config::BLOCK_INTERVAL_MS as i64) + config::BLOCK_TIMESTAMP_EPOCH as i64
         ).unwrap()  // safe unwrap
     }
     pub fn to_json(&self) -> JsonValue {
-        json!(format!("{}", self.to_datetime().format(DATE_FORMAT_MS)))
+        json!(format!("{}", self.to_timestamp().strftime(DATE_FORMAT_MS)))
     }
 }
 
@@ -247,9 +247,9 @@ impl_serialize!(BlockTimestamp);
 impl_from!(BlockTimestamp, u32);
 
 impl FromStr for BlockTimestamp {
-    type Err = ChronoParseError;
+    type Err = jiff::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ok(BlockTimestamp(timestamp_to_block_slot(&parse_date(s)?)))
+        Ok(BlockTimestamp::from_timestamp(parse_date(s)?))
     }
 }

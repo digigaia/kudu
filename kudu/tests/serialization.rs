@@ -6,7 +6,7 @@ use std::str::FromStr;
 use std::sync::Once;
 
 use color_eyre::eyre::Result;
-use chrono::{NaiveDate, TimeZone, Utc};
+use jiff::{civil::DateTime, tz::TimeZone, Timestamp};
 use serde::{Serialize, Deserialize};
 use serde_json::json;
 
@@ -564,23 +564,25 @@ fn roundtrip_crypto_types() -> Result<()> {
 //     Time-related types tests
 // -----------------------------------------------------------------------------
 
+fn dtm(year: i16, month: i8, day: i8,
+       hour: i8, min: i8, sec: i8, micro: i32) -> Timestamp {
+    DateTime::new(year, month, day, hour, min, sec, micro * 1000).unwrap()
+        .to_zoned(TimeZone::UTC).unwrap().timestamp()
+}
+
 #[test]
 fn test_time_point_sec() {
-    fn dt(year: i32, month: u32, day: u32,
-          hour: u32, min: u32, sec: u32) -> TimePointSec
+    fn dt(year: i16, month: i8, day: i8,
+          hour: i8, min: i8, sec: i8) -> TimePointSec
     {
-        TimePointSec::from(Utc.with_ymd_and_hms(year, month, day, hour, min, sec)
-                           .unwrap().timestamp() as u32)
+        TimePointSec::from(dtm(year, month, day, hour, min, sec, 0).as_second() as u32)
     }
 
     let vals = [
         (dt(1970,  1,  1,  0,  0,  0), "00000000"),
         (dt(2040, 12, 31, 23, 59,  0), "44038d85"),
         (dt(2021,  8, 26, 14,  1, 47), "cb9e2761"),
-        // this next constructor is a bit verbose but there's no Utc.with_ymd_and_hms_and_micros...
-        (TimePointSec::from(NaiveDate::from_ymd_opt(2021, 8, 26,).unwrap()
-                            .and_hms_micro_opt(14, 1, 47, 184549).unwrap()
-                            .and_utc().timestamp() as u32), "cb9e2761"),
+        (TimePointSec::from(dtm(2021, 8, 26, 14, 1, 47, 184549).as_second() as u32), "cb9e2761"),
     ];
 
     check_round_trip(vals, AntelopeValue::TimePointSec);
@@ -588,12 +590,10 @@ fn test_time_point_sec() {
 
 #[test]
 fn test_time_point() {
-    fn dt(year: i32, month: u32, day: u32,
-          hour: u32, min: u32, sec: u32, micro: u32) -> TimePoint
+    fn dt(year: i16, month: i8, day: i8,
+          hour: i8, min: i8, sec: i8, micro: i32) -> TimePoint
     {
-        TimePoint::from(NaiveDate::from_ymd_opt(year, month, day).unwrap()
-                        .and_hms_micro_opt(hour, min, sec, micro).unwrap()
-                        .and_utc().timestamp_micros())
+        TimePoint::from(dtm(year, month, day, hour, min, sec, micro).as_microsecond())
     }
 
     let vals = [

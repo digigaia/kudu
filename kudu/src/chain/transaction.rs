@@ -4,8 +4,8 @@
 use std::sync::Arc;
 
 use bytemuck::cast_ref;
-use chrono::ParseError as ChronoParseError;
 use hex::FromHexError;
+use jiff::Error as JiffError;
 use serde::{
     Deserialize, Serialize,
     ser::{Serializer, SerializeMap}
@@ -37,7 +37,7 @@ pub enum TransactionError {
     Conversion { source: ConversionError },
 
     #[snafu(display("cannot parse date/time"))]
-    DateTimeParse { source: ChronoParseError },
+    DateTimeParse { source: JiffError },
 
     #[snafu(display("invalid action"))]
     InvalidAction { source: ActionError },
@@ -58,7 +58,7 @@ pub enum TransactionError {
     NodeosError { message: String },
 }
 
-impl_auto_error_conversion!(ChronoParseError, TransactionError, DateTimeParseSnafu);
+impl_auto_error_conversion!(JiffError, TransactionError, DateTimeParseSnafu);
 impl_auto_error_conversion!(ConversionError, TransactionError, ConversionSnafu);
 impl_auto_error_conversion!(ActionError, TransactionError, InvalidActionSnafu);
 impl_auto_error_conversion!(serde_json::Error, TransactionError, FromJsonSnafu);

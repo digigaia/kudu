@@ -7,8 +7,8 @@ use std::num::TryFromIntError;
 use std::ops::Deref;
 use std::str::{ParseBoolError, Utf8Error};
 
-use chrono::ParseError as ChronoParseError;
 use hex::FromHexError;
+use jiff::Error as JiffError;
 use snafu::{Snafu, ResultExt, OptionExt};
 use strum::{Display, AsRefStr, EnumDiscriminants, EnumString, VariantNames};
 use tracing::instrument;
@@ -485,7 +485,7 @@ pub enum InvalidValue {
     JsonParse { source: JsonError },
 
     #[snafu(display("cannot parse date/time"))]
-    DateTimeParse { source: ChronoParseError },
+    DateTimeParse { source: JiffError },
 
     #[snafu(display("cannot parse typename"))]
     TypenameParseError { source: strum::ParseError },
@@ -508,4 +508,4 @@ impl_auto_error_conversion!(FromHexError, InvalidValue, FromHexSnafu);
 impl_auto_error_conversion!(strum::ParseError, InvalidValue, TypenameParseSnafu);
 impl_auto_error_conversion!(JsonError, InvalidValue, JsonParseSnafu);
 impl_auto_error_conversion!(Utf8Error, InvalidValue, Utf8Snafu);
-impl_auto_error_conversion!(ChronoParseError, InvalidValue, DateTimeParseSnafu);
+impl_auto_error_conversion!(JiffError, InvalidValue, DateTimeParseSnafu);

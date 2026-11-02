@@ -27,11 +27,11 @@ kudu        = { path = "./kudu", version = "0.2.21", default-features = false }
 kudu-macros = { path = "./kudu-macros", version = "0.2.21" }
 
 base64 = "0.22.0"
-chrono = { version = "0.4", features = ["serde"] }
 clap = { version = "4.4", features = ["derive"] }
 color-eyre = "0.6.3"
 flate2 = "1.0"
 hex = "0.4.3"
+jiff = { version = "0.2", features = ["serde"] }
 serde = { version = "1.0.200", features = ["derive"] }
 serde_json = { version = "1.0", features = ["preserve_order"] }
 snafu = { version = "0.9.0", features = ["backtrace"] }
